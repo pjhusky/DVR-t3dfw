@@ -1,0 +1,3 @@
+[submodule "t3dfw"]
+	path = t3dfw
+	url = https://github.com/pjhusky/t3dfw.git

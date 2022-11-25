@@ -12,6 +12,6 @@ Simple direct-volume rendering application that uses Tiny 3D Framework.
 	git status
 	git add .
 	git status
-	git commit -m "updated t3dfw submodule"
+	git commit -m "updated submodules"
 	git push
 	

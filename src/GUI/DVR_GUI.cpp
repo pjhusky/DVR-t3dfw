@@ -1,5 +1,5 @@
 #include "DVR_GUI.h"
-#include "contextOpenGL.h"
+#include "gfxAPI/contextOpenGL.h"
 
 //#include "volumeData.h"
 //#include "texture.h"
@@ -13,7 +13,7 @@
 
 #include <nfd.h>
 
-
+using namespace GfxAPI;
 
 namespace {
     static float guiScale = 1.0f;

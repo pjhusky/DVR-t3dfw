@@ -30,7 +30,6 @@
 -- run: 'premake5 clean' to delete all temporary/generated files
 --
 
-
 --
 -- workspace is roughly a VS solution; contains projects
 --
@@ -70,23 +69,18 @@ workspace "T3DFW_Workspace"
 
 	cppdialect "C++20"
 
-	
-	-- local T3DFW_EXTERNAL_DIR = "external/"
 	local T3DFW_BASE_DIR = "t3dfw/"
+
 	local T3DFW_EXTERNAL_DIR = T3DFW_BASE_DIR .. "external/"
 	local T3DFW_SRC_DIR = T3DFW_BASE_DIR .. "src/"
-	
-	
-	local GLAD_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glad/"
-	local STB_BASE_DIR = T3DFW_EXTERNAL_DIR .. "stb/"
-	local STL_READER_DIR = T3DFW_EXTERNAL_DIR .. "stl_reader/"
+
+	local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
 	
 	local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
 	
 	local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
 	
-	local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
-	local APP_BASE_DIR = T3DFW_SRC_DIR .. "application/"
+	include "t3dfw" -- runs "t3dfw/premake5.lua"
 	
 	-- main project	
 	project "T3DFW_DVR_Project"
@@ -94,36 +88,39 @@ workspace "T3DFW_Workspace"
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
 
 		-- configuration "macosx"
-		filter { "platforms:macosx" }
-			linkoptions "-v -lglfw3 -framework Cocoa -framework OpenGL -framework IOKit"
-			local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
-			local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
-			libdirs { GLFW_LIB_DIR }
-		-- configuration {"macosx", "gmake"}
-		filter {"platforms:macosx", "gmake"}
-			buildoptions {"-F /Library/Frameworks"}
-			linkoptions {"-F /Library/Frameworks"}
-			local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
-			local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
-			libdirs { GLFW_LIB_DIR }
+		-- filter { "platforms:macosx" }
+		-- 	linkoptions "-v -lglfw3 -framework Cocoa -framework OpenGL -framework IOKit"
+		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
+		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
+		-- 	libdirs { GLFW_LIB_DIR }
+		-- -- configuration {"macosx", "gmake"}
+		-- filter {"platforms:macosx", "gmake"}
+		-- 	buildoptions {"-F /Library/Frameworks"}
+		-- 	linkoptions {"-F /Library/Frameworks"}
+		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
+		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
+		-- 	libdirs { GLFW_LIB_DIR }
 			
-		filter { "platforms:Win*", "action:vs*" }
-			local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
-			local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-vc2022"
-			libdirs { GLFW_LIB_DIR }
-			links { "glfw3" }
+		-- filter { "platforms:Win*", "action:vs*" }
+		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
+		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-vc2022"
+		-- 	libdirs { GLFW_LIB_DIR }
+		-- 	links { "glfw3" }
 			
-		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
-		-- filter { "system:Windows", "action:gmake*", "toolset:gcc" }
-			local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
-			local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-mingw-w64"
-			libdirs { GLFW_LIB_DIR }
-			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
-			links { "kernel32", "user32", "comdlg32", "advapi32", "shell32", "uuid", "glfw3", "gdi32", "opengl32", "Dwmapi", "ole32", "oleaut32", "gomp" }
-			-- VS also links these two libs, but they seem to not be necessary... "odbc32.lib" "odbccp32.lib" 
-			-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
-			-- linkoptions {"lgomp"}
-			defines { "UNIX", "_USE_MATH_DEFINES" }
+		-- filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
+		-- -- filter { "system:Windows", "action:gmake*", "toolset:gcc" }
+		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
+		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-mingw-w64"
+		-- 	libdirs { GLFW_LIB_DIR }
+		-- 	-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
+		-- 	links { "kernel32", "user32", "comdlg32", "advapi32", "shell32", "uuid", "glfw3", "gdi32", "opengl32", "Dwmapi", "ole32", "oleaut32", "gomp" }
+		-- 	-- VS also links these two libs, but they seem to not be necessary... "odbc32.lib" "odbccp32.lib" 
+		-- 	-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
+		-- 	-- linkoptions {"lgomp"}
+		-- 	defines { "UNIX", "_USE_MATH_DEFINES" }
+		
+		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
+		local GLAD_BASE_DIR = GFX_API_DIR .. "glad/"
 		
 		filter {"platforms:Win*", "vs*"}
 			defines { "_USE_MATH_DEFINES" }
@@ -139,12 +136,13 @@ workspace "T3DFW_Workspace"
 		includedirs { 
 			T3DFW_EXTERNAL_DIR, 
 			T3DFW_SRC_DIR, 
+			
 			GLFW_BASE_DIR .. "include/",
 			GLAD_BASE_DIR .. "include/", 
 			GFX_API_DIR,
-			APP_BASE_DIR,
-			STB_BASE_DIR, 
-			STL_READER_DIR, 
+			-- STB_BASE_DIR, 
+			-- STL_READER_DIR, 
+			
 			NATIVEFILEDIALOG_DIR .. "include/",
 			IMGUI_DIR,
 		}	
@@ -169,36 +167,43 @@ workspace "T3DFW_Workspace"
 			"**.bat", 
 			"**.glsl",
 		}
-		-- excludes {  }
+		removefiles { "t3dfw/**" }
+		-- excludes { "t3dfw/**" }
 		
 		-- https://premake.github.io/docs/defines/
 		-- "_MBCS", 
 		defines { "_WIN32", "WIN32", "_WINDOWS" }
 
+		links{ "T3DFW_LIB_Project" }
 	
-		filter { "platforms:Win*" }
-			excludes { NATIVEFILEDIALOG_DIR .. "nfd_gtk.c", NATIVEFILEDIALOG_DIR .. "nfd_zenity.c" }
+		-- filter { "platforms:Win*" }
+		-- 	excludes { NATIVEFILEDIALOG_DIR .. "nfd_gtk.c", NATIVEFILEDIALOG_DIR .. "nfd_zenity.c" }
 
-			-- configuration "macosx"
-		filter { "platforms:macosx" }
-			excludes { NATIVEFILEDIALOG_DIR .. "nfd_win.c" }
+		-- 	-- configuration "macosx"
+		-- filter { "platforms:macosx" }
+		-- 	excludes { NATIVEFILEDIALOG_DIR .. "nfd_win.c" }
 
 		-- 
 		-- disable filters, so this is valid for all projects
 		-- 
 		filter {} 
 
-
+		
+	-- include "t3dfw" -- runs "t3dfw/premake5.lua"
+		
+		
+		
 -- https://stackoverflow.com/questions/33307155/how-to-clean-projects-with-premake5
 -- Clean Function --
 newaction {
 	trigger     = "clean",
 	description = "clean the software",
 	execute     = function ()
-	   print("clean the build...")
+	   print("cleaning the DVR app artifacts...")
 	   os.rmdir("./obj")
 	   os.rmdir("./bin")
 	   print("done.")
 	end
  }
+ 
  

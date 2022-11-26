@@ -5,7 +5,9 @@
 #include <string>
 //#include <functional>
 
-struct ContextOpenGL;
+namespace GfxAPI {
+    struct ContextOpenGL;
+}
 
 //struct VolumeData;
 //struct Texture;
@@ -38,7 +40,7 @@ struct DVR_GUI {
     //int rayMarchAlgoIdx;
 
 
-    static void InitGui( const ContextOpenGL& contextOpenGL );
+    static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );
 
     static void CreateGuiLayout( void* const pUserData );
 

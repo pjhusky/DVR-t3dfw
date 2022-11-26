@@ -10,14 +10,17 @@
 #include <iostream>
 
 #include "ApplicationDVR.h"
+#include "fileLoaders/volumeData.h"
 
-#include "contextOpenGL.h"
-#include "shader.h"
+#include "gfxAPI/contextOpenGL.h"
+#include "gfxAPI/shader.h"
+#include "gfxAPI/texture.h"
+#include "gfxAPI/checkErrorGL.h"
 
 #include "math/linAlg.h"
 
 #include "gfxUtils.h"
-#include "texture.h"
+
 #include "arcBall/arcBallControls.h"
 
 #include "GUI/DVR_GUI.h"
@@ -30,9 +33,11 @@
 
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
-#include <GLFW/glfw3.h>
+#include "gfxAPI/contextOpenGL.h"
 
 #include <cassert>
+
+using namespace ArcBall;
 
 namespace {
     constexpr float angleDamping = 0.85f;
@@ -94,6 +99,7 @@ namespace {
     static Texture normalRenderTargetTex;
     static Texture depthRenderTargetTex;
 
+#if 1
     static void framebufferSizeCallback( GLFWwindow* pWindow, int width, int height ) {
 
         printf( "new window size %d x %d\n", width, height );
@@ -105,7 +111,8 @@ namespace {
         //createRenderTargetTextures( renderTargetW, renderTargetH, fbos, colorRenderTargetTex, normalRenderTargetTex, silhouetteRenderTargetTex, depthRenderTargetTex );
 
         glCheckError();
-    } 
+    }
+#endif
 
     static void calculateProjectionMatrix( const int32_t fbWidth, const int32_t fbHeight, linAlg::mat4_t& projMatrix ) {
 

@@ -10,6 +10,8 @@
 
 #include <assert.h>
 
+using namespace GfxAPI;
+
 int main( int argc, const char* argv[] )
 {
 #if 1

@@ -86,38 +86,6 @@ workspace "T3DFW_Workspace"
 	project "T3DFW_DVR_Project"
 
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
-
-		-- configuration "macosx"
-		-- filter { "platforms:macosx" }
-		-- 	linkoptions "-v -lglfw3 -framework Cocoa -framework OpenGL -framework IOKit"
-		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
-		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
-		-- 	libdirs { GLFW_LIB_DIR }
-		-- -- configuration {"macosx", "gmake"}
-		-- filter {"platforms:macosx", "gmake"}
-		-- 	buildoptions {"-F /Library/Frameworks"}
-		-- 	linkoptions {"-F /Library/Frameworks"}
-		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.macosx.WIN64/"
-		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib/"
-		-- 	libdirs { GLFW_LIB_DIR }
-			
-		-- filter { "platforms:Win*", "action:vs*" }
-		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
-		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-vc2022"
-		-- 	libdirs { GLFW_LIB_DIR }
-		-- 	links { "glfw3" }
-			
-		-- filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
-		-- -- filter { "system:Windows", "action:gmake*", "toolset:gcc" }
-		-- 	local GLFW_BASE_DIR = T3DFW_EXTERNAL_DIR .. "glfw-3.3.8.bin.WIN64/"
-		-- 	local GLFW_LIB_DIR = GLFW_BASE_DIR .. "lib-mingw-w64"
-		-- 	libdirs { GLFW_LIB_DIR }
-		-- 	-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
-		-- 	links { "kernel32", "user32", "comdlg32", "advapi32", "shell32", "uuid", "glfw3", "gdi32", "opengl32", "Dwmapi", "ole32", "oleaut32", "gomp" }
-		-- 	-- VS also links these two libs, but they seem to not be necessary... "odbc32.lib" "odbccp32.lib" 
-		-- 	-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
-		-- 	-- linkoptions {"lgomp"}
-		-- 	defines { "UNIX", "_USE_MATH_DEFINES" }
 		
 		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
 		local GLAD_BASE_DIR = GFX_API_DIR .. "glad/"
@@ -140,13 +108,10 @@ workspace "T3DFW_Workspace"
 			GLFW_BASE_DIR .. "include/",
 			GLAD_BASE_DIR .. "include/", 
 			GFX_API_DIR,
-			-- STB_BASE_DIR, 
-			-- STL_READER_DIR, 
 			
 			NATIVEFILEDIALOG_DIR .. "include/",
 			IMGUI_DIR,
 		}	
-		
 		
 		shaderincludedirs { "src/shaders" }  
 		
@@ -176,13 +141,6 @@ workspace "T3DFW_Workspace"
 
 		links{ "T3DFW_LIB_Project" }
 	
-		-- filter { "platforms:Win*" }
-		-- 	excludes { NATIVEFILEDIALOG_DIR .. "nfd_gtk.c", NATIVEFILEDIALOG_DIR .. "nfd_zenity.c" }
-
-		-- 	-- configuration "macosx"
-		-- filter { "platforms:macosx" }
-		-- 	excludes { NATIVEFILEDIALOG_DIR .. "nfd_win.c" }
-
 		-- 
 		-- disable filters, so this is valid for all projects
 		-- 

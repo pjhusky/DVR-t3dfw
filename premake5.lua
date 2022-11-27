@@ -67,6 +67,7 @@ workspace "T3DFW_Workspace"
 
 	filter {}
 
+	cdialect "C99"
 	cppdialect "C++20"
 
 	local T3DFW_BASE_DIR = "t3dfw/"
@@ -92,6 +93,30 @@ workspace "T3DFW_Workspace"
 		
 		filter {"platforms:Win*", "vs*"}
 			defines { "_USE_MATH_DEFINES" }
+
+			filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
+			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
+			links { 
+				"kernel32", 
+				"user32", 
+				"comdlg32", 
+				"advapi32", 
+				"shell32", 
+				"uuid", 
+				"glfw3", -- BEFORE gdi32 AND opengl32
+				"gdi32", 
+				"opengl32", 
+				"Dwmapi", 
+				"ole32", 
+				"oleaut32", 
+				"gomp",
+				
+				--"bufferoverflowu", -- https://stackoverflow.com/questions/21627607/gcc-linker-error-undefined-reference-to-security-cookie
+			}
+			-- VS also links these two libs, but they seem to not be necessary... "odbc32.lib" "odbccp32.lib" 
+			-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
+			-- linkoptions {"lgomp"}
+			defines { "UNIX", "_USE_MATH_DEFINES" }
 			
 		filter {}
 

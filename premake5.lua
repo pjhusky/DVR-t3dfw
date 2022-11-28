@@ -33,7 +33,7 @@
 --
 -- workspace is roughly a VS solution; contains projects
 --
-workspace "T3DFW_Workspace"
+workspace "T3DFW_DVR_Workspace"
 
 	-- https://premake.github.io/docs/characterset/
 	-- characterset ("MBCS")

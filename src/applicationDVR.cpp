@@ -11,6 +11,7 @@
 
 #include "ApplicationDVR.h"
 #include "fileLoaders/volumeData.h"
+#include "fileLoaders/offLoader.h"
 
 #include "gfxAPI/contextOpenGL.h"
 #include "gfxAPI/shader.h"

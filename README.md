@@ -8,10 +8,6 @@ Simple direct-volume rendering application that uses Tiny 3D Framework.
 	
 # Updating all submodules to latest on origin
 
-	git submodule update --remote --merge
-	git status
-	git add .
-	git status
-	git commit -m "updated submodules"
-	git push
+	git submodule foreach --recursive git pull origin main
+	git pull
 	

@@ -177,7 +177,8 @@ ApplicationDVR::ApplicationDVR(
     , mDataFileUrl( "" )
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
-    , mpNormalTex3d( nullptr ) {
+    , mpNormalTex3d( nullptr )
+    , mGrabCursor( true ) {
 
     DVR_GUI::InitGui( contextOpenGL );
 }
@@ -260,6 +261,8 @@ Status_t ApplicationDVR::run() {
 
     glEnable( GL_DEPTH_TEST );
 
+    glfwSwapInterval( 1 );    // should sync to display framerate
+
     glfwSetKeyCallback( pWindow, keyboardCallback );
     glfwSetScrollCallback( pWindow, mouseWheelCallback );
     
@@ -316,6 +319,8 @@ Status_t ApplicationDVR::run() {
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.use( false );
 
+    bool guiWantsMouseCapture = false;
+
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
@@ -333,12 +338,13 @@ Status_t ApplicationDVR::run() {
         bool middleMouseButtonPressed = (glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_3 ) == GLFW_PRESS);
         bool rightMouseButtonPressed = (glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_2 ) == GLFW_PRESS);
 
-        if ((leftMouseButton_down && (targetMouse_dx * targetMouse_dx + targetMouse_dy * targetMouse_dy > 0.01)) || rightMouseButtonPressed || middleMouseButtonPressed) {
-            glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
-        }
-        else {
+        if ( ( leftMouseButtonPressed && !guiWantsMouseCapture ) || rightMouseButtonPressed || middleMouseButtonPressed ) {
+            if (mGrabCursor) { glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED ); }
+        } else {
             glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
         }
+        arcBallControl.setActive( !guiWantsMouseCapture );
+        arcBallControl.setInteractionMode( ArcBall::ArcBallControls::InteractionModeDesc{ .fullCircle = true, .smooth = true } );
 
         if (rightMouseButtonPressed) {
             //printf( "RMB pressed!\n" );
@@ -569,6 +575,7 @@ Status_t ApplicationDVR::run() {
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
+                .wantsToCaptureMouse = guiWantsMouseCapture,
             };
 
             DVR_GUI::DisplayGui( &guiUserData );

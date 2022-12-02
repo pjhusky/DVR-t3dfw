@@ -1,0 +1,1 @@
+bin\Win64\Release\T3DFW_DVR_Project.exe -x 2000 -y 1200

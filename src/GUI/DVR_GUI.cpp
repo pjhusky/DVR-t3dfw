@@ -1,4 +1,5 @@
 #include "DVR_GUI.h"
+#include "ImGradientiHDR/ImGradientHDR.h"
 #include "gfxAPI/contextOpenGL.h"
 
 //#include "volumeData.h"
@@ -16,6 +17,9 @@
 using namespace GfxAPI;
 
 namespace {
+    ImGradientHDRState gradientState;
+    ImGradientHDRTemporaryState temporaryGradientState;
+
     static float guiScale = 1.0f;
     static auto guiButtonSize() { return ImVec2{ 400, 40 }; }
 }
@@ -32,6 +36,14 @@ void DVR_GUI::InitGui( const ContextOpenGL& contextOpenGL )
     //ImGui_ImplWin32_EnableDpiAwareness();
     ImGui_ImplGlfw_InitForOpenGL( reinterpret_cast<GLFWwindow*>(contextOpenGL.window()), true );
     ImGui_ImplOpenGL3_Init( "#version 330" );
+
+    gradientState.AddColorMarker( 0.0f, { 0.0f, 1.0f, 0.0f }, 0.8f );
+    gradientState.AddColorMarker( 0.2f, { 1.0f, 0.0f, 0.0f }, 0.8f );
+    gradientState.AddColorMarker( 0.8f, { 0.0f, 0.0f, 1.0f }, 0.8f );
+    gradientState.AddColorMarker( 1.0f, { 0.0f, 1.0f, 0.0f }, 0.8f );
+    gradientState.AddAlphaMarker( 0.0f, 1.0f );
+    gradientState.AddAlphaMarker( 0.5f, 0.2f );
+    gradientState.AddAlphaMarker( 1.0f, 1.0f );
 
     DVR_GUI::rayMarchAlgoNames = std::vector< const char* >{
         "eRayMarchAlgo::backfaceCubeRaster",
@@ -127,6 +139,29 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         }
     }
 
+    int32_t gradientID = 0;
+    
+    const bool isMarkerShown = true;
+    ImGradientHDR( gradientID, gradientState, temporaryGradientState, isMarkerShown );
+
+    //static float col1[3] = { 1.0f, 0.0f, 0.2f };
+    //ImGui::ColorEdit3( "color 1", col1, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions /*| ImGuiColorEditFlags_NoSmallPreview*/ );
+
+    if (temporaryGradientState.selectedIndex >= 0) {
+        
+        ImGui::ColorEdit3( "color", 
+            gradientState.GetColorMarker( temporaryGradientState.selectedIndex )->Color.data(), 
+            ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions /*| ImGuiColorEditFlags_NoSmallPreview*/ );
+    }
+
+    //ImGui::PlotHistogram
+    //static float col2[4] = { 0.4f, 0.7f, 0.0f, 0.5f };
+    ////ImGui::SameLine(); 
+    //ImGui::ColorEdit4( "color 2", col2 );
+
+    //static float colRGBA[3] = { 1.0f, 0.0f, 0.2f };
+    //ImGui::ColorPicker4( "Color Picker RGBA", colRGBA );
+
     ImGui::End();
 }
 
@@ -135,11 +170,13 @@ void DVR_GUI::Resize() {
     printf( "ImGui::GetWindowSize(): %f %f\n", imguiWindowSize.x, imguiWindowSize.y );
 }
 
-void DVR_GUI::DisplayGui( void* const pUserData )
-{
+void DVR_GUI::DisplayGui( void* const pUserData ) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    GuiUserData_t* const pGuiUserData = reinterpret_cast<GuiUserData_t* const>(pUserData);
+    pGuiUserData->wantsToCaptureMouse = ImGui::GetIO().WantCaptureMouse;
 
     CreateGuiLayout( pUserData );
 
@@ -147,8 +184,7 @@ void DVR_GUI::DisplayGui( void* const pUserData )
     ImGui_ImplOpenGL3_RenderDrawData( ImGui::GetDrawData() );
 }
 
-void DVR_GUI::DestroyGui()
-{
+void DVR_GUI::DestroyGui() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

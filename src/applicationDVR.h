@@ -36,6 +36,7 @@ struct ApplicationDVR : public iApplication {
     FileLoader::VolumeData*         mpData;
     GfxAPI::Texture*                mpDensityTex3d;
     GfxAPI::Texture*                mpNormalTex3d;
+    bool                            mGrabCursor;
 };
 
 #endif // _ApplicationDVR_H_6635ff59_825e_41bd_9358_85cad169f5eb

@@ -197,5 +197,3 @@ newaction {
 		os.remove( prj.location .. "/*.vcxproj.*" )
 	end,	
 }
- 
- 

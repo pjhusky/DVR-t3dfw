@@ -7,13 +7,14 @@ _.git/*
 .vscode/*
 !.vscode/launch*
 !.vscode/tasks*
-# !.vscode/c_cpp_properties*
+!.vscode/*.template
 imgui.ini
 
 
 # project specific
-**/_*_
+
 **/_.*
+**/_*_
 data/*
 **.zip
 **-\ Copy/

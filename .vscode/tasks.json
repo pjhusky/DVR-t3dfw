@@ -4,7 +4,7 @@
         {
             "label": "Make Release",
             "type": "shell",
-            "command": "premake-mingw.bat",
+            "command": "make-mingw.bat",
             "args": [
                 "release_win64"
             ],
@@ -22,7 +22,7 @@
         {
             "label": "Make Debug",
             "type": "shell",
-            "command": "premake-mingw.bat",
+            "command": "make-mingw.bat",
             "args": [
                 "debug_win64"
             ],

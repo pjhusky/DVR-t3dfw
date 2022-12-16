@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
@@ -49,6 +49,50 @@
             },
         },
         
+
+        {
+            "name": "Run Release",
+            "type": "cppdbg",
+            "request": "launch",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "launchOptionType": "Local",
+            "targetArchitecture": "x64",
+            "linux": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "gdb",
+                "program": "${workspaceFolder}/bin/linux/Release/T3DFW_DVR_project"
+            },
+            "osx": {
+                "MIMode": "lldb",
+                "miDebuggerPath": "lldb-mi",
+                "program": "${workspaceFolder}/bin/macOS/Release/T3DFW_DVR_project"
+            },
+            // https://code.visualstudio.com/docs/cpp/cpp-debug
+            // ... GDB on Cygwin and MinGW cannot break a running process. ... 
+            // https://code.visualstudio.com/docs/cpp/config-mingw
+            "windows": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "gdb.exe",
+                "program": "${workspaceFolder}/bin/Win64/Release/T3DFW_DVR_Project.exe",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": false
+                    }
+                ],
+            },
+            "preLaunchTask": "Make Release",
+            "logging": {
+                "trace": false,
+                "traceResponse": false,
+                "engineLogging": false
+            },
+        },
         
         
         {

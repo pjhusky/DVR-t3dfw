@@ -30,6 +30,7 @@
 -- run: 'premake5 clean' to delete all temporary/generated files
 --
 
+
 --
 -- workspace is roughly a VS solution; contains projects
 --
@@ -58,7 +59,8 @@ workspace "T3DFW_DVR_Workspace"
 	
 		-- https://stackoverflow.com/questions/40667910/optimizing-a-single-file-in-a-premake-generated-vs-solution
 	filter { "configurations:Debug" }
-		optimize "Debug"
+		-- optimize "Debug"
+		symbols "On"
 		defines { "DEBUG", "TRACE" }
 		buildoptions{ "-fdiagnostics-color=always" }
 	filter { "configurations:Release" }
@@ -70,31 +72,35 @@ workspace "T3DFW_DVR_Workspace"
 	cdialect "C99"
 	cppdialect "C++20"
 
-	local T3DFW_BASE_DIR = "t3dfw/"
-
-	local T3DFW_EXTERNAL_DIR = T3DFW_BASE_DIR .. "external/"
-	local T3DFW_SRC_DIR = T3DFW_BASE_DIR .. "src/"
-
-	local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
-	
-	local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
-	
-	local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
 	
 	include "t3dfw" -- runs "t3dfw/premake5.lua"
+
 	
 	-- main project	
 	project "T3DFW_DVR_Project"
 
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
-		
+
+		local PRJ_LOCATION = "%{prj.location}/"
+		-- local T3DFW_BASE_DIR = "t3dfw/"
+		local T3DFW_BASE_DIR = PRJ_LOCATION .. "t3dfw/"
+
+		local T3DFW_EXTERNAL_DIR = T3DFW_BASE_DIR .. "external/"
+		local T3DFW_SRC_DIR = T3DFW_BASE_DIR .. "src/"
+
+		local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
+	
+		local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
+	
+		local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
+
 		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
 		local GLAD_BASE_DIR = GFX_API_DIR .. "glad/"
 		
 		filter {"platforms:Win*", "vs*"}
 			defines { "_USE_MATH_DEFINES" }
 
-			filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
+		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
 			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
 			links { 
 				"kernel32", 
@@ -117,6 +123,7 @@ workspace "T3DFW_DVR_Workspace"
 			-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
 			-- linkoptions {"lgomp"}
 			defines { "UNIX", "_USE_MATH_DEFINES" }
+
 			
 		filter {}
 
@@ -127,6 +134,9 @@ workspace "T3DFW_DVR_Workspace"
 		filter {}
 
 		includedirs { 
+			_SCRIPT_DIR,
+			PRJ_LOCATION,
+
 			T3DFW_EXTERNAL_DIR, 
 			T3DFW_SRC_DIR, 
 			
@@ -137,6 +147,7 @@ workspace "T3DFW_DVR_Workspace"
 			NATIVEFILEDIALOG_DIR .. "include/",
 			IMGUI_DIR,
 		}	
+		
 		
 		shaderincludedirs { "src/shaders" }  
 		
@@ -156,6 +167,9 @@ workspace "T3DFW_DVR_Workspace"
 			"premake5.lua", 
 			"**.bat", 
 			"**.glsl",
+			"**.frag",
+			"**.geom",
+			"**.vert",
 		}
 		removefiles { "t3dfw/**" }
 		-- excludes { "t3dfw/**" }
@@ -165,27 +179,23 @@ workspace "T3DFW_DVR_Workspace"
 		defines { "_WIN32", "WIN32", "_WINDOWS" }
 
 		links{ "T3DFW_LIB_Project" }
-	
+
 		-- 
 		-- disable filters, so this is valid for all projects
 		-- 
 		filter {} 
 
-		
-	-- include "t3dfw" -- runs "t3dfw/premake5.lua"
-		
-		
+
 -- NOTE: this way we could trigger cleanup code as well:
 -- if _ACTION == 'clean' then
 -- 	print("clean action DVR!")
 -- end
-
-
+				 
 -- https://stackoverflow.com/questions/33307155/how-to-clean-projects-with-premake5
 -- Clean Function --
 newaction {
 	trigger     = "clean",
-	description = "clean DVR",
+	description = "clean build artifacts",
 	onProject 	= function(prj)
 		print("Clean action for project " .. prj.name)
 		print("project " .. prj.name .. ", dir: " .. prj.location )
@@ -195,5 +205,6 @@ newaction {
 		os.remove( prj.location .. "/*.sln" )
 		os.remove( prj.location .. "/*.vcxproj" )
 		os.remove( prj.location .. "/*.vcxproj.*" )
-	end,	
+	end,		
 }
+ 

@@ -14,7 +14,6 @@
 
 #include <nfd.h>
 
-using namespace GfxAPI;
 
 namespace {
     ImGradientHDRState gradientState;
@@ -26,7 +25,7 @@ namespace {
 
 std::vector< const char* > DVR_GUI::rayMarchAlgoNames;
 
-void DVR_GUI::InitGui( const ContextOpenGL& contextOpenGL )
+void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

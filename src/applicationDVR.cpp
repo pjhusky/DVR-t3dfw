@@ -135,10 +135,10 @@ namespace {
 #include "applicationInterface/applicationGfxHelpers.inl"
 
     static std::vector< uint32_t > fbos{ 0 };
-    static Texture colorRenderTargetTex;
-    static Texture silhouetteRenderTargetTex;
-    static Texture normalRenderTargetTex;
-    static Texture depthRenderTargetTex;
+    static GfxAPI::Texture colorRenderTargetTex;
+    static GfxAPI::Texture silhouetteRenderTargetTex;
+    static GfxAPI::Texture normalRenderTargetTex;
+    static GfxAPI::Texture depthRenderTargetTex;
 
 #if 1
     static void framebufferSizeCallback( GLFWwindow* pWindow, int width, int height ) {
@@ -222,7 +222,7 @@ namespace {
 
 
 ApplicationDVR::ApplicationDVR(
-    const ContextOpenGL& contextOpenGL ) 
+    const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
     , mDataFileUrl( "" )
     , mpData( nullptr )
@@ -251,22 +251,22 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpData->load( fileUrl.c_str() );
 
     const auto volDim = mpData->getDim();
-    Texture::Desc_t volTexDesc{
+    GfxAPI::Texture::Desc_t volTexDesc{
         .texDim = linAlg::i32vec3_t{ volDim[0], volDim[1], volDim[2] },
         .numChannels = 1,
-        .channelType = eChannelType::i16,
-        .semantics = eSemantics::color,
+        .channelType = GfxAPI::eChannelType::i16,
+        .semantics = GfxAPI::eSemantics::color,
         .isMipMapped = false,
     };
     delete mpDensityTex3d;
 
-    mpDensityTex3d = new Texture;
+    mpDensityTex3d = new GfxAPI::Texture;
     mpDensityTex3d->create( volTexDesc );
     const uint32_t mipLvl = 0;
     mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
-    mpDensityTex3d->setWrapModeForDimension( eBorderMode::clamp, 0 );
-    mpDensityTex3d->setWrapModeForDimension( eBorderMode::clamp, 1 );
-    mpDensityTex3d->setWrapModeForDimension( eBorderMode::clamp, 2 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
 
     return Status_t::OK();
 }
@@ -391,10 +391,10 @@ Status_t ApplicationDVR::run() {
 
     // load shaders
     printf( "creating volume shader\n" ); fflush( stdout );
-    Shader volShader;
-    std::vector< std::pair< gfxUtils::path_t, Shader::eShaderStage > > volShaderDesc{
-        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl", Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl", Shader::eShaderStage::FS ), // X-ray of x-y planes
+    GfxAPI::Shader volShader;
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
+        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
     };
     gfxUtils::createShader( volShader, volShaderDesc );
     volShader.use( true );
@@ -408,12 +408,10 @@ Status_t ApplicationDVR::run() {
     glDisable( GL_CULL_FACE );
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-    linAlg::mat4_t modelViewMatrix;
-
+    
     int32_t prevFbWidth = -1;
     int32_t prevFbHeight = -1;
-    linAlg::mat4_t projMatrix;
-
+    
     constexpr int32_t numSrcChannels = 3;
     std::shared_ptr< uint8_t > pGrabbedFramebuffer = std::shared_ptr< uint8_t >( new uint8_t[ fbWidth * fbHeight * numSrcChannels ], std::default_delete< uint8_t[] >() );
 
@@ -452,7 +450,6 @@ Status_t ApplicationDVR::run() {
 
     linAlg::mat3x4_t tiltRotMat;
     linAlg::loadIdentityMatrix( tiltRotMat );
-    linAlg::mat3x4_t invTiltRotMat;
 
 
     StlModel stlModel;
@@ -467,10 +464,10 @@ Status_t ApplicationDVR::run() {
         stlModel.normals(),
         stlModel.indices().size(),
         stlModel.indices() );
-    Shader meshShader;
-    std::vector< std::pair< gfxUtils::path_t, Shader::eShaderStage > > meshShaderDesc{
-        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl", Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl", Shader::eShaderStage::FS ),
+    GfxAPI::Shader meshShader;
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
+        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
     };
     gfxUtils::createShader( meshShader, meshShaderDesc );
     meshShader.use( true );
@@ -709,7 +706,7 @@ Status_t ApplicationDVR::run() {
             glBindVertexArray( mStlModelHandle.vaoHandle );
             meshShader.use( true );
 
-            Texture::unbindAllTextures();
+            GfxAPI::Texture::unbindAllTextures();
 
             // linAlg::mat4_t mvpMatrix;
             // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );

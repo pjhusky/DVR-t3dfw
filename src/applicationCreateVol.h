@@ -10,10 +10,8 @@
 #include <string>
 #include <filesystem> // since C++17
 
-using namespace GfxAPI;
-
 struct ApplicationCreateVol : public iApplication {
-    ApplicationCreateVol( const ContextOpenGL& contextOpenGL, const linAlg::i32vec3_t& dim, const std::string& fileUrl )
+    ApplicationCreateVol( const GfxAPI::ContextOpenGL& contextOpenGL, const linAlg::i32vec3_t& dim, const std::string& fileUrl )
         : mDim( dim ) {
 
         std::vector< uint16_t > data;

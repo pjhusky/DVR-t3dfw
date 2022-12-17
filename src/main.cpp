@@ -5,6 +5,10 @@
 
 #include "argparse/argparse.h"
 
+#include "external/tiny-process-library/process.hpp"
+#include <tchar.h>
+#include <filesystem>
+
 #include <stdlib.h>
 #include <memory>
 
@@ -14,10 +18,7 @@
 
 #include <assert.h>
 
-//#include <Windows.h>
-
-
-using namespace GfxAPI;
+#include <Windows.h>
 
 static void threadFunc( void* pData ) {
     iApplication* pApp = reinterpret_cast<iApplication*>(pData);
@@ -25,6 +26,7 @@ static void threadFunc( void* pData ) {
 }
 
 int main( int argc, const char* argv[] )
+//int _tmain( int argc, TCHAR* argv[] )
 {
 #if 1
     for ( int32_t i = 0; i < argc; i++ ) {
@@ -79,34 +81,6 @@ int main( int argc, const char* argv[] )
     
     std::thread* pOgl2_thread = nullptr;
     if ( !argParser.exists( "transferFunction" ) ) {
-        //ContextOpenGL contextOpenGL2;
-
-        //if (!onlyProcess) {
-        //    ContextOpenGL::Settings_t settings;
-        //    settings.windowTitle = "DVR Project";
-        //    settings.windowW = resx/2;
-        //    settings.windowH = resy/2;
-
-        //    // mac os support stops at 4.1
-        //    settings.glMajor = 3;
-        //    settings.glMinor = 3;
-        //    auto contextOpenGLStatus = contextOpenGL2.init( settings );
-        //    assert( contextOpenGLStatus == Status_t::OK() );
-        //}
-
-        ////glfwMakeContextCurrent( reinterpret_cast<GLFWwindow*>(mpWindow) );
-        ////std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL2, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
-        //std::shared_ptr< iApplication > pApp2{ new ApplicationDVR( contextOpenGL2 ) };
-
-        //pOgl2_thread = new std::thread( threadFunc );
-        //pOgl2_thread = new std::thread( [&]() {pApp2->run(); } );
-
-        //_beginthread( threadFunc,
-        //    1024,
-        //    pApp2.get() );
-
-        // maybe find a nice platform abstraction layer
-        // maybe find exe of current exe...
 
     #if 0
         pOgl2_thread = new std::thread( [&]() {
@@ -115,21 +89,73 @@ int main( int argc, const char* argv[] )
                 //spawnl( P_NOWAIT, R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe)", "--transferFunction" );
             } );
         //pOgl2_thread->join();
-        //system( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe --transferFunction)" );
-        //execl( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe)", "--transferFunction");
-        //spawnl( P_NOWAIT, R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe)", "--transferFunction" );
     #endif    
         
+    #if 1
+        
+        #if 0
+            STARTUPINFO si;
+            ::memset( &si, 0, sizeof( si ) );
+            si.cb = sizeof( si );
+            PROCESS_INFORMATION pi;
+            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+            cmdLine = cmdLine.append( _TEXT("  --transferFunction -x 800 -y 600") );
+            auto processHandle = ::CreateProcess( NULL, const_cast<TCHAR*>( cmdLine.c_str() ), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi );
+        #elif 0
+            pOgl2_thread = new std::thread( [&]() {
+                STARTUPINFO si;
+                ::memset( &si, 0, sizeof( si ) );
+                si.cb = sizeof( si );
+                PROCESS_INFORMATION pi;
+                std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+                cmdLine = cmdLine.append( _TEXT("  --transferFunction -x 800 -y 600") );
+                auto processHandle = ::CreateProcess( NULL, const_cast<TCHAR*>( cmdLine.c_str() ), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi );
+                // Wait until child process exits.
+                WaitForSingleObject( pi.hProcess, INFINITE );
+                // Close process and thread handles. 
+                CloseHandle( pi.hProcess );
+                CloseHandle( pi.hThread );
+            } );
+        #elif 0
+            pOgl2_thread = new std::thread( [&]() {
+                std::string args{ argv[0] };
+                //system( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe --transferFunction -x 800 -y 600)" );
+                const auto processStartCmd = (args + " --transferFunction -x 800 -y 600)");
+                printf( "processStartCmd '%s'\n", processStartCmd.c_str() );
+                system( processStartCmd.c_str() );
+            } );
+        #elif 0
+            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+            cmdLine = cmdLine.append( _TEXT( "  --transferFunction -x 800 -y 600" ) );
 
-        //return EXIT_SUCCESS;
+            auto transferFuncApp = TinyProcessLib::Process( cmdLine );
+        #elif 1
+            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+            auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv[0] );
+            const std::vector<TinyProcessLib::Process::string_type> arguments{ 
+                //cmdLine.c_str(),
+                argv0Wide,
+                TinyProcessLib::Process::string_type{ _TEXT( "--transferFunction" ) }, 
+                _T( "-x" ), 
+                _T( "800" ), 
+                _T( "-y" ), 
+                _T( "600" ) };
+
+            std::filesystem::path cmdLinePath{ cmdLine };
+            auto cmdPathNarrow = cmdLinePath.parent_path().string();
+            auto cmdPathWide = std::filesystem::_Convert_Source_to_wide( cmdPathNarrow );
+            auto transferFuncApp = TinyProcessLib::Process( arguments );
+        #endif
+        
+    #endif
     }
     
     
 
-    ContextOpenGL contextOpenGL;
+    GfxAPI::ContextOpenGL contextOpenGL;
 
     if (!onlyProcess) {
-        ContextOpenGL::Settings_t settings;
+        GfxAPI::ContextOpenGL::Settings_t settings;
         settings.windowTitle = "DVR Project";
         settings.windowW = resx;
         settings.windowH = resy;

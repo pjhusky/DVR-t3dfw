@@ -1,3 +1,6 @@
 [submodule "t3dfw"]
 	path = t3dfw
 	url = https://github.com/pjhusky/t3dfw.git
+[submodule "external/tiny-process-library"]
+	path = external/tiny-process-library
+	url = https://gitlab.com/eidheim/tiny-process-library.git

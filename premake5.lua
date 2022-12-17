@@ -84,21 +84,26 @@ workspace "T3DFW_DVR_Workspace"
 		local PRJ_LOCATION = "%{prj.location}/"
 		-- local T3DFW_BASE_DIR = "t3dfw/"
 		local T3DFW_BASE_DIR = PRJ_LOCATION .. "t3dfw/"
-
+		
+		local EXTERNAL_DIR = PRJ_LOCATION .. "external/"
+		
 		local T3DFW_EXTERNAL_DIR = T3DFW_BASE_DIR .. "external/"
 		local T3DFW_SRC_DIR = T3DFW_BASE_DIR .. "src/"
 
 		local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
 	
 		local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
+		local TINYPROCESS_DIR = EXTERNAL_DIR .. "tiny-process-library/"
 	
 		local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
 
 		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
 		local GLAD_BASE_DIR = GFX_API_DIR .. "glad/"
 		
+		
+		
 		filter {"platforms:Win*", "vs*"}
-			defines { "_USE_MATH_DEFINES" }
+			defines { "_USE_MATH_DEFINES", "_WIN32", "_WIN64" }
 
 		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
 			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
@@ -145,6 +150,8 @@ workspace "T3DFW_DVR_Workspace"
 			GFX_API_DIR,
 			
 			NATIVEFILEDIALOG_DIR .. "include/",
+			TINYPROCESS_DIR,
+			
 			IMGUI_DIR,
 		}	
 		
@@ -173,10 +180,18 @@ workspace "T3DFW_DVR_Workspace"
 		}
 		removefiles { "t3dfw/**" }
 		-- excludes { "t3dfw/**" }
+		--removefiles { "externals/tiny-process-library/tests/**" }
+		excludes { TINYPROCESS_DIR .. "tests/**" }
+		removefiles{ TINYPROCESS_DIR .. "tests/**" }
+		
+		filter { "platforms:Win*" }
+			removefiles { TINYPROCESS_DIR .. "process_unix.cpp", TINYPROCESS_DIR .. "examples.cpp" }
+			defines { "_WIN32", "WIN32", "_WIN64", "_AMD64_", "_WINDOWS" }
+		filter {}
 		
 		-- https://premake.github.io/docs/defines/
 		-- "_MBCS", 
-		defines { "_WIN32", "WIN32", "_WINDOWS" }
+		
 
 		links{ "T3DFW_LIB_Project" }
 
@@ -186,6 +201,15 @@ workspace "T3DFW_DVR_Workspace"
 		filter {} 
 
 
+	-- externalproject "TinyProcessProject"
+	-- 	location "external/tiny-process-library/tiny-process-library.vcxproj"
+	-- 	uuid "9CDC89A2-DEF3-4CAC-83DF-BED879282BC5"
+	-- 	kind "StaticLib"
+	-- 	language "C++"
+	-- 	buildcommands { "echo mkdir", "echo external/tiny-process-library/" }
+	-- 	buildinputs { "external/tiny-process-library//CMakeLists.txt" }
+	-- 	buildoutputs { "" }
+		
 -- NOTE: this way we could trigger cleanup code as well:
 -- if _ACTION == 'clean' then
 -- 	print("clean action DVR!")

@@ -6,6 +6,7 @@
 #include "argparse/argparse.h"
 
 #include "external/tiny-process-library/process.hpp"
+#include "external/simdb/simdb.hpp"
 #include <tchar.h>
 #include <filesystem>
 
@@ -78,7 +79,16 @@ int main( int argc, const char* argv[] )
     bool onlyProcess = false; 
     if ( argParser.exists( "onlyProcess" ) ) { onlyProcess = true; /* argParser.get< bool >( "onlyProcess" ); */ }
 
+
+    const uint32_t smBlockSizeInBytes = 1024u;
+    const uint32_t smNumBlocks = 4096u;
+    simdb sharedMem( "DVR_shared_memory", smBlockSizeInBytes, smNumBlocks );
     
+    auto sharedMemFiles = simdb_listDBs();
+    sharedMem.put( "lock free", "is the way to be" );
+
+    const auto queriedSmVal = sharedMem.get( "lock free" );
+
     std::thread* pOgl2_thread = nullptr;
     if ( !argParser.exists( "transferFunction" ) ) {
 

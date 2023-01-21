@@ -10,3 +10,6 @@
 [submodule "external/simdb"]
 	path = external/simdb
 	url = git@github.com:pjhusky/simdb.git
+[submodule "external/libtinyfiledialogs"]
+	path = external/libtinyfiledialogs
+	url = git@github.com:pjhusky/libtinyfiledialogs.git

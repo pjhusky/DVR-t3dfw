@@ -8,6 +8,13 @@
 
 #include <math.h>
 #include <iostream>
+#include <tchar.h>
+#include <filesystem>
+
+//#include <process.h> // for ::GetCommandLine
+//#include <namedpipeapi.h>
+//#include <Windows.h>
+
 
 #include "ApplicationDVR.h"
 #include "fileLoaders/volumeData.h"
@@ -21,6 +28,9 @@
 #include "arcBall/arcBallControls.h"
 
 #include "GUI/DVR_GUI.h"
+
+//#include "external/tiny-process-library/process.hpp"
+
 
 #include <memory>
 #include <fstream>
@@ -127,7 +137,7 @@ namespace {
 
     static float mouseWheelOffset = 0.0f;
     static void mouseWheelCallback( GLFWwindow* window, double xoffset, double yoffset ) {
-        mouseWheelOffset = yoffset;
+        mouseWheelOffset = static_cast<float>(yoffset);
     }
     
 
@@ -228,6 +238,8 @@ ApplicationDVR::ApplicationDVR(
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
     , mpNormalTex3d( nullptr )
+    , mTransferFunctionProcessId( -1 )
+    , mpProcess( nullptr )
     , mGrabCursor( true ) {
 
     DVR_GUI::InitGui( contextOpenGL );
@@ -236,10 +248,16 @@ ApplicationDVR::ApplicationDVR(
 ApplicationDVR::~ApplicationDVR() {
     delete mpData;
     mpData = nullptr;
+    
     delete mpDensityTex3d;
     mpDensityTex3d = nullptr;
+    
     delete mpNormalTex3d;
     mpNormalTex3d = nullptr;
+    
+    if (mpProcess) { mpProcess->kill(); }
+    delete mpProcess;
+    mpProcess = nullptr;
 }
 
 Status_t ApplicationDVR::load( const std::string& fileUrl )
@@ -797,12 +815,14 @@ Status_t ApplicationDVR::run() {
             static bool resetTrafos = false;
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
             int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
+            bool editTransferFunction = false;
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
                 .wantsToCaptureMouse = guiWantsMouseCapture,
+                .editTransferFunction = editTransferFunction,
             };
 
             DVR_GUI::DisplayGui( &guiUserData );
@@ -843,6 +863,18 @@ Status_t ApplicationDVR::run() {
                 resetTrafos = false;
             }
             
+            if (guiUserData.editTransferFunction) {
+                int exitStatus;
+                if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus ) ) {
+                //if (mTransferFunctionProcessId == -1) {
+                    //static auto transferFuncApp = TinyProcessLib::Process( mCmdLinePath );
+                    //mpProcess = &transferFuncApp;
+                    if (mpProcess) { mpProcess->kill(); }
+                    delete mpProcess;
+                    mpProcess = new TinyProcessLib::Process( mCmdLinePath );
+                    //mTransferFunctionProcessId = transferFuncApp.get_id();
+                }
+            }
 
         }
 
@@ -850,7 +882,7 @@ Status_t ApplicationDVR::run() {
         glfwSwapBuffers( pWindow );
 
         const auto frameEndTime = std::chrono::system_clock::now();
-        frameDelta = std::chrono::duration_cast<std::chrono::duration<double>>(frameEndTime - frameStartTime).count();
+        frameDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::duration<double>>(frameEndTime - frameStartTime).count());
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         targetCamZoomDist += mouseWheelOffset * zoomSpeed;

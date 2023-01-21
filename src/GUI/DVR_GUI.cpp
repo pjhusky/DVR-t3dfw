@@ -138,6 +138,9 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         }
     }
 
+    pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
+
+
     int32_t gradientID = 0;
     
     const bool isMarkerShown = true;

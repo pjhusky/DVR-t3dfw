@@ -7,6 +7,8 @@
 // #include "gfxAPI/apiAbstractions.h"
 #include "math/linAlg.h"
 
+#include "external/tiny-process-library/process.hpp"
+
 #include <string>
 #include <vector>
 
@@ -39,6 +41,8 @@ struct ApplicationDVR : public iApplication {
 
     void resetTransformations( ArcBall::ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle );
 
+    void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mCmdLinePath = cmdLinePath; }
+
     private:
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
@@ -56,6 +60,10 @@ struct ApplicationDVR : public iApplication {
     // VAOs
     gfxUtils::bufferHandles_t mStlModelHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
+
+    std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
+    int32_t mTransferFunctionProcessId;
+    TinyProcessLib::Process* mpProcess;
 
     bool                            mGrabCursor;
 };

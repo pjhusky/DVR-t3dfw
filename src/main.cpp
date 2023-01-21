@@ -5,7 +5,7 @@
 
 #include "argparse/argparse.h"
 
-#include "external/tiny-process-library/process.hpp"
+//#include "external/tiny-process-library/process.hpp"
 #include "external/simdb/simdb.hpp"
 #include <tchar.h>
 #include <filesystem>
@@ -15,15 +15,37 @@
 
 #include <thread>
 #include <process.h>
-#include <namedpipeapi.h>
+//#include <namedpipeapi.h>
 
 #include <assert.h>
 
 #include <Windows.h>
 
-static void threadFunc( void* pData ) {
-    iApplication* pApp = reinterpret_cast<iApplication*>(pData);
-    pApp->run();
+namespace {
+    static void threadFunc( void* pData ) {
+        iApplication* pApp = reinterpret_cast<iApplication*>(pData);
+        pApp->run();
+    }
+
+    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath( const char *const argv ) {
+        static std::vector<TinyProcessLib::Process::string_type> cmdLinePath;
+
+        if (cmdLinePath.empty()) {
+            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+            auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
+            //const std::vector<TinyProcessLib::Process::string_type> arguments{
+            cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
+                //cmdLine.c_str(),
+                argv0Wide,
+                TinyProcessLib::Process::string_type{ _TEXT( "--transferFunction" ) },
+                _T( "-x" ),
+                _T( "800" ),
+                _T( "-y" ),
+                _T( "600" ) };
+        }
+
+        return cmdLinePath;
+    }
 }
 
 int main( int argc, const char* argv[] )
@@ -89,78 +111,29 @@ int main( int argc, const char* argv[] )
 
     const auto queriedSmVal = sharedMem.get( "lock free" );
 
-    std::thread* pOgl2_thread = nullptr;
-    if ( !argParser.exists( "transferFunction" ) ) {
+#if 0
+    if ( !argParser.exists( "transferFunction" ) ) {        
+        std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+        auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv[0] );
+        const std::vector<TinyProcessLib::Process::string_type> arguments{ 
+            //cmdLine.c_str(),
+            argv0Wide,
+            TinyProcessLib::Process::string_type{ _TEXT( "--transferFunction" ) }, 
+            _T( "-x" ), 
+            _T( "800" ), 
+            _T( "-y" ), 
+            _T( "600" ) };
 
-    #if 0
-        pOgl2_thread = new std::thread( [&]() {
-                system( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe --transferFunction -x 800 -y 600)" ); // seems to block... perfect because the "outer" thread just continues to run..
-                //execl( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe)", "--transferFunction", "-x", "400", "-y", "300" );
-                //spawnl( P_NOWAIT, R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe)", "--transferFunction" );
-            } );
-        //pOgl2_thread->join();
-    #endif    
-        
-    #if 1
-        
-        #if 0
-            STARTUPINFO si;
-            ::memset( &si, 0, sizeof( si ) );
-            si.cb = sizeof( si );
-            PROCESS_INFORMATION pi;
-            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-            cmdLine = cmdLine.append( _TEXT("  --transferFunction -x 800 -y 600") );
-            auto processHandle = ::CreateProcess( NULL, const_cast<TCHAR*>( cmdLine.c_str() ), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi );
-        #elif 0
-            pOgl2_thread = new std::thread( [&]() {
-                STARTUPINFO si;
-                ::memset( &si, 0, sizeof( si ) );
-                si.cb = sizeof( si );
-                PROCESS_INFORMATION pi;
-                std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-                cmdLine = cmdLine.append( _TEXT("  --transferFunction -x 800 -y 600") );
-                auto processHandle = ::CreateProcess( NULL, const_cast<TCHAR*>( cmdLine.c_str() ), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi );
-                // Wait until child process exits.
-                WaitForSingleObject( pi.hProcess, INFINITE );
-                // Close process and thread handles. 
-                CloseHandle( pi.hProcess );
-                CloseHandle( pi.hThread );
-            } );
-        #elif 0
-            pOgl2_thread = new std::thread( [&]() {
-                std::string args{ argv[0] };
-                //system( R"(.\bin\Win64\Release\T3DFW_DVR_Project.exe --transferFunction -x 800 -y 600)" );
-                const auto processStartCmd = (args + " --transferFunction -x 800 -y 600)");
-                printf( "processStartCmd '%s'\n", processStartCmd.c_str() );
-                system( processStartCmd.c_str() );
-            } );
-        #elif 0
-            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-            cmdLine = cmdLine.append( _TEXT( "  --transferFunction -x 800 -y 600" ) );
-
-            auto transferFuncApp = TinyProcessLib::Process( cmdLine );
-        #elif 1
-            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-            auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv[0] );
-            const std::vector<TinyProcessLib::Process::string_type> arguments{ 
-                //cmdLine.c_str(),
-                argv0Wide,
-                TinyProcessLib::Process::string_type{ _TEXT( "--transferFunction" ) }, 
-                _T( "-x" ), 
-                _T( "800" ), 
-                _T( "-y" ), 
-                _T( "600" ) };
-
-            std::filesystem::path cmdLinePath{ cmdLine };
-            auto cmdPathNarrow = cmdLinePath.parent_path().string();
-            auto cmdPathWide = std::filesystem::_Convert_Source_to_wide( cmdPathNarrow );
-            auto transferFuncApp = TinyProcessLib::Process( arguments );
-        #endif
-        
-    #endif
+        std::filesystem::path cmdLinePath{ cmdLine };
+        auto cmdPathNarrow = cmdLinePath.parent_path().string();
+        auto cmdPathWide = std::filesystem::_Convert_Source_to_wide( cmdPathNarrow );
+        auto transferFuncApp = TinyProcessLib::Process( arguments );
     }
+#endif
     
-    
+    if (argParser.exists( "transferFunction" )) {
+    }
+
 
     GfxAPI::ContextOpenGL contextOpenGL;
 
@@ -179,7 +152,7 @@ int main( int argc, const char* argv[] )
 
     std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
     std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
-
+    reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath( argv[0] ) );
     pApp->run();
 
     return EXIT_SUCCESS;

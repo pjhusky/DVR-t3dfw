@@ -25,6 +25,7 @@ struct DVR_GUI {
         //std::function<Status_t( const std::string& )> callBack;
         bool& resetTrafos;
         bool& wantsToCaptureMouse;
+        bool& editTransferFunction;
     };
 
     enum class eRayMarchAlgo: int {

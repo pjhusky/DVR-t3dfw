@@ -7,3 +7,6 @@
 [submodule "external/utfcpp"]
 	path = external/utfcpp
 	url = git@github.com:nemtrif/utfcpp.git
+[submodule "external/simdb"]
+	path = external/simdb
+	url = git@github.com:pjhusky/simdb.git

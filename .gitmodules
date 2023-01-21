@@ -4,3 +4,6 @@
 [submodule "external/tiny-process-library"]
 	path = external/tiny-process-library
 	url = https://gitlab.com/eidheim/tiny-process-library.git
+[submodule "external/utfcpp"]
+	path = external/utfcpp
+	url = git@github.com:nemtrif/utfcpp.git

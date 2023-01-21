@@ -6,6 +6,11 @@
     #define _USE_MATH_DEFINES
 #endif
 
+#include "gfxAPI/contextOpenGL.h"
+#include "gfxAPI/shader.h"
+#include "gfxAPI/texture.h"
+#include "gfxAPI/checkErrorGL.h"
+
 #include <math.h>
 #include <iostream>
 #include <tchar.h>
@@ -19,11 +24,8 @@
 #include "ApplicationDVR.h"
 #include "fileLoaders/volumeData.h"
 #include "fileLoaders/offLoader.h"
+#include "fileLoaders/stlModel.h" // used for the unit-cube
 
-#include "gfxAPI/contextOpenGL.h"
-#include "gfxAPI/shader.h"
-#include "gfxAPI/texture.h"
-#include "gfxAPI/checkErrorGL.h"
 
 #include "arcBall/arcBallControls.h"
 
@@ -38,9 +40,6 @@
 #include <chrono>
 #include <thread>
 
-#include "fileLoaders/stlModel.h" // used for the unit-cube
-
-#include "gfxAPI/contextOpenGL.h"
 
 #include <cassert>
 
@@ -239,6 +238,7 @@ ApplicationDVR::ApplicationDVR(
     , mpDensityTex3d( nullptr )
     , mpNormalTex3d( nullptr )
     , mpProcess( nullptr )
+    , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
 
     DVR_GUI::InitGui( contextOpenGL );
@@ -891,6 +891,12 @@ Status_t ApplicationDVR::run() {
 
         prevMouseX = currMouseX;
         prevMouseY = currMouseY;
+
+        if ( frameNum % 200 == 0 ) {
+            const auto queriedSmVal = mSharedMem.get( "from TF" );
+
+            printf( "DVR app - what we got for \"from TF\": %s\n", queriedSmVal.c_str() );
+        }
 
         frameNum++;
     }

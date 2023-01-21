@@ -1,12 +1,16 @@
 #include "applicationDVR.h"
 #include "applicationCreateVol.h"
+#include "applicationTransferFunction.h"
+#include "applicationColorPicker.h"
 
 #include "gfxAPI/contextOpenGL.h"
 
 #include "argparse/argparse.h"
 
 //#include "external/tiny-process-library/process.hpp"
-#include "external/simdb/simdb.hpp"
+//#include "external/simdb/simdb.hpp"
+#include "sharedMemIPC.h"
+
 #include <tchar.h>
 #include <filesystem>
 
@@ -102,13 +106,18 @@ int main( int argc, const char* argv[] )
     if ( argParser.exists( "onlyProcess" ) ) { onlyProcess = true; /* argParser.get< bool >( "onlyProcess" ); */ }
 
 
-    const uint32_t smBlockSizeInBytes = 1024u;
-    const uint32_t smNumBlocks = 4096u;
-    simdb sharedMem( "DVR_shared_memory", smBlockSizeInBytes, smNumBlocks );
-    
-    auto sharedMemFiles = simdb_listDBs();
-    sharedMem.put( "lock free", "is the way to be" );
+    //const uint32_t smBlockSizeInBytes = 1024u;
+    //const uint32_t smNumBlocks = 4096u;
+    //simdb sharedMem( "DVR_shared_memory", smBlockSizeInBytes, smNumBlocks );
+    //
+    //auto sharedMemFiles = simdb_listDBs();
+    //sharedMem.put( "lock free", "is the way to be" );
 
+    //const auto queriedSmVal = sharedMem.get( "lock free" );
+
+    SharedMemIPC sharedMem( "DVR_shared_memory" );
+    auto sharedMemFiles = SharedMemIPC::listSharedMemFiles();
+    sharedMem.put( "lock free", "is the way to be" );
     const auto queriedSmVal = sharedMem.get( "lock free" );
 
 #if 0
@@ -150,10 +159,12 @@ int main( int argc, const char* argv[] )
 
     if (argParser.exists( "transferFunction" )) {
         // TODO: launch ApplicationTF( contextOpenGL ) ...
-        std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
+        std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
         pApp->run();
-    }
-    else {
+    } else if (argParser.exists( "colorPicker" )) {
+        std::shared_ptr< iApplication > pApp{ new ApplicationColorPicker( contextOpenGL ) };
+        pApp->run();
+    } else {
         std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
         std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
         reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath( argv[0] ) );

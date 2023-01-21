@@ -1,10 +1,9 @@
-#ifndef _ApplicationDVR_H_6635ff59_825e_41bd_9358_85cad169f5eb
-#define _ApplicationDVR_H_6635ff59_825e_41bd_9358_85cad169f5eb
+#ifndef _ApplicationTransferFunction_H_6635ff59_825e_41bd_9358_85cad169f5eb
+#define _ApplicationTransferFunction_H_6635ff59_825e_41bd_9358_85cad169f5eb
 
 #include "applicationInterface/iApplication.h"
 
 #include "gfxUtils.h"
-// #include "gfxAPI/apiAbstractions.h"
 #include "math/linAlg.h"
 
 #include "external/tiny-process-library/process.hpp"
@@ -18,18 +17,14 @@ namespace GfxAPI {
     struct Texture;
 }
 
-namespace ArcBall {
-    struct ArcBallControls;
-}
-
 namespace FileLoader {
     struct VolumeData;
 }
 
-struct ApplicationDVR : public iApplication {
-    ApplicationDVR( 
+struct ApplicationTransferFunction : public iApplication {
+    ApplicationTransferFunction( 
         const GfxAPI::ContextOpenGL& contextOpenGL );
-    virtual ~ApplicationDVR();
+    virtual ~ApplicationTransferFunction();
 
     Status_t load( const std::string& fileUrl );
 
@@ -40,26 +35,15 @@ struct ApplicationDVR : public iApplication {
 
     virtual Status_t run() override;
 
-    void resetTransformations( ArcBall::ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle );
-
     void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mCmdLinePath = cmdLinePath; }
 
     private:
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
-    GfxAPI::Texture*                mpDensityTex3d;
-    GfxAPI::Texture*                mpNormalTex3d;
-
-    // Camera Params
-    linAlg::mat3x4_t mModelMatrix3x4;
-    linAlg::mat3x4_t mViewMatrix3x4;
-    linAlg::mat4_t mModelViewMatrix;
-    linAlg::mat4_t mProjMatrix;
-    linAlg::mat4_t mMvpMatrix;
+    GfxAPI::Texture*                mpDensityHistogramTex2d;
 
     // VAOs
-    gfxUtils::bufferHandles_t mStlModelHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
     std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
@@ -70,4 +54,4 @@ struct ApplicationDVR : public iApplication {
     bool                            mGrabCursor;
 };
 
-#endif // _ApplicationDVR_H_6635ff59_825e_41bd_9358_85cad169f5eb
+#endif // _ApplicationTransferFunction_H_6635ff59_825e_41bd_9358_85cad169f5eb

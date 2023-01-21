@@ -14,10 +14,9 @@
 #include "gfxAPI/texture.h"
 #include "gfxAPI/checkErrorGL.h"
 
-//#include "GUI/DVR_GUI.h"
 
-//#include "external/simdb/simdb.hpp"
-//#include <process.h> // for ::GetCommandLine
+#include "external/libtinyfiledialogs/tinyfiledialogs.h"
+#include "external/libtinyfiledialogs/tinyfiledialogs.c"
 
 
 #include <memory>
@@ -308,7 +307,7 @@ Status_t ApplicationTransferFunction::run() {
     meshShader.use( false );
 
     //bool guiWantsMouseCapture = false;
-
+    linAlg::vec3_t clearColor{};
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
@@ -341,6 +340,18 @@ Status_t ApplicationTransferFunction::run() {
 
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
+        #if 1
+            unsigned char lRgbColor[3];
+            auto lTheHexColor = tinyfd_colorChooser(
+                "choose a nice color",
+                "#FF0077",
+                lRgbColor,
+                lRgbColor);
+            clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
+            clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
+            clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+
+        #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
             int exitStatus;
             if (mpColorPickerProcess == nullptr || mpColorPickerProcess->try_get_exit_status( exitStatus ) ) {
@@ -359,6 +370,7 @@ Status_t ApplicationTransferFunction::run() {
                 }
                 mpColorPickerProcess = new TinyProcessLib::Process( mCmdLineColorPickerProcess );
             }
+        #endif
         }
 
         if (rightMouseButtonPressed) {
@@ -395,7 +407,7 @@ Status_t ApplicationTransferFunction::run() {
         { // clear screen
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-            constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.55f, 0.0f };
+            const float clearColorValue[]{ clearColor[0], clearColor[1], clearColor[2], 0.0f };
             glClearBufferfv( GL_COLOR, 0, clearColorValue );
             constexpr float clearDepthValue = 1.0f;
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );

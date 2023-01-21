@@ -28,14 +28,9 @@ struct ApplicationTransferFunction : public iApplication {
 
     Status_t load( const std::string& fileUrl );
 
-    void setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
-                                linAlg::vec3_t& rotPivotPosWS, 
-                                const int32_t& fbWidth, const int32_t& fbHeight, 
-                                const float currMouseX, const float currMouseY );
-
     virtual Status_t run() override;
 
-    void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mCmdLinePath = cmdLinePath; }
+    void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLine ) { mCmdLineColorPickerProcess = cmdLine; }
 
     private:
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
@@ -46,8 +41,8 @@ struct ApplicationTransferFunction : public iApplication {
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
-    std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
-    TinyProcessLib::Process* mpProcess;
+    std::vector<TinyProcessLib::Process::string_type>    mCmdLineColorPickerProcess;
+    TinyProcessLib::Process* mpColorPickerProcess;
 
     SharedMemIPC                    mSharedMem;
 

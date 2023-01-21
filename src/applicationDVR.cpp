@@ -254,7 +254,7 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpNormalTex3d;
     mpNormalTex3d = nullptr;
     
-    if (mpProcess) { mpProcess->kill(); }
+    if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
     delete mpProcess;
     mpProcess = nullptr;
 }
@@ -892,11 +892,11 @@ Status_t ApplicationDVR::run() {
         prevMouseX = currMouseX;
         prevMouseY = currMouseY;
 
-        if ( frameNum % 200 == 0 ) {
-            const auto queriedSmVal = mSharedMem.get( "from TF" );
+        //if ( frameNum % 200 == 0 ) {
+        //    const auto queriedSmVal = mSharedMem.get( "from TF" );
 
-            printf( "DVR app - what we got for \"from TF\": %s\n", queriedSmVal.c_str() );
-        }
+        //    printf( "DVR app - what we got for \"from TF\": %s\n", queriedSmVal.c_str() );
+        //}
 
         frameNum++;
     }

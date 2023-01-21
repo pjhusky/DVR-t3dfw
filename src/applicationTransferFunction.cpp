@@ -17,6 +17,8 @@
 //#include "GUI/DVR_GUI.h"
 
 //#include "external/simdb/simdb.hpp"
+//#include <process.h> // for ::GetCommandLine
+
 
 #include <memory>
 #include <fstream>
@@ -32,25 +34,6 @@ namespace {
 
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
-
-    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath( const char* const argv ) {
-        static std::vector<TinyProcessLib::Process::string_type> cmdLinePath;
-
-        //if (cmdLinePath.empty()) {
-        //    std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-        //    auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
-        //    cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
-        //        //cmdLine.c_str(),
-        //        argv0Wide,
-        //        TinyProcessLib::Process::string_type{ _TEXT( "--colorPicker" ) },
-        //        _T( "-x" ),
-        //        _T( "600" ),
-        //        _T( "-y" ),
-        //        _T( "600" ) };
-        //}
-
-        return cmdLinePath;
-    }
 
     static std::string readFile( const std::string &filePath ) { 
         std::ifstream ifile{ filePath.c_str() };
@@ -162,11 +145,11 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
     , mpDensityHistogramTex2d( nullptr )
-    , mpProcess( nullptr )
+    , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
 
-
+    printf( "begin ApplicationTransferFunction ctor\n" );
 
     GfxAPI::Texture::Desc_t texDesc{
         .texDim = linAlg::i32vec3_t{ 256, 256, 1 },
@@ -194,16 +177,22 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
     mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
 
+    printf( "end ApplicationTransferFunction ctor\n" );
 }
 
 ApplicationTransferFunction::~ApplicationTransferFunction() {
     
+    printf( "begin ApplicationTransferFunction dtor\n" );
+
     delete mpDensityHistogramTex2d;
     mpDensityHistogramTex2d = nullptr;
     
-    if (mpProcess) { mpProcess->kill(); }
-    delete mpProcess;
-    mpProcess = nullptr;
+    //if (mpColorPickerProcess) { mpColorPickerProcess->kill(); }
+    if (mpColorPickerProcess) { mpColorPickerProcess->close_stdin(); mpColorPickerProcess->kill(); int exitStatus = mpColorPickerProcess->get_exit_status(); }
+    delete mpColorPickerProcess;
+    mpColorPickerProcess = nullptr;
+
+    printf( "end ApplicationTransferFunction dtor\n" );
 }
 
 Status_t ApplicationTransferFunction::load( const std::string& fileUrl )
@@ -350,6 +339,27 @@ Status_t ApplicationTransferFunction::run() {
         //    leftMouseButton_down = false;
         //}
 
+        if ( leftMouseButtonPressed && frameNum > 4 ) {
+            printf( "appTF: LMB pressed\n" );
+            printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
+            int exitStatus;
+            if (mpColorPickerProcess == nullptr || mpColorPickerProcess->try_get_exit_status( exitStatus ) ) {
+                printf( "appTF: LMB pressed and spinning up process!\n" );
+                if (mpColorPickerProcess != nullptr) { 
+                    mpColorPickerProcess->kill(); 
+                    delete mpColorPickerProcess;
+                    mpColorPickerProcess = nullptr;
+                }
+                printf( "appTF: LMB pressed, look at the supplied args:\n" );
+                int32_t i = 0;
+                for ( const auto& cmdArg : mCmdLineColorPickerProcess ) {
+                    //wprintf( "%d: %s\n", i, cmdArg.c_str() );
+                    std::wcout << i << " " << cmdArg << std::endl;
+                    i++;
+                }
+                mpColorPickerProcess = new TinyProcessLib::Process( mCmdLineColorPickerProcess );
+            }
+        }
 
         if (rightMouseButtonPressed) {
             //printf( "RMB pressed!\n" );
@@ -397,7 +407,8 @@ Status_t ApplicationTransferFunction::run() {
 
         mSharedMem.put( "from TF", "from TF value!" ); 
 
-        if ( frameNum % 200 == 0 ) { printf( "in TF from SM for \lock free\": %s\n", queriedSmVal.c_str() ); }
+        //if ( frameNum % 200 == 0 ) { printf( "in TF from SM for \"lock free\": %s\n", queriedSmVal.c_str() ); }
+
         glCheckError();
 
     #if 0 // unit-cube STL file

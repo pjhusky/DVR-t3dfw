@@ -27,22 +27,7 @@
 
 
 namespace {
-    enum class eRenderMode {
-        ORIGINAL = 0,
-        REMAP = 1,
-    };
-    static eRenderMode renderModeEF = eRenderMode::REMAP;
-    static bool showProxyGeometryPose = true;
-    static bool proxyRenderTargetNeedsUpdate = true;
-
-    static linAlg::mat4_t modelViewEFMatrix;
-   
-    static constexpr float camSpeedFact = 1.0f; // should be a certain fraction of the bounding sphere radius
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
-
-    static float azimuthRadians = 0.0f, elevationRadians = 0.0f;
-
-    static constexpr linAlg::vec4_t greenScreenColor{ 0.0f, 1.0f, 1.0f, 1.0f };
 
     static std::string readFile( const std::string &filePath ) { 
         std::ifstream ifile{ filePath.c_str() };
@@ -58,25 +43,18 @@ namespace {
     static void processInput( GLFWwindow *const pWindow ) {
         if ( glfwGetKey( pWindow, GLFW_KEY_ESCAPE ) == GLFW_PRESS ) { glfwSetWindowShouldClose( pWindow, true ); }
 
-        float camSpeed = camSpeedFact;
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; }
+        //float camSpeed = camSpeedFact;
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; }
 
-        constexpr float flattenedCamSpeedFactor = 0.125f;
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_A ) ) { modelViewEFMatrix[ 0 ][ 3 ] += flattenedCamSpeedFactor * camSpeed * frameDelta; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_D ) ) { modelViewEFMatrix[ 0 ][ 3 ] -= flattenedCamSpeedFactor * camSpeed * frameDelta; }
+        //constexpr float flattenedCamSpeedFactor = 0.125f;
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_A ) ) { modelViewEFMatrix[ 0 ][ 3 ] += flattenedCamSpeedFactor * camSpeed * frameDelta; }
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_D ) ) { modelViewEFMatrix[ 0 ][ 3 ] -= flattenedCamSpeedFactor * camSpeed * frameDelta; }
 
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_F ) ) { modelViewEFMatrix[ 1 ][ 3 ] += flattenedCamSpeedFactor * camSpeed * frameDelta; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_R ) ) { modelViewEFMatrix[ 1 ][ 3 ] -= flattenedCamSpeedFactor * camSpeed * frameDelta; }
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_UP   ) ) { elevationRadians -= camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_DOWN ) ) { elevationRadians += camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
 
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_W ) ) { modelViewEFMatrix[ 2 ][ 3 ] += flattenedCamSpeedFactor * camSpeed * frameDelta; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_S ) ) { modelViewEFMatrix[ 2 ][ 3 ] -= flattenedCamSpeedFactor * camSpeed * frameDelta; }
-
-
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_UP   ) ) { elevationRadians -= camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_DOWN ) ) { elevationRadians += camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
-
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT  ) ) { azimuthRadians -= camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT ) ) { azimuthRadians += camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT  ) ) { azimuthRadians -= camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
+        //if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT ) ) { azimuthRadians += camSpeed * frameDelta; proxyRenderTargetNeedsUpdate = true; }
     }
 
     static int32_t renderTargetDivFactor = 2;
@@ -84,27 +62,9 @@ namespace {
     static bool grabRenderedProxy = false;
 
     void keyboardCallback( GLFWwindow *const pWindow, int32_t key, int32_t scancode, int32_t action, int32_t mods ) {
-        if ( key == GLFW_KEY_E && action == GLFW_RELEASE ) {
-            renderModeEF = static_cast< eRenderMode >( 1 - static_cast< int32_t >( renderModeEF ) );
-        }
-        if ( key == GLFW_KEY_G && action == GLFW_RELEASE ) {
-            grabRenderedProxy = true;
-        }
-        if ( key == GLFW_KEY_P && action == GLFW_RELEASE ) {
-            showProxyGeometryPose = !showProxyGeometryPose;
-        }
-        if ( key == GLFW_KEY_M && action == GLFW_RELEASE ) {
-            constexpr int32_t maxDivFactor = 64;
-            forceScreenResize = ( renderTargetDivFactor < maxDivFactor );
-            renderTargetDivFactor = linAlg::minimum( renderTargetDivFactor + 1, maxDivFactor );
-            proxyRenderTargetNeedsUpdate = true;
-        }
-        if ( key == GLFW_KEY_K && action == GLFW_RELEASE ) {
-            constexpr int32_t minDivFactor = 1;
-            forceScreenResize = ( renderTargetDivFactor > minDivFactor );
-            renderTargetDivFactor = linAlg::maximum( renderTargetDivFactor - 1, minDivFactor );
-            proxyRenderTargetNeedsUpdate = true;
-        }
+        //if ( key == GLFW_KEY_E && action == GLFW_RELEASE ) {
+        //    renderModeEF = static_cast< eRenderMode >( 1 - static_cast< int32_t >( renderModeEF ) );
+        //}
     }
 
 #define STRIP_INCLUDES_FROM_INL 1
@@ -112,7 +72,6 @@ namespace {
 
 
     static int32_t toRenderTargetSize( const int32_t size ) {
-        //return size / ( 1u << renderTargetDivFactor );
         return size / renderTargetDivFactor;
     }
 
@@ -149,8 +108,6 @@ namespace {
             prevFbWidth = fbWidth;
             prevFbHeight = fbHeight;
             forceScreenResize = false;
-
-            proxyRenderTargetNeedsUpdate = true;
         }
     }
 
@@ -161,6 +118,8 @@ ApplicationColorPicker::ApplicationColorPicker(
     const GfxAPI::ContextOpenGL& contextOpenGL ) 
     : mContextOpenGL( contextOpenGL ) {
 
+    printf( "ApplicationColorPicker ctor begin\n" );
+
     if (!gladLoadGLLoader( reinterpret_cast<GLADloadproc>(glfwGetProcAddress) )) {
         //return Status_t::ERROR( "Failed to initialize GLAD" );
     }
@@ -170,13 +129,14 @@ ApplicationColorPicker::ApplicationColorPicker(
     mPrevFbWidth  = -1;
     mPrevFbHeight = -1;
 
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > shaderDesc{
-        std::make_pair( "./shaders/displayColors.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./shaders/displayColors.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
-    };
-    gfxUtils::createShader( *mpShader, shaderDesc );
+    //std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > shaderDesc{
+    //    std::make_pair( "./shaders/displayColors.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
+    //    std::make_pair( "./shaders/displayColors.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
+    //};
+    //gfxUtils::createShader( *mpShader, shaderDesc );
 
     //FMProjectGUI::InitGui( contextOpenGL );
+    printf( "ApplicationColorPicker ctor done\n" );
 }
 
 
@@ -190,19 +150,8 @@ Status_t ApplicationColorPicker::drawGfx() {
 
     GfxAPI::Shader& renderShader = shader;
     
-    glViewport( 0, 0, mFbWidth, mFbHeight ); // set to render-target size
-    { // clear screen
-        constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
-        glClearBufferfv( GL_COLOR, 0, clearColorValue );
-        constexpr float clearDepthValue = 1.0f;
-        glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
-    }
 
     glCheckError();
-
-
-
-
 
     handleScreenResize(
         reinterpret_cast<GLFWwindow*>(mContextOpenGL.window()),
@@ -212,8 +161,6 @@ Status_t ApplicationColorPicker::drawGfx() {
         mFbHeight );
 
     if (mPrevFbWidth != mFbWidth || mPrevFbHeight != mFbHeight) {
-        float l = -0.5f, r = +0.5f;
-        float b = -0.5f, t = +0.5f;
 
         glfwGetFramebufferSize( reinterpret_cast<GLFWwindow*>(mContextOpenGL.window()), &mFbWidth, &mFbHeight );
 
@@ -252,7 +199,7 @@ Status_t ApplicationColorPicker::drawGfx() {
 }
 
 Status_t ApplicationColorPicker::run() {
-#if 0
+#if 1
 
 #if 0
     nanogui::init(); // seems to just init GLFW, which we've already done...
@@ -347,11 +294,6 @@ Status_t ApplicationColorPicker::run() {
     glDisable( GL_CULL_FACE );
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-    //linAlg::mat4_t modelViewMatrix;
-    azimuthRadians = -M_PI * 0.5f * 0.33f;
-    elevationRadians = M_PI * 0.5f * 0.17f;
-    float distFactor = 2.3f;
-    //gfxUtils::createModelViewMatrixForModel( stlModel, azimuthRadians, elevationRadians, distFactor, modelViewMatrix );
 
 
     //int32_t mPrevFbWidth = -1;
@@ -369,37 +311,43 @@ Status_t ApplicationColorPicker::run() {
 
     glCheckError();
 
-    PrepLineModule prepLineModule;
-    ScrewChannelModule screwChannelModule;
-
-
-
-
-
-
     uint64_t frameNum = 0;
-    //Shader& renderShader = shader;
-    std::vector<bool> displayMeshes;
-    displayMeshes.push_back(true);
+    double dCurrMouseX, dCurrMouseY;
+
     while( !glfwWindowShouldClose( pWindow ) ) {
+
+        //printf("heyho!\n");
+        glfwPollEvents();
+        processInput( pWindow );
+        glfwGetCursorPos( pWindow, &dCurrMouseX, &dCurrMouseY );
+
 
         const auto frameStartTime = std::chrono::system_clock::now();
         
+        glViewport( 0, 0, mFbWidth, mFbHeight ); // set to render-target size
 
-        drawGfx();
+        handleScreenResize(
+            reinterpret_cast< GLFWwindow* >( mContextOpenGL.window() ),
+            mPrevFbWidth,
+            mPrevFbHeight,
+            mFbWidth,
+            mFbHeight );
+
+        { // clear screen
+            constexpr float clearColorValue[]{ 0.5f, 0.0f, 0.0f, 0.7f };
+            glClearBufferfv( GL_COLOR, 0, clearColorValue );
+            constexpr float clearDepthValue = 1.0f;
+            glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
+        }
+
+        for ( int32_t i = 0; i < 10000; i++ ) {
+            if ( i * i % 234435 == 32 ) { printf( "blah\n" ); }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        //drawGfx();
 
         glCheckError();
-
-        FMProjectGUI::GuiUserData_t guiUserData {
-            displayMeshes,
-            mStlModels,
-            mStlMeshFilePath,
-            stlModel_VAO,
-            screwChannelModule,
-            prepLineModule
-        };
-
-        FMProjectGUI::DisplayGui( &guiUserData );
 
         //glfwWaitEventsTimeout( 0.032f ); // wait time is in seconds
         glfwSwapBuffers( pWindow );
@@ -412,8 +360,6 @@ Status_t ApplicationColorPicker::run() {
     }
 
     //destroyRenderTargetTextures( fbos, colorRenderTargetTex, normalRenderTargetTex, silhouetteRenderTargetTex, depthRenderTargetTex );
-
-    FMProjectGUI::DestroyGui();
 
     #if 0
         std::stringstream commentStream;

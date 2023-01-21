@@ -238,7 +238,6 @@ ApplicationDVR::ApplicationDVR(
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
     , mpNormalTex3d( nullptr )
-    , mTransferFunctionProcessId( -1 )
     , mpProcess( nullptr )
     , mGrabCursor( true ) {
 
@@ -866,13 +865,9 @@ Status_t ApplicationDVR::run() {
             if (guiUserData.editTransferFunction) {
                 int exitStatus;
                 if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus ) ) {
-                //if (mTransferFunctionProcessId == -1) {
-                    //static auto transferFuncApp = TinyProcessLib::Process( mCmdLinePath );
-                    //mpProcess = &transferFuncApp;
                     if (mpProcess) { mpProcess->kill(); }
                     delete mpProcess;
                     mpProcess = new TinyProcessLib::Process( mCmdLinePath );
-                    //mTransferFunctionProcessId = transferFuncApp.get_id();
                 }
             }
 

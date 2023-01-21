@@ -62,7 +62,6 @@ struct ApplicationDVR : public iApplication {
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
     std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
-    int32_t mTransferFunctionProcessId;
     TinyProcessLib::Process* mpProcess;
 
     bool                            mGrabCursor;

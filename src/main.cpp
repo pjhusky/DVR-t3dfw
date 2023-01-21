@@ -131,8 +131,6 @@ int main( int argc, const char* argv[] )
     }
 #endif
     
-    if (argParser.exists( "transferFunction" )) {
-    }
 
 
     GfxAPI::ContextOpenGL contextOpenGL;
@@ -150,10 +148,17 @@ int main( int argc, const char* argv[] )
         assert( contextOpenGLStatus == Status_t::OK() );
     }
 
-    std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
-    std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
-    reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath( argv[0] ) );
-    pApp->run();
+    if (argParser.exists( "transferFunction" )) {
+        // TODO: launch ApplicationTF( contextOpenGL ) ...
+        std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
+        pApp->run();
+    }
+    else {
+        std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
+        std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
+        reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath( argv[0] ) );
+        pApp->run();
+    }
 
     return EXIT_SUCCESS;
 }

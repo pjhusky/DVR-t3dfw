@@ -94,6 +94,8 @@ workspace "T3DFW_DVR_Workspace"
 	
 		local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
 		local TINYPROCESS_DIR = EXTERNAL_DIR .. "tiny-process-library/"
+		local UTFCPP_DIR = EXTERNAL_DIR .. "utfcpp/"
+		local SIMDB_DIR = EXTERNAL_DIR .. "simdb/"
 	
 		local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
 
@@ -151,6 +153,8 @@ workspace "T3DFW_DVR_Workspace"
 			
 			NATIVEFILEDIALOG_DIR .. "include/",
 			TINYPROCESS_DIR,
+			UTFCPP_DIR,
+			SIMDB_DIR,
 			
 			IMGUI_DIR,
 		}	
@@ -188,6 +192,8 @@ workspace "T3DFW_DVR_Workspace"
 			removefiles { TINYPROCESS_DIR .. "process_unix.cpp", TINYPROCESS_DIR .. "examples.cpp" }
 			defines { "_WIN32", "WIN32", "_WIN64", "_AMD64_", "_WINDOWS" }
 		filter {}
+			removefiles { UTFCPP_DIR .. "tests/**", UTFCPP_DIR .. "samples/**" }
+			removefiles { SIMDB_DIR .. "ConcurrentMap.cpp" }
 		
 		-- https://premake.github.io/docs/defines/
 		-- "_MBCS", 

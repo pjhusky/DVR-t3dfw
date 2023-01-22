@@ -245,6 +245,7 @@ ApplicationDVR::ApplicationDVR(
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
 
+    mSharedMem.put( "histoBucketEntries", std::to_string( VolumeData::mNumHistogramBuckets ) );
     DVR_GUI::InitGui( contextOpenGL );
 }
 
@@ -288,6 +289,11 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+
+    mpData->calculateHistogramBuckets();
+    const auto& histoBuckets = mpData->getHistoBuckets();
+
+    mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
 
     return Status_t::OK();
 }

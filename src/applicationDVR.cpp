@@ -43,6 +43,10 @@
 
 #include <cassert>
 
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+
+
 using namespace ArcBall;
 
 namespace {

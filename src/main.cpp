@@ -1,9 +1,10 @@
+#include "gfxAPI/contextOpenGL.h"
+
 #include "applicationDVR.h"
 #include "applicationCreateVol.h"
 #include "applicationTransferFunction.h"
 #include "applicationColorPicker.h"
 
-#include "gfxAPI/contextOpenGL.h"
 
 #include "argparse/argparse.h"
 
@@ -27,6 +28,10 @@
 #include <assert.h>
 
 #include <Windows.h>
+
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+
 
 namespace {
     static void threadFunc( void* pData ) {
@@ -68,6 +73,15 @@ namespace {
         static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
 
         if (cmdLinePath.empty()) {
+
+            float sx, sy;
+            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(contextOpenGl.window()), &sx, &sy );
+            int32_t desiredWindowW = static_cast<int32_t>( 600.0f * sx );
+            int32_t desiredWindowH = static_cast<int32_t>( 600.0f * sy );
+
+            auto strWindowW = stringUtils::ToString( desiredWindowW );
+            auto strWindowH = stringUtils::ToString( desiredWindowH );            
+
             std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
             auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
             cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
@@ -75,9 +89,10 @@ namespace {
                 argv0Wide,
                 TinyProcessLib::Process::string_type{ _TEXT( "--colorPicker" ) },
                 _T( "-x" ),
-                _T( "600" ),
+                strWindowW.c_str(), //_T( "600" ),
                 _T( "-y" ),
-                _T( "600" ) };
+                strWindowH.c_str()  //_T( "600" ) 
+            };
         }
 
         return cmdLinePath;

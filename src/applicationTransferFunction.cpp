@@ -16,7 +16,6 @@
 
 
 #include "external/libtinyfiledialogs/tinyfiledialogs.h"
-#include "external/libtinyfiledialogs/tinyfiledialogs.c"
 
 
 #include <memory>
@@ -26,6 +25,10 @@
 #include <thread>
 
 #include <cassert>
+
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+
 
 #define IS_READY    0
 

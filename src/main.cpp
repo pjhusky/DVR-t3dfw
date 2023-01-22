@@ -7,10 +7,13 @@
 
 #include "argparse/argparse.h"
 
+#include "stringUtils.h"
+
 //#include "external/tiny-process-library/process.hpp"
 //#include "external/simdb/simdb.hpp"
 #include "sharedMemIPC.h"
 
+#include <string>
 #include <tchar.h>
 #include <filesystem>
 
@@ -31,10 +34,19 @@ namespace {
         pApp->run();
     }
 
-    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_TransferFunction( const char *const argv ) {
+    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_TransferFunction( GfxAPI::ContextOpenGL& contextOpenGl, const char *const argv ) {
         static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
 
         if (cmdLinePath.empty()) {
+
+            float sx, sy;
+            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(contextOpenGl.window()), &sx, &sy );
+            int32_t desiredWindowW = static_cast<int32_t>( 1024.0f * sx );
+            int32_t desiredWindowH = static_cast<int32_t>(  512.0f * sy );
+
+            auto strWindowW = stringUtils::ToString( desiredWindowW );
+            auto strWindowH = stringUtils::ToString( desiredWindowH );            
+
             std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
             auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
             //const std::vector<TinyProcessLib::Process::string_type> arguments{
@@ -43,15 +55,16 @@ namespace {
                 argv0Wide,
                 TinyProcessLib::Process::string_type{ _TEXT( "--transferFunction" ) },
                 _T( "-x" ),
-                _T( "1200" ),
+                strWindowW.c_str(), //_T( "1200" ),
                 _T( "-y" ),
-                _T( "1200" ) };
+                strWindowH.c_str()  //_T( "1200" ) 
+            };
         }
 
         return cmdLinePath;
     }
 
-    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ColorPicker( const char* const argv ) {
+    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ColorPicker( GfxAPI::ContextOpenGL& contextOpenGl, const char* const argv ) {
         static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
 
         if (cmdLinePath.empty()) {
@@ -193,7 +206,7 @@ int main( int argc, const char* argv[] )
     if (argParser.exists( "transferFunction" )) {
         printf( "main: spin up transfer-function app!\n" );
         std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
-        reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( argv[0] ) );
+        reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
         pApp->run();
     } else if (argParser.exists( "colorPicker" )) {
         printf( "main: spin up colorPicker app!\n" );
@@ -202,7 +215,7 @@ int main( int argc, const char* argv[] )
     } else {
         std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
         std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
-        reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath_TransferFunction( argv[0] ) );
+        reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath_TransferFunction( contextOpenGL, argv[0] ) );
         pApp->run();
     }
 

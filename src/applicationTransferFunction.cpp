@@ -307,7 +307,7 @@ Status_t ApplicationTransferFunction::run() {
     meshShader.use( false );
 
     //bool guiWantsMouseCapture = false;
-    linAlg::vec3_t clearColor{};
+    linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
@@ -341,16 +341,17 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            unsigned char lRgbColor[3];
+            unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
             auto lTheHexColor = tinyfd_colorChooser(
-                "choose a nice color",
+                "Choose Transfer-function Color",
                 "#FF0077",
                 lRgbColor,
                 lRgbColor);
-            clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
-            clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
-            clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
-
+            if (lTheHexColor) {
+                clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
+                clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
+                clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+            }
         #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
             int exitStatus;

@@ -11,6 +11,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace GfxAPI {
     struct ContextOpenGL;
@@ -32,11 +33,19 @@ struct ApplicationTransferFunction : public iApplication {
 
     void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLine ) { mCmdLineColorPickerProcess = cmdLine; }
 
-    private:
+private:
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
+    GfxAPI::Texture*                mpDensityTransparencyTex2d;
+    GfxAPI::Texture*                mpDensityColorsTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
+
+    //struct colorElement_t {
+    //    uint32_t       index;
+    //    linAlg::vec3_t color;
+    //};
+    std::map< uint32_t, linAlg::vec3_t >     mDensityColors;
 
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };

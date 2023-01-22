@@ -8,6 +8,7 @@
 #include <filesystem>
 
 #include "ApplicationTransferFunction.h"
+#include "stringUtils.h"
 
 #include "gfxAPI/contextOpenGL.h"
 #include "gfxAPI/shader.h"
@@ -146,6 +147,8 @@ namespace {
 ApplicationTransferFunction::ApplicationTransferFunction(
     const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
+    , mpDensityTransparencyTex2d( nullptr )
+    , mpDensityColorsTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
@@ -154,22 +157,14 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     printf( "begin ApplicationTransferFunction ctor\n" );
 
     GfxAPI::Texture::Desc_t texDesc{
-        .texDim = linAlg::i32vec3_t{ 256, 256, 1 },
+        .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
         .numChannels = 1,
         .channelType = GfxAPI::eChannelType::i16,
         .semantics = GfxAPI::eSemantics::color,
         .isMipMapped = false,
     };
     delete mpDensityHistogramTex2d;
-
-    //const uint32_t smBlockSizeInBytes = 1024u;
-    //const uint32_t smNumBlocks = 4096u;
-    //simdb sharedMem( "DVR_shared_memory", smBlockSizeInBytes, smNumBlocks );
-    //const auto queriedSmVal = sharedMem.get( "lock free" );
-
     
-    const auto queriedSmVal = mSharedMem.get( "lock free" );
-
     mpDensityHistogramTex2d = new GfxAPI::Texture;
     mpDensityHistogramTex2d->create( texDesc );
     const uint32_t mipLvl = 0;
@@ -309,12 +304,24 @@ Status_t ApplicationTransferFunction::run() {
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.use( false );
 
+    const auto numHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
+    printf( "numHistogramBuckets: %u\n", numHistogramBuckets );
+    
+    std::vector< uint32_t > histogramBuckets;
+    histogramBuckets.resize( numHistogramBuckets );
+
     //bool guiWantsMouseCapture = false;
     linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
         const auto frameStartTime = std::chrono::system_clock::now();
+        
+        if ( frameNum % 5 == 0 ) {
+            uint32_t bytesRead = 0;
+            const auto result = mSharedMem.get( "histoBuckets", histogramBuckets.data(), histogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
+            printf( "result = %s\n", result ? "true" : "false" );
+        }
         
         glfwPollEvents();
         processInput( pWindow );

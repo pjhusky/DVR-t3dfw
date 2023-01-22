@@ -15,7 +15,11 @@ struct SharedMemIPC {
     static const std::vector<std::string> listSharedMemFiles();
 
     int64_t put( const std::string& key, const std::string& value);
+    int64_t put( const std::string& key, const uint8_t *const pValues, const uint32_t valueByteCount );
+
     const std::string get( const std::string& key);
+    //const bool get( const std::string& key, void *const pOutValues, uint32_t valueByteCount, uint32_t *const bytesRead=nullptr );
+    const bool get( const std::string& key, void *const pOutValues, uint32_t valueByteCount, uint32_t *const bytesRead=nullptr );
 
 private:
     auto *const ptrSharedMem() { return reinterpret_cast< simdb *const >( mpHandle ); }

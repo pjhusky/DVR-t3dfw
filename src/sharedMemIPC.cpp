@@ -30,6 +30,16 @@ int64_t SharedMemIPC::put( const std::string& key, const std::string& value ) {
     return ptrSharedMem()->put( key, value );
 }
 
+int64_t SharedMemIPC::put( const std::string& key, const uint8_t *const pValues, const uint32_t valueByteCount ) {
+    return ptrSharedMem()->put(key.data(), (uint32_t)key.length(), pValues, (uint32_t)(valueByteCount) );
+}
+
 const std::string SharedMemIPC::get( const std::string& key ) {
     return ptrSharedMem()->get( key );
 }
+
+const bool SharedMemIPC::get( const std::string& key, void* const pOutValues, uint32_t valueByteCount, uint32_t* const bytesRead ) {
+    return ptrSharedMem()->get( key.c_str(), key.length(), pOutValues, valueByteCount, bytesRead );
+}
+
+

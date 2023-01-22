@@ -156,23 +156,61 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     printf( "begin ApplicationTransferFunction ctor\n" );
 
-    GfxAPI::Texture::Desc_t texDesc{
-        .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
-        .numChannels = 1,
-        .channelType = GfxAPI::eChannelType::i16,
-        .semantics = GfxAPI::eSemantics::color,
-        .isMipMapped = false,
-    };
-    delete mpDensityHistogramTex2d;
+    { // transparency
+        GfxAPI::Texture::Desc_t texDesc{
+            .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
+            .numChannels = 1,
+            .channelType = GfxAPI::eChannelType::i16,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        delete mpDensityTransparencyTex2d;
+
+        mpDensityTransparencyTex2d = new GfxAPI::Texture;
+        mpDensityTransparencyTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+        mpDensityTransparencyTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityTransparencyTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    }
+
+    { // colors
+        GfxAPI::Texture::Desc_t texDesc{
+            .texDim = linAlg::i32vec3_t{ 1024, 64, 1 },
+            .numChannels = 4,
+            .channelType = GfxAPI::eChannelType::i8,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        delete mpDensityColorsTex2d;
+
+        mpDensityColorsTex2d = new GfxAPI::Texture;
+        mpDensityColorsTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    }
+
+    { // histogram
+        GfxAPI::Texture::Desc_t texDesc{
+            .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
+            .numChannels = 1,
+            .channelType = GfxAPI::eChannelType::i16,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        delete mpDensityHistogramTex2d;
     
-    mpDensityHistogramTex2d = new GfxAPI::Texture;
-    mpDensityHistogramTex2d->create( texDesc );
-    const uint32_t mipLvl = 0;
-#if ( IS_READY != 0 )
-    mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
-#endif
-    mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        mpDensityHistogramTex2d = new GfxAPI::Texture;
+        mpDensityHistogramTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+    #if ( IS_READY != 0 )
+        mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
+    #endif
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    }
+
+
 
     printf( "end ApplicationTransferFunction ctor\n" );
 }
@@ -219,6 +257,9 @@ Status_t ApplicationTransferFunction::load( const std::string& fileUrl )
     mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
 #endif
+
+
+
     return Status_t::OK();
 }
 
@@ -294,15 +335,15 @@ Status_t ApplicationTransferFunction::run() {
     linAlg::loadIdentityMatrix( tiltRotMat );
 
 
-    GfxAPI::Shader meshShader;
+    GfxAPI::Shader shader;
     std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
-        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
+        std::make_pair( "./src/shaders/displayColors.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/displayColors.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
     };
-    gfxUtils::createShader( meshShader, meshShaderDesc );
-    meshShader.use( true );
-    meshShader.setInt( "u_densityTex", 0 );
-    meshShader.use( false );
+    gfxUtils::createShader( shader, meshShaderDesc );
+    shader.use( true );
+    shader.setInt( "u_densityTex", 0 );
+    shader.use( false );
 
     const auto numHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
     printf( "numHistogramBuckets: %u\n", numHistogramBuckets );
@@ -446,19 +487,41 @@ Status_t ApplicationTransferFunction::run() {
 
         glCheckError();
 
+        glDisable( GL_CULL_FACE );
+        glBindVertexArray( mScreenQuadHandle.vaoHandle );
+        shader.use( true );
+
+        GfxAPI::Texture::unbindAllTextures();
+
+        if (mpDensityHistogramTex2d != nullptr) {
+            mpDensityHistogramTex2d->bindToTexUnit( 0 );
+        }
+
+        shader.setInt( "u_densityTex", mpDensityColorsTex2d->handle() );
+
+        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+
+        if (mpDensityHistogramTex2d != nullptr) {
+            mpDensityHistogramTex2d->unbindFromTexUnit();
+        }
+
+        shader.use( false );
+        glBindVertexArray( 0 );
+
+
     #if 0 // unit-cube STL file
         if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster ) {
             glEnable( GL_CULL_FACE );
             glCullFace( GL_FRONT );
 
             glBindVertexArray( mStlModelHandle.vaoHandle );
-            meshShader.use( true );
+            shader.use( true );
 
             GfxAPI::Texture::unbindAllTextures();
 
             // linAlg::mat4_t mvpMatrix;
             // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
-            auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
+            auto retSetUniform = shader.setMat4( "u_mvpMat", mMvpMatrix );
             if (mpDensityHistogramTex2d != nullptr) {
                 mpDensityHistogramTex2d->bindToTexUnit( 0 );
             }
@@ -468,8 +531,8 @@ Status_t ApplicationTransferFunction::run() {
             const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
             linAlg::vec4_t camPos_OS = camPos_ES;
             linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            meshShader.setVec4( "u_camPos_OS", camPos_OS );
-            meshShader.setVec3( "u_volDimRatio", volDimRatio );
+            shader.setVec4( "u_camPos_OS", camPos_OS );
+            shader.setVec3( "u_volDimRatio", volDimRatio );
 
             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( stlModel.indices().size() ), GL_UNSIGNED_INT, 0 );
 
@@ -477,7 +540,7 @@ Status_t ApplicationTransferFunction::run() {
                 mpDensityHistogramTex2d->unbindFromTexUnit();
             }
 
-            meshShader.use( false );
+            shader.use( false );
             glBindVertexArray( 0 );
         }
     #endif

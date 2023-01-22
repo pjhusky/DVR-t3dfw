@@ -62,7 +62,7 @@ workspace "T3DFW_DVR_Workspace"
 		-- optimize "Debug"
 		symbols "On"
 		defines { "DEBUG", "TRACE" }
-		buildoptions{ "-fdiagnostics-color=always" }
+		--buildoptions{ "-fdiagnostics-color=always" }
 	filter { "configurations:Release" }
 		optimize "Speed"
 		defines { "NDEBUG" }

@@ -273,8 +273,9 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpData->load( fileUrl.c_str() );
 
     const auto volDim = mpData->getDim();
+    const auto texDim = linAlg::i32vec3_t{ volDim[0], volDim[1], volDim[2] };
     GfxAPI::Texture::Desc_t volTexDesc{
-        .texDim = linAlg::i32vec3_t{ volDim[0], volDim[1], volDim[2] },
+        .texDim = texDim,
         .numChannels = 1,
         .channelType = GfxAPI::eChannelType::i16,
         .semantics = GfxAPI::eSemantics::color,
@@ -293,6 +294,7 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();
 
+    mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), texDim.size() * sizeof( texDim[0] ) );
     mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
 
     return Status_t::OK();

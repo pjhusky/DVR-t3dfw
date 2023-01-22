@@ -310,6 +310,8 @@ Status_t ApplicationTransferFunction::run() {
     std::vector< uint32_t > histogramBuckets;
     histogramBuckets.resize( numHistogramBuckets );
 
+    linAlg::i32vec3_t texDim{ 0, 0 , 0 };
+
     //bool guiWantsMouseCapture = false;
     linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
     uint64_t frameNum = 0;
@@ -319,8 +321,18 @@ Status_t ApplicationTransferFunction::run() {
         
         if ( frameNum % 5 == 0 ) {
             uint32_t bytesRead = 0;
-            const auto result = mSharedMem.get( "histoBuckets", histogramBuckets.data(), histogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
-            printf( "result = %s\n", result ? "true" : "false" );
+
+            const auto resultVolTexDim3D = mSharedMem.get( "volTexDim3D", texDim.data(), texDim.size() * sizeof( texDim[0] ), &bytesRead );
+            if ( resultVolTexDim3D == true ) {
+                assert( bytesRead == texDim.size() * sizeof( texDim[0] ) );
+                printf( "shared mem read tex dim %d %d %d\n", texDim[0], texDim[1], texDim[2] );
+            }
+
+            const auto resultHistoBuckets = mSharedMem.get( "histoBuckets", histogramBuckets.data(), histogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
+            if ( resultHistoBuckets == true ) {
+                assert( bytesRead == histogramBuckets.size() * sizeof( uint32_t ) );
+            }
+            printf( "resultHistoBuckets = %s\n", resultHistoBuckets ? "true" : "false" );
         }
         
         glfwPollEvents();

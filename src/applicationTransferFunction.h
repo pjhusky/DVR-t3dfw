@@ -47,13 +47,16 @@ private:
 
     std::vector< uint32_t >         mHistogramBuckets;
 
+    linAlg::vec2_t                  mScaleAndOffset_Transparencies;
+    linAlg::vec2_t                  mScaleAndOffset_Histograms;
+    linAlg::vec2_t                  mScaleAndOffset_Colors;
+
     //struct colorElement_t {
     //    uint32_t       index;
     //    linAlg::vec3_t color;
     //};
     std::map< uint32_t, linAlg::vec3_t >     mDensityColors;
     uint32_t mNumHistogramBuckets;
-    float mRelativeCoordY_DensityColors;
 
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };

@@ -150,12 +150,15 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityTransparencyTex2d( nullptr )
     , mpDensityColorsTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
-    , mRelativeCoordY_DensityColors( 0.9f )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
 
     printf( "begin ApplicationTransferFunction ctor\n" );
+
+    mScaleAndOffset_Transparencies  = { 0.7f, 0.0f };
+    mScaleAndOffset_Histograms      = { 0.2f, 0.7f };
+    mScaleAndOffset_Colors          = { 0.1f, 0.9f };
 
     mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
     printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
@@ -412,7 +415,9 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            if ( currMouseY > mRelativeCoordY_DensityColors * fbHeight ) {
+            if ( currMouseY < mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) {
+
+            } else if ( currMouseY > mScaleAndOffset_Colors[1] * fbHeight ) {
                 unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
                 auto lTheHexColor = tinyfd_colorChooser(
                     "Choose Transfer-function Color",
@@ -507,15 +512,14 @@ Status_t ApplicationTransferFunction::run() {
         //    mpDensityHistogramTex2d->bindToTexUnit( 0 );
         //}
 
-        mpDensityColorsTex2d->bindToTexUnit( 0 );
-        shader.setInt( "u_mapTex", 0 );
-        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 1.0f - mRelativeCoordY_DensityColors, mRelativeCoordY_DensityColors } );
-        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
-
-
         mpDensityHistogramTex2d->bindToTexUnit( 1 );
         shader.setInt( "u_mapTex", 1 );
-        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 0.4f, 0.5f } );
+        shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
+        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+
+        mpDensityColorsTex2d->bindToTexUnit( 0 );
+        shader.setInt( "u_mapTex", 0 );
+        shader.setVec2( "u_scaleOffset", mScaleAndOffset_Colors );
         glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 
         if ( mpDensityColorsTex2d != nullptr ) {
@@ -702,15 +706,11 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
     densityHistogramCPU.resize( dim_x * dim_y );
     std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 0 );
 
-    printf( "1\n" );
-
     uint32_t maxHistoVal = 1;
     for( uint32_t x = 30; x < mNumHistogramBuckets; x++ ) {
         maxHistoVal = linAlg::maximum( maxHistoVal, mHistogramBuckets[x] );
     }
     const float fRecipMaxHistoVal = 1.0f / static_cast<float>( maxHistoVal );
-
-    printf( "2\n" );
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto histoVal = mHistogramBuckets[x];
@@ -720,6 +720,6 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
             densityHistogramCPU[ y * dim_x + x ] = 255;
         }
     }
-    printf( "3\n" );
+
     mpDensityHistogramTex2d->uploadData( densityHistogramCPU.data(), GL_RED, GL_UNSIGNED_BYTE, 0 );
 }

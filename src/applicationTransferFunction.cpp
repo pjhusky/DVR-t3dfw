@@ -150,6 +150,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityTransparencyTex2d( nullptr )
     , mpDensityColorsTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
+    , mRelativeCoordY_DensityColors( 0.9f )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
@@ -227,7 +228,6 @@ ApplicationTransferFunction::~ApplicationTransferFunction() {
     delete mpDensityHistogramTex2d;
     mpDensityHistogramTex2d = nullptr;
     
-    //if (mpColorPickerProcess) { mpColorPickerProcess->kill(); }
     if (mpColorPickerProcess) { mpColorPickerProcess->close_stdin(); mpColorPickerProcess->kill(); int exitStatus = mpColorPickerProcess->get_exit_status(); }
     delete mpColorPickerProcess;
     mpColorPickerProcess = nullptr;
@@ -364,7 +364,8 @@ Status_t ApplicationTransferFunction::run() {
 
         const auto frameStartTime = std::chrono::system_clock::now();
         
-        if ( frameNum % 5 == 0 ) {
+        if ( frameNum % 5 == 0 && mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
+            
             uint32_t bytesRead = 0;
 
             const auto resultVolTexDim3D = mSharedMem.get( "volTexDim3D", texDim.data(), texDim.size() * sizeof( texDim[0] ), &bytesRead );
@@ -377,6 +378,7 @@ Status_t ApplicationTransferFunction::run() {
             if ( resultHistoBuckets == true ) {
                 assert( bytesRead == histogramBuckets.size() * sizeof( uint32_t ) );
             }
+            mSharedMem.put( "histoBucketsDirty", "false" );
             printf( "resultHistoBuckets = %s\n", resultHistoBuckets ? "true" : "false" );
         }
         
@@ -408,16 +410,18 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
-            auto lTheHexColor = tinyfd_colorChooser(
-                "Choose Transfer-function Color",
-                "#FF0077",
-                lRgbColor,
-                lRgbColor);
-            if (lTheHexColor) {
-                clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
-                clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
-                clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+            if ( currMouseY > mRelativeCoordY_DensityColors * fbHeight ) {
+                unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
+                auto lTheHexColor = tinyfd_colorChooser(
+                    "Choose Transfer-function Color",
+                    "#FF0077",
+                    lRgbColor,
+                    lRgbColor);
+                if (lTheHexColor) {
+                    clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
+                    clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
+                    clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+                }
             }
         #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
@@ -504,7 +508,7 @@ Status_t ApplicationTransferFunction::run() {
         mpDensityColorsTex2d->bindToTexUnit( 0 );
         shader.setInt( "u_mapTex", 0 );
 
-        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 0.1f, 0.9f } );
+        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 1.0f - mRelativeCoordY_DensityColors, mRelativeCoordY_DensityColors } );
 
         glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 

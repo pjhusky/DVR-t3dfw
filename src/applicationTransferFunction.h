@@ -50,6 +50,7 @@ private:
     //};
     std::map< uint32_t, linAlg::vec3_t >     mDensityColors;
     uint32_t mNumHistogramBuckets;
+    float mRelativeCoordY_DensityColors;
 
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };

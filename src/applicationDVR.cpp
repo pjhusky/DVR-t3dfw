@@ -296,6 +296,7 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
 
     mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), texDim.size() * sizeof( texDim[0] ) );
     mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
+    mSharedMem.put( "histoBucketsDirty", "true" );
 
     return Status_t::OK();
 }

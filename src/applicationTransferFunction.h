@@ -34,6 +34,9 @@ struct ApplicationTransferFunction : public iApplication {
     void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLine ) { mCmdLineColorPickerProcess = cmdLine; }
 
 private:
+
+    void colorKeysToTex2d();
+
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
@@ -46,6 +49,7 @@ private:
     //    linAlg::vec3_t color;
     //};
     std::map< uint32_t, linAlg::vec3_t >     mDensityColors;
+    uint32_t mNumHistogramBuckets;
 
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };

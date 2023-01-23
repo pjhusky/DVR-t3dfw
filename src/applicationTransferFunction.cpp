@@ -156,9 +156,12 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     printf( "begin ApplicationTransferFunction ctor\n" );
 
+    mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
+    printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
+
     { // transparency
         GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
+            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
             .numChannels = 1,
             .channelType = GfxAPI::eChannelType::i16,
             .semantics = GfxAPI::eSemantics::color,
@@ -175,7 +178,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     { // colors
         GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 64, 1 },
+            .texDim = linAlg::i32vec3_t{ 1024, 1, 0 },
             .numChannels = 4,
             .channelType = GfxAPI::eChannelType::i8,
             .semantics = GfxAPI::eSemantics::color,
@@ -192,7 +195,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     { // histogram
         GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 256, 1 },
+            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
             .numChannels = 1,
             .channelType = GfxAPI::eChannelType::i16,
             .semantics = GfxAPI::eSemantics::color,
@@ -210,7 +213,9 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
-
+    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+    colorKeysToTex2d();
 
     printf( "end ApplicationTransferFunction ctor\n" );
 }
@@ -342,14 +347,13 @@ Status_t ApplicationTransferFunction::run() {
     };
     gfxUtils::createShader( shader, meshShaderDesc );
     shader.use( true );
-    shader.setInt( "u_densityTex", 0 );
+    shader.setInt( "u_mapTex", 0 );
     shader.use( false );
 
-    const auto numHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
-    printf( "numHistogramBuckets: %u\n", numHistogramBuckets );
+    
     
     std::vector< uint32_t > histogramBuckets;
-    histogramBuckets.resize( numHistogramBuckets );
+    histogramBuckets.resize( mNumHistogramBuckets );
 
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
 
@@ -493,11 +497,12 @@ Status_t ApplicationTransferFunction::run() {
 
         GfxAPI::Texture::unbindAllTextures();
 
-        if (mpDensityHistogramTex2d != nullptr) {
-            mpDensityHistogramTex2d->bindToTexUnit( 0 );
-        }
+        //if (mpDensityHistogramTex2d != nullptr) {
+        //    mpDensityHistogramTex2d->bindToTexUnit( 0 );
+        //}
 
-        shader.setInt( "u_densityTex", mpDensityColorsTex2d->handle() );
+        mpDensityColorsTex2d->bindToTexUnit( 0 );
+        shader.setInt( "u_mapTex", 0 );
 
         glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 
@@ -620,4 +625,57 @@ Status_t ApplicationTransferFunction::run() {
     #endif
 
     return Status_t::OK();
+}
+
+void ApplicationTransferFunction::colorKeysToTex2d() {
+    std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
+    auto currLeft = mDensityColors.begin();
+    auto currRight = mDensityColors.begin();
+    for ( ++currRight; currRight != mDensityColors.end(); currRight++ ) {
+         const uint32_t curr_x_R = currRight->first;
+
+         const uint32_t startX = currLeft->first;
+         const linAlg::vec3_t startColor = currLeft->second;
+
+         const uint32_t endX   = currRight->first;
+         const linAlg::vec3_t endColor = currRight->second;
+
+         for ( uint32_t idx = startX; idx <= endX; idx++ ) {
+             float fx = static_cast<float>(idx - startX) / static_cast<float>(endX - startX);
+             const auto mixRGB = startColor * (1.0f-fx) + endColor * fx;
+             //interpolatedDataCPU[idx] = 
+             //    ( static_cast<uint32_t>( mixRGB[0] * 255.0f ) << 24u ) |
+             //    ( static_cast<uint32_t>( mixRGB[1] * 255.0f ) << 16u ) |
+             //    ( static_cast<uint32_t>( mixRGB[2] * 255.0f ) <<  8u ) | 255u;
+
+             //interpolatedDataCPU[idx] = 0xFFFFFFFF;
+             //interpolatedDataCPU[idx * 4 + 0] = 0x6F;
+             //interpolatedDataCPU[idx * 4 + 1] = 0x6F;
+             //interpolatedDataCPU[idx * 4 + 2] = 0x6F;
+             //interpolatedDataCPU[idx * 4 + 3] = 0x6F;
+
+             interpolatedDataCPU[idx * 4 + 0] = static_cast<uint8_t>( mixRGB[0] * 255.0f );
+             interpolatedDataCPU[idx * 4 + 1] = static_cast<uint8_t>( mixRGB[1] * 255.0f );
+             interpolatedDataCPU[idx * 4 + 2] = static_cast<uint8_t>( mixRGB[2] * 255.0f );
+             interpolatedDataCPU[idx * 4 + 3] = 255u;
+
+         }
+         //for ( float fx = 0.0f; fx <= 1.0f; fx += 1.0f / (endX - startX + 1) ) {
+
+         //    const auto mixRGB = startColor * (1.0f-fx) + endColor * fx;
+
+         //    /*interpolatedDataCPU[startX+idx] = 
+         //        ( static_cast<uint32_t>( mixRGB[0] * 255.0f ) << 24u ) |
+         //        ( static_cast<uint32_t>( mixRGB[1] * 255.0f ) << 16u ) |
+         //        ( static_cast<uint32_t>( mixRGB[2] * 255.0f ) <<  8u ) | 255u;*/
+
+         //    interpolatedDataCPU[startX+idx] = 0xFFFFFFFF;
+         //    idx++;
+         //}
+
+         currLeft = currRight;
+    }
+
+    printf( "같같 ----- 같같\n" );
+    mpDensityColorsTex2d->uploadData( interpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 }

@@ -9,5 +9,9 @@ void main() {
     v_ndcPos = a_pos.xyz;
     v_coord3d.xyz = a_pos.xyz * 0.5 + 0.5;
 
-    gl_Position = vec4( a_pos, 1.0 );
+    v_ndcPos.y *= 0.1;
+    v_ndcPos.y -= 0.9;
+
+    //gl_Position = vec4( a_pos, 1.0 );
+    gl_Position = vec4( v_ndcPos, 1.0 );
 }

@@ -459,14 +459,21 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            const float maxY_transparencies = mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1];
+            const float maxY_transparencies = ( mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) * fbHeight;
             if ( currMouseY < maxY_transparencies ) {
 
                 const float relMouseX = currMouseX / fbWidth;
                 const float relMouseY = currMouseY / maxY_transparencies;
 
-                const uint32_t texX = static_cast<uint32_t>( relMouseX * mpDensityTransparenciesTex2d->desc().texDim[0] );
-                const uint32_t texY = static_cast<uint32_t>( relMouseY * mpDensityTransparenciesTex2d->desc().texDim[1] );
+                const uint32_t texX = static_cast<uint32_t>( relMouseX * ( mpDensityTransparenciesTex2d->desc().texDim[0] - 1 ) );
+                const uint32_t texY = static_cast<uint32_t>( (1.0f - relMouseY ) * ( mpDensityTransparenciesTex2d->desc().texDim[1] - 1 ) );
+
+                const int32_t kernelSize = 4;
+                for ( int32_t x = linAlg::maximum<int32_t>( texX - kernelSize, 0 ); x < linAlg::minimum<int32_t>( texX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] ); x++ ) {
+                    mTransparencyPaintHeightsCPU[x] = texY;
+                }
+
+                densityTransparenciesToTex2d();
 
             } else if ( currMouseY > mScaleAndOffset_Colors[1] * fbHeight ) {
                 unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
@@ -564,13 +571,27 @@ Status_t ApplicationTransferFunction::run() {
         //    mpDensityHistogramTex2d->bindToTexUnit( 0 );
         //}
 
+        shader.setInt( "u_mode", 0 );
+
         if ( mpDensityTransparenciesTex2d != nullptr ) {
             mpDensityTransparenciesTex2d->bindToTexUnit( 0 );
             shader.setInt( "u_mapTex", 0 );
             shader.setVec2( "u_scaleOffset", mScaleAndOffset_Transparencies );
+
+            if (mpDensityHistogramTex2d != nullptr) {
+                mpDensityHistogramTex2d->bindToTexUnit( 1 );
+                shader.setInt( "u_bgTex", 1 );
+            }
+            shader.setInt( "u_mode", 1 );
+
+            //glEnable(GL_BLEND);    
+            //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
             mpDensityTransparenciesTex2d->unbindFromTexUnit();
+            //glDisable(GL_BLEND);
         }
+
+        shader.setInt( "u_mode", 0 );
 
         if (mpDensityHistogramTex2d != nullptr) {
             mpDensityHistogramTex2d->bindToTexUnit( 1 );
@@ -580,10 +601,12 @@ Status_t ApplicationTransferFunction::run() {
             mpDensityHistogramTex2d->unbindFromTexUnit();
         }
 
+    #if 0
         glEnable(GL_BLEND);
         //glBlendFunc( GL_ONE, GL_ONE );
         //glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    #endif
         if ( mpDensityColorsTex2d != nullptr ) {
             mpDensityColorsTex2d->bindToTexUnit( 2 );
             shader.setInt( "u_mapTex", 2 );
@@ -591,7 +614,9 @@ Status_t ApplicationTransferFunction::run() {
             glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );        
             mpDensityColorsTex2d->unbindFromTexUnit();
         }
+    #if 0
         glDisable(GL_BLEND);
+    #endif
 
         shader.use( false );
         glBindVertexArray( 0 );
@@ -797,11 +822,11 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     densityTransparenciesCPU.resize( dim_x * dim_y * mpDensityTransparenciesTex2d->desc().numChannels ); // GL_RG texture
     std::fill( densityTransparenciesCPU.begin(), densityTransparenciesCPU.end(), 0 );
 
-    constexpr int32_t kernelSize = 4;
+    constexpr int32_t kernelSize = 3;
     constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
 
-    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 255, 127, 0, 64 }; // change of colors away from set transparency
-    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 255, 200, 127, 64 }; // change of display transpareny for anti-aliasing of line (just for display
+    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 200, 100, 150 }; // change of colors away from set transparency
+    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 200, 64, 16 }; // change of display transpareny for anti-aliasing of line (just for display
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto transparencyVal = mTransparencyPaintHeightsCPU[x];

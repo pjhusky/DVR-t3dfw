@@ -23,6 +23,8 @@ void main() {
     if ( u_mode >= 1 ) { // also bg tex (for example for overlaying transparencies over histo tex)
         float bgVal = texture( u_bgTex, v_coord3d.xy ).r;
         vec3 bgCol = vec3( bgVal );
+        color.rgb = mix(bgCol, vec3(color.r), color.g);
+        //color.rgb = mix(vec3(0.3), vec3(0.8), color.g);
     }
 
     o_fragColor.rgb = color.rgb;

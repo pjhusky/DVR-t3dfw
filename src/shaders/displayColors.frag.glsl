@@ -26,5 +26,6 @@ void main() {
     }
 
     o_fragColor.rgb = color.rgb;
-    o_fragColor.a = 1.0;
+    //o_fragColor.a = 1.0;
+    o_fragColor.a = rawTexVal.a;
 }

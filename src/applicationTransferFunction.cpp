@@ -237,8 +237,12 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
-    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+
+    mDensityColors.clear();
+    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
     colorKeysToTex2d();
 
     {
@@ -386,7 +390,8 @@ Status_t ApplicationTransferFunction::run() {
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
 
     //bool guiWantsMouseCapture = false;
-    linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
+    //linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
+    linAlg::vec3_t clearColor{ 0.0f, 0.0f, 0.0f };
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
@@ -533,6 +538,7 @@ Status_t ApplicationTransferFunction::run() {
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
             const float clearColorValue[]{ clearColor[0], clearColor[1], clearColor[2], 0.0f };
+            //const float clearColorValue[]{ clearColor[0], clearColor[1], clearColor[2], 1.0f };
             glClearBufferfv( GL_COLOR, 0, clearColorValue );
             constexpr float clearDepthValue = 1.0f;
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
@@ -574,6 +580,10 @@ Status_t ApplicationTransferFunction::run() {
             mpDensityHistogramTex2d->unbindFromTexUnit();
         }
 
+        glEnable(GL_BLEND);
+        //glBlendFunc( GL_ONE, GL_ONE );
+        //glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         if ( mpDensityColorsTex2d != nullptr ) {
             mpDensityColorsTex2d->bindToTexUnit( 2 );
             shader.setInt( "u_mapTex", 2 );
@@ -581,6 +591,7 @@ Status_t ApplicationTransferFunction::run() {
             glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );        
             mpDensityColorsTex2d->unbindFromTexUnit();
         }
+        glDisable(GL_BLEND);
 
         shader.use( false );
         glBindVertexArray( 0 );
@@ -729,7 +740,9 @@ void ApplicationTransferFunction::colorKeysToTex2d() {
              interpolatedDataCPU[idx * 4 + 0] = static_cast<uint8_t>( mixRGB[0] * 255.0f );
              interpolatedDataCPU[idx * 4 + 1] = static_cast<uint8_t>( mixRGB[1] * 255.0f );
              interpolatedDataCPU[idx * 4 + 2] = static_cast<uint8_t>( mixRGB[2] * 255.0f );
-             interpolatedDataCPU[idx * 4 + 3] = 255u;
+             //interpolatedDataCPU[idx * 4 + 3] = 255u;
+             interpolatedDataCPU[idx * 4 + 3] = mTransparencyPaintHeightsCPU[idx];
+             //interpolatedDataCPU[idx * 4 + 3] = 0u;
 
          }
          //for ( float fx = 0.0f; fx <= 1.0f; fx += 1.0f / (endX - startX + 1) ) {
@@ -787,8 +800,8 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     constexpr int32_t kernelSize = 4;
     constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
 
-    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 255, 127, 0, 64 };
-    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 255, 200, 127, 64 };
+    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 255, 127, 0, 64 }; // change of colors away from set transparency
+    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 255, 200, 127, 64 }; // change of display transpareny for anti-aliasing of line (just for display
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto transparencyVal = mTransparencyPaintHeightsCPU[x];

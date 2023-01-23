@@ -184,6 +184,39 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
 
         mTransparencyPaintHeightsCPU.resize( texDesc.texDim[0] );
+
+        { // transparencies
+
+            {// linear ramp
+                const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
+                for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
+                    mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
+                }
+            }
+
+            densityTransparenciesToTex2d();
+        }
+
+    }
+
+    { // histogram
+        GfxAPI::Texture::Desc_t texDesc{
+            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
+            .numChannels = 1,
+            .channelType = GfxAPI::eChannelType::i8,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        delete mpDensityHistogramTex2d;
+
+        mpDensityHistogramTex2d = new GfxAPI::Texture;
+        mpDensityHistogramTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+    #if ( IS_READY != 0 )
+        mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
+    #endif
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
     { // colors
@@ -204,29 +237,18 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
-    { // histogram
-        GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
-            .numChannels = 1,
-            .channelType = GfxAPI::eChannelType::i8,
-            .semantics = GfxAPI::eSemantics::color,
-            .isMipMapped = false,
-        };
-        delete mpDensityHistogramTex2d;
-    
-        mpDensityHistogramTex2d = new GfxAPI::Texture;
-        mpDensityHistogramTex2d->create( texDesc );
-        const uint32_t mipLvl = 0;
-    #if ( IS_READY != 0 )
-        mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
-    #endif
-        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
-    }
-
     mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
     mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
     colorKeysToTex2d();
+
+    {
+        std::vector<uint8_t> densityHistogramCPU;
+        const uint32_t dim_x = mpDensityHistogramTex2d->desc().texDim[0];
+        const uint32_t dim_y = mpDensityHistogramTex2d->desc().texDim[1];
+        densityHistogramCPU.resize( dim_x * dim_y );
+        std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 255 );
+        mpDensityHistogramTex2d->uploadData( densityHistogramCPU.data(), GL_RED, GL_UNSIGNED_BYTE, 0 );
+    }
 
     printf( "end ApplicationTransferFunction ctor\n" );
 }

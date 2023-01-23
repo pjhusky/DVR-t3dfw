@@ -160,6 +160,10 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
     printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
 
+    
+    mHistogramBuckets.resize( mNumHistogramBuckets );
+
+
     { // transparency
         GfxAPI::Texture::Desc_t texDesc{
             .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
@@ -198,7 +202,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         GfxAPI::Texture::Desc_t texDesc{
             .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
             .numChannels = 1,
-            .channelType = GfxAPI::eChannelType::i16,
+            .channelType = GfxAPI::eChannelType::i8,
             .semantics = GfxAPI::eSemantics::color,
             .isMipMapped = false,
         };
@@ -350,11 +354,6 @@ Status_t ApplicationTransferFunction::run() {
     shader.setInt( "u_mapTex", 0 );
     shader.use( false );
 
-    
-    
-    std::vector< uint32_t > histogramBuckets;
-    histogramBuckets.resize( mNumHistogramBuckets );
-
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
 
     //bool guiWantsMouseCapture = false;
@@ -374,10 +373,13 @@ Status_t ApplicationTransferFunction::run() {
                 printf( "shared mem read tex dim %d %d %d\n", texDim[0], texDim[1], texDim[2] );
             }
 
-            const auto resultHistoBuckets = mSharedMem.get( "histoBuckets", histogramBuckets.data(), histogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
+            const auto resultHistoBuckets = mSharedMem.get( "histoBuckets", mHistogramBuckets.data(), mHistogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
             if ( resultHistoBuckets == true ) {
-                assert( bytesRead == histogramBuckets.size() * sizeof( uint32_t ) );
+                assert( bytesRead == mHistogramBuckets.size() * sizeof( uint32_t ) );
             }
+
+            densityHistogramToTex2d();
+
             mSharedMem.put( "histoBucketsDirty", "false" );
             printf( "resultHistoBuckets = %s\n", resultHistoBuckets ? "true" : "false" );
         }
@@ -507,11 +509,18 @@ Status_t ApplicationTransferFunction::run() {
 
         mpDensityColorsTex2d->bindToTexUnit( 0 );
         shader.setInt( "u_mapTex", 0 );
-
         shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 1.0f - mRelativeCoordY_DensityColors, mRelativeCoordY_DensityColors } );
-
         glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 
+
+        mpDensityHistogramTex2d->bindToTexUnit( 1 );
+        shader.setInt( "u_mapTex", 1 );
+        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 0.4f, 0.5f } );
+        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+
+        if ( mpDensityColorsTex2d != nullptr ) {
+            mpDensityColorsTex2d->unbindFromTexUnit();
+        }
         if (mpDensityHistogramTex2d != nullptr) {
             mpDensityHistogramTex2d->unbindFromTexUnit();
         }
@@ -682,6 +691,35 @@ void ApplicationTransferFunction::colorKeysToTex2d() {
          currLeft = currRight;
     }
 
-    printf( "같같 ----- 같같\n" );
+    //printf( "같같 ----- 같같\n" );
     mpDensityColorsTex2d->uploadData( interpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+}
+
+void ApplicationTransferFunction::densityHistogramToTex2d() {
+    std::vector<uint8_t> densityHistogramCPU;
+    const uint32_t dim_x = mpDensityHistogramTex2d->desc().texDim[0];
+    const uint32_t dim_y = mpDensityHistogramTex2d->desc().texDim[1];
+    densityHistogramCPU.resize( dim_x * dim_y );
+    std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 0 );
+
+    printf( "1\n" );
+
+    uint32_t maxHistoVal = 1;
+    for( uint32_t x = 30; x < mNumHistogramBuckets; x++ ) {
+        maxHistoVal = linAlg::maximum( maxHistoVal, mHistogramBuckets[x] );
+    }
+    const float fRecipMaxHistoVal = 1.0f / static_cast<float>( maxHistoVal );
+
+    printf( "2\n" );
+
+    for( uint32_t x = 0; x < dim_x; x++ ) {
+        const auto histoVal = mHistogramBuckets[x];
+        const float relativeHistoH = histoVal * fRecipMaxHistoVal;
+        for ( uint32_t y = 0; y < static_cast<uint32_t>(relativeHistoH * dim_y); y++ ) {
+            if ( y >= dim_y ) { break; }
+            densityHistogramCPU[ y * dim_x + x ] = 255;
+        }
+    }
+    printf( "3\n" );
+    mpDensityHistogramTex2d->uploadData( densityHistogramCPU.data(), GL_RED, GL_UNSIGNED_BYTE, 0 );
 }

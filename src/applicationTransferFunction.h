@@ -36,6 +36,7 @@ struct ApplicationTransferFunction : public iApplication {
 private:
 
     void colorKeysToTex2d();
+    void densityHistogramToTex2d();
 
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
@@ -43,6 +44,8 @@ private:
     GfxAPI::Texture*                mpDensityTransparencyTex2d;
     GfxAPI::Texture*                mpDensityColorsTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
+
+    std::vector< uint32_t >         mHistogramBuckets;
 
     //struct colorElement_t {
     //    uint32_t       index;

@@ -147,7 +147,7 @@ namespace {
 ApplicationTransferFunction::ApplicationTransferFunction(
     const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
-    , mpDensityTransparencyTex2d( nullptr )
+    , mpDensityTransparenciesTex2d( nullptr )
     , mpDensityColorsTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
     , mpColorPickerProcess( nullptr )
@@ -170,18 +170,20 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     { // transparency
         GfxAPI::Texture::Desc_t texDesc{
             .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
-            .numChannels = 1,
-            .channelType = GfxAPI::eChannelType::i16,
+            .numChannels = 2,
+            .channelType = GfxAPI::eChannelType::i8,
             .semantics = GfxAPI::eSemantics::color,
             .isMipMapped = false,
         };
-        delete mpDensityTransparencyTex2d;
+        delete mpDensityTransparenciesTex2d;
 
-        mpDensityTransparencyTex2d = new GfxAPI::Texture;
-        mpDensityTransparencyTex2d->create( texDesc );
+        mpDensityTransparenciesTex2d = new GfxAPI::Texture;
+        mpDensityTransparenciesTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityTransparencyTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-        mpDensityTransparencyTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+
+        mTransparencyPaintHeightsCPU.resize( texDesc.texDim[0] );
     }
 
     { // colors
@@ -199,6 +201,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         const uint32_t mipLvl = 0;
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
+        //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
     { // histogram
@@ -355,6 +358,7 @@ Status_t ApplicationTransferFunction::run() {
     gfxUtils::createShader( shader, meshShaderDesc );
     shader.use( true );
     shader.setInt( "u_mapTex", 0 );
+    shader.setInt( "u_mode", 0 );
     shader.use( false );
 
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
@@ -382,6 +386,19 @@ Status_t ApplicationTransferFunction::run() {
             }
 
             densityHistogramToTex2d();
+
+            { // transparencies
+                
+                {// linear ramp
+                    const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
+                    for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
+                        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
+                    }
+                }
+
+                densityTransparenciesToTex2d();
+            }
+
 
             mSharedMem.put( "histoBucketsDirty", "false" );
             printf( "resultHistoBuckets = %s\n", resultHistoBuckets ? "true" : "false" );
@@ -415,7 +432,14 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            if ( currMouseY < mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) {
+            const float maxY_transparencies = mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1];
+            if ( currMouseY < maxY_transparencies ) {
+
+                const float relMouseX = currMouseX / fbWidth;
+                const float relMouseY = currMouseY / maxY_transparencies;
+
+                const uint32_t texX = static_cast<uint32_t>( relMouseX * mpDensityTransparenciesTex2d->desc().texDim[0] );
+                const uint32_t texY = static_cast<uint32_t>( relMouseY * mpDensityTransparenciesTex2d->desc().texDim[1] );
 
             } else if ( currMouseY > mScaleAndOffset_Colors[1] * fbHeight ) {
                 unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
@@ -512,21 +536,28 @@ Status_t ApplicationTransferFunction::run() {
         //    mpDensityHistogramTex2d->bindToTexUnit( 0 );
         //}
 
-        mpDensityHistogramTex2d->bindToTexUnit( 1 );
-        shader.setInt( "u_mapTex", 1 );
-        shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
-        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+        if ( mpDensityTransparenciesTex2d != nullptr ) {
+            mpDensityTransparenciesTex2d->bindToTexUnit( 0 );
+            shader.setInt( "u_mapTex", 0 );
+            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Transparencies );
+            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+            mpDensityTransparenciesTex2d->unbindFromTexUnit();
+        }
 
-        mpDensityColorsTex2d->bindToTexUnit( 0 );
-        shader.setInt( "u_mapTex", 0 );
-        shader.setVec2( "u_scaleOffset", mScaleAndOffset_Colors );
-        glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+        if (mpDensityHistogramTex2d != nullptr) {
+            mpDensityHistogramTex2d->bindToTexUnit( 1 );
+            shader.setInt( "u_mapTex", 1 );
+            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
+            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+            mpDensityHistogramTex2d->unbindFromTexUnit();
+        }
 
         if ( mpDensityColorsTex2d != nullptr ) {
+            mpDensityColorsTex2d->bindToTexUnit( 2 );
+            shader.setInt( "u_mapTex", 2 );
+            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Colors );
+            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );        
             mpDensityColorsTex2d->unbindFromTexUnit();
-        }
-        if (mpDensityHistogramTex2d != nullptr) {
-            mpDensityHistogramTex2d->unbindFromTexUnit();
         }
 
         shader.use( false );
@@ -704,7 +735,7 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
     const uint32_t dim_x = mpDensityHistogramTex2d->desc().texDim[0];
     const uint32_t dim_y = mpDensityHistogramTex2d->desc().texDim[1];
     densityHistogramCPU.resize( dim_x * dim_y );
-    std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 0 );
+    std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 255 );
 
     uint32_t maxHistoVal = 1;
     for( uint32_t x = 30; x < mNumHistogramBuckets; x++ ) {
@@ -717,9 +748,50 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
         const float relativeHistoH = histoVal * fRecipMaxHistoVal;
         for ( uint32_t y = 0; y < static_cast<uint32_t>(relativeHistoH * dim_y); y++ ) {
             if ( y >= dim_y ) { break; }
-            densityHistogramCPU[ y * dim_x + x ] = 255;
+            densityHistogramCPU[ y * dim_x + x ] = 120;
         }
     }
 
     mpDensityHistogramTex2d->uploadData( densityHistogramCPU.data(), GL_RED, GL_UNSIGNED_BYTE, 0 );
+}
+
+void ApplicationTransferFunction::densityTransparenciesToTex2d() {
+    std::vector<uint8_t> densityTransparenciesCPU;
+    const uint32_t dim_x = mpDensityTransparenciesTex2d->desc().texDim[0];
+    const uint32_t dim_y = mpDensityTransparenciesTex2d->desc().texDim[1];
+    densityTransparenciesCPU.resize( dim_x * dim_y * mpDensityTransparenciesTex2d->desc().numChannels ); // GL_RG texture
+    std::fill( densityTransparenciesCPU.begin(), densityTransparenciesCPU.end(), 0 );
+
+    constexpr int32_t kernelSize = 4;
+    constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
+
+    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 255, 127, 0, 64 };
+    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 255, 200, 127, 64 };
+
+    for( uint32_t x = 0; x < dim_x; x++ ) {
+        const auto transparencyVal = mTransparencyPaintHeightsCPU[x];
+        //const float relativeHistoH = transparencyVal * fRecipMaxHistoVal;
+        //for ( uint32_t y = 0; y < static_cast<uint32_t>(relativeHistoH * dim_y); y++ ) {
+        //    if ( y >= dim_y ) { break; }
+        //    densityTransparenciesCPU[ y * dim_x + x ] = 120;
+        //}
+
+
+        int32_t centerY = static_cast<int32_t>( static_cast<float>( transparencyVal ) * (1.0f/255.0f) * dim_y );
+        for (  int32_t y = linAlg::maximum( 0, centerY - kernelSize ); y < linAlg::minimum<int32_t>( centerY + kernelSize, dim_y - 1 ); y++ ) {
+            uint32_t addr = ( y * dim_x + x ) * 2;
+
+            // addr + 0
+            // addr + 1
+
+            const int32_t absDistToCenter = abs(centerY - y);
+            //const float fAbsDistToCenter01 = absDistToCenter * fRecipKernelSize;
+
+            densityTransparenciesCPU[ addr + 0 ] = kernelColorProile[absDistToCenter];
+            densityTransparenciesCPU[ addr + 1 ] = kernelAlphaProile[absDistToCenter];
+        }
+    }
+
+    mpDensityTransparenciesTex2d->uploadData( densityTransparenciesCPU.data(), GL_RG, GL_UNSIGNED_BYTE, 0 );
+
 }

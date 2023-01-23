@@ -37,19 +37,22 @@ private:
 
     void colorKeysToTex2d();
     void densityHistogramToTex2d();
+    void densityTransparenciesToTex2d();
 
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
-    GfxAPI::Texture*                mpDensityTransparencyTex2d;
+    GfxAPI::Texture*                mpDensityTransparenciesTex2d;
     GfxAPI::Texture*                mpDensityColorsTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
 
     std::vector< uint32_t >         mHistogramBuckets;
 
+    std::vector<uint8_t>            mTransparencyPaintHeightsCPU;
     linAlg::vec2_t                  mScaleAndOffset_Transparencies;
     linAlg::vec2_t                  mScaleAndOffset_Histograms;
     linAlg::vec2_t                  mScaleAndOffset_Colors;
+    
 
     //struct colorElement_t {
     //    uint32_t       index;

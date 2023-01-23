@@ -190,7 +190,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityColorsTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
     }
 
     { // histogram
@@ -503,6 +503,8 @@ Status_t ApplicationTransferFunction::run() {
 
         mpDensityColorsTex2d->bindToTexUnit( 0 );
         shader.setInt( "u_mapTex", 0 );
+
+        shader.setVec2( "u_scaleOffset", GfxAPI::Shader::vec2_t{ 0.1f, 0.9f } );
 
         glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 

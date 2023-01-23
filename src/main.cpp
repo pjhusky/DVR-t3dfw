@@ -213,10 +213,12 @@ int main( int argc, const char* argv[] )
     //pApp->run();
     //return 0;
 
-    //std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
-    //reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
-    //pApp->run();
-    //return 0;
+#if 0
+    std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
+    reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
+    pApp->run();
+    return 0;
+#endif
 
     if (argParser.exists( "transferFunction" )) {
         printf( "main: spin up transfer-function app!\n" );

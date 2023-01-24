@@ -1,5 +1,9 @@
 #include "DVR_GUI.h"
-#include "ImGradientiHDR/ImGradientHDR.h"
+
+#if 0
+    #include "ImGradientiHDR/ImGradientHDR.h"
+#endif
+
 #include "gfxAPI/contextOpenGL.h"
 
 //#include "volumeData.h"
@@ -16,8 +20,10 @@
 
 
 namespace {
+#if 0
     ImGradientHDRState gradientState;
     ImGradientHDRTemporaryState temporaryGradientState;
+#endif
 
     static float guiScale = 1.0f;
     static auto guiButtonSize() { return ImVec2{ 400, 40 }; }
@@ -36,6 +42,7 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     ImGui_ImplGlfw_InitForOpenGL( reinterpret_cast<GLFWwindow*>(contextOpenGL.window()), true );
     ImGui_ImplOpenGL3_Init( "#version 330" );
 
+#if 0
     gradientState.AddColorMarker( 0.0f, { 0.0f, 1.0f, 0.0f }, 0.8f );
     gradientState.AddColorMarker( 0.2f, { 1.0f, 0.0f, 0.0f }, 0.8f );
     gradientState.AddColorMarker( 0.8f, { 0.0f, 0.0f, 1.0f }, 0.8f );
@@ -43,6 +50,7 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     gradientState.AddAlphaMarker( 0.0f, 1.0f );
     gradientState.AddAlphaMarker( 0.5f, 0.2f );
     gradientState.AddAlphaMarker( 1.0f, 1.0f );
+#endif
 
     DVR_GUI::rayMarchAlgoNames = std::vector< const char* >{
         "eRayMarchAlgo::backfaceCubeRaster",
@@ -140,7 +148,7 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
 
-
+#if 0
     int32_t gradientID = 0;
     
     const bool isMarkerShown = true;
@@ -155,7 +163,7 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
             gradientState.GetColorMarker( temporaryGradientState.selectedIndex )->Color.data(), 
             ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions /*| ImGuiColorEditFlags_NoSmallPreview*/ );
     }
-
+#endif
     //ImGui::PlotHistogram
     //static float col2[4] = { 0.4f, 0.7f, 0.0f, 0.5f };
     ////ImGui::SameLine(); 

@@ -7,7 +7,8 @@
 #include <tchar.h>
 #include <filesystem>
 
-#include "ApplicationTransferFunction.h"
+#include "applicationDVR_common.h"
+#include "applicationTransferFunction.h"
 #include "stringUtils.h"
 
 #include "gfxAPI/contextOpenGL.h"
@@ -171,7 +172,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
 
     { // transparency
-        GfxAPI::Texture::Desc_t texDesc{
+        const GfxAPI::Texture::Desc_t texDesc{
             .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
             .numChannels = 2,
             .channelType = GfxAPI::eChannelType::i8,
@@ -190,20 +191,24 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
         { // transparencies
 
-            {// linear ramp
+            uint32_t bytesRead;
+            bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size(), &bytesRead );
+            if ( !foundTransparencies ) {// linear ramp
                 const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
                 for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
                     mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
                 }
             }
-
             densityTransparenciesToTex2d();
+
+            mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size() );
+            mSharedMem.put( "TFdirty", "true" );
         }
 
     }
 
     { // histogram
-        GfxAPI::Texture::Desc_t texDesc{
+        const GfxAPI::Texture::Desc_t texDesc{
             .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
             .numChannels = 1,
             .channelType = GfxAPI::eChannelType::i8,
@@ -223,13 +228,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     }
 
     { // colors
-        GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 1, 0 },
-            .numChannels = 4,
-            .channelType = GfxAPI::eChannelType::i8,
-            .semantics = GfxAPI::eSemantics::color,
-            .isMipMapped = false,
-        };
+        const GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
         delete mpDensityColorsTex2d;
 
         mpDensityColorsTex2d = new GfxAPI::Texture;
@@ -249,6 +248,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
 
     colorKeysToTex2d();
+    mSharedMem.put( "TFdirty", "true" );
 
     {
         std::vector<uint8_t> densityHistogramCPU;
@@ -269,6 +269,13 @@ ApplicationTransferFunction::~ApplicationTransferFunction() {
     delete mpDensityHistogramTex2d;
     mpDensityHistogramTex2d = nullptr;
     
+    delete mpDensityTransparenciesTex2d;
+    mpDensityTransparenciesTex2d = nullptr;
+
+    delete mpDensityColorsTex2d;
+    mpDensityColorsTex2d = nullptr;
+
+
     if (mpColorPickerProcess) { mpColorPickerProcess->close_stdin(); mpColorPickerProcess->kill(); int exitStatus = mpColorPickerProcess->get_exit_status(); }
     delete mpColorPickerProcess;
     mpColorPickerProcess = nullptr;
@@ -393,6 +400,7 @@ Status_t ApplicationTransferFunction::run() {
     shader.use( false );
 
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
+    bool inTransparencyInteractionMode = false;
 
     //bool guiWantsMouseCapture = false;
     //linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
@@ -421,15 +429,15 @@ Status_t ApplicationTransferFunction::run() {
 
             densityHistogramToTex2d();
 
-            { // transparencies
-                
-                {// linear ramp
+            { // transparencies                
+                uint32_t bytesRead;
+                bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size(), &bytesRead );
+                if ( !foundTransparencies ) {// linear ramp
                     const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
                     for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
                         mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
                     }
                 }
-
                 densityTransparenciesToTex2d();
             }
 
@@ -463,26 +471,44 @@ Status_t ApplicationTransferFunction::run() {
         //    leftMouseButton_down = false;
         //}
 
+        if ( !leftMouseButtonPressed ) { inTransparencyInteractionMode = false; }
+
+
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
             const float maxY_transparencies = ( mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) * fbHeight;
             if ( currMouseY < maxY_transparencies ) {
 
-                const float relMouseX = currMouseX / fbWidth;
+                inTransparencyInteractionMode = true;
+
+                float relMouseStartX = currMouseX / fbWidth;
+                float relMouseEndX   = prevMouseX / fbWidth;
+                if ( relMouseEndX < relMouseStartX ) { std::swap( relMouseStartX, relMouseEndX ); }
+
                 const float relMouseY = currMouseY / maxY_transparencies;
 
-                const uint32_t texX = static_cast<uint32_t>( relMouseX * ( mpDensityTransparenciesTex2d->desc().texDim[0] - 1 ) );
+                const uint32_t texStartX = static_cast<uint32_t>( relMouseStartX * ( mpDensityTransparenciesTex2d->desc().texDim[0] - 1 ) );
+                const uint32_t texEndX   = static_cast<uint32_t>( relMouseEndX   * ( mpDensityTransparenciesTex2d->desc().texDim[0] - 1 ) );
                 const uint32_t texY = static_cast<uint32_t>( (1.0f - relMouseY ) * ( mpDensityTransparenciesTex2d->desc().texDim[1] - 1 ) );
 
                 const int32_t kernelSize = 4;
-                for ( int32_t x = linAlg::maximum<int32_t>( texX - kernelSize, 0 ); x < linAlg::minimum<int32_t>( texX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] ); x++ ) {
+                for ( int32_t x = linAlg::maximum<int32_t>( texStartX - kernelSize, 0 ); x < linAlg::minimum<int32_t>( texEndX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] ); x++ ) {
                     mTransparencyPaintHeightsCPU[x] = texY;
                 }
 
                 densityTransparenciesToTex2d();
 
-            } else if ( currMouseY > mScaleAndOffset_Colors[1] * fbHeight ) {
+                mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size() );
+                
+
+
+                colorKeysToTex2d(); // uses the updated transparencies for the alpha value!
+
+                mSharedMem.put( "TFcolorsAndAlpha", mInterpolatedDataCPU.data(), mInterpolatedDataCPU.size() );
+                mSharedMem.put( "TFdirty", "true" );
+
+            } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[1] * fbHeight && !leftMouseButton_down ) {
                 unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
                 auto lTheHexColor = tinyfd_colorChooser(
                     "Choose Transfer-function Color",
@@ -560,10 +586,6 @@ Status_t ApplicationTransferFunction::run() {
         }
 
         
-        const auto queriedSmVal = mSharedMem.get( "lock free" );
-
-        mSharedMem.put( "from TF", "from TF value!" ); 
-
         //if ( frameNum % 200 == 0 ) { printf( "in TF from SM for \"lock free\": %s\n", queriedSmVal.c_str() ); }
 
         glCheckError();
@@ -743,7 +765,7 @@ Status_t ApplicationTransferFunction::run() {
 }
 
 void ApplicationTransferFunction::colorKeysToTex2d() {
-    std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
+    
     auto currLeft = mDensityColors.begin();
     auto currRight = mDensityColors.begin();
     for ( ++currRight; currRight != mDensityColors.end(); currRight++ ) {
@@ -758,43 +780,19 @@ void ApplicationTransferFunction::colorKeysToTex2d() {
          for ( uint32_t idx = startX; idx <= endX; idx++ ) {
              float fx = static_cast<float>(idx - startX) / static_cast<float>(endX - startX);
              const auto mixRGB = startColor * (1.0f-fx) + endColor * fx;
-             //interpolatedDataCPU[idx] = 
-             //    ( static_cast<uint32_t>( mixRGB[0] * 255.0f ) << 24u ) |
-             //    ( static_cast<uint32_t>( mixRGB[1] * 255.0f ) << 16u ) |
-             //    ( static_cast<uint32_t>( mixRGB[2] * 255.0f ) <<  8u ) | 255u;
 
-             //interpolatedDataCPU[idx] = 0xFFFFFFFF;
-             //interpolatedDataCPU[idx * 4 + 0] = 0x6F;
-             //interpolatedDataCPU[idx * 4 + 1] = 0x6F;
-             //interpolatedDataCPU[idx * 4 + 2] = 0x6F;
-             //interpolatedDataCPU[idx * 4 + 3] = 0x6F;
+             mInterpolatedDataCPU[idx * 4 + 0] = static_cast<uint8_t>( mixRGB[0] * 255.0f );
+             mInterpolatedDataCPU[idx * 4 + 1] = static_cast<uint8_t>( mixRGB[1] * 255.0f );
+             mInterpolatedDataCPU[idx * 4 + 2] = static_cast<uint8_t>( mixRGB[2] * 255.0f );
 
-             interpolatedDataCPU[idx * 4 + 0] = static_cast<uint8_t>( mixRGB[0] * 255.0f );
-             interpolatedDataCPU[idx * 4 + 1] = static_cast<uint8_t>( mixRGB[1] * 255.0f );
-             interpolatedDataCPU[idx * 4 + 2] = static_cast<uint8_t>( mixRGB[2] * 255.0f );
-             //interpolatedDataCPU[idx * 4 + 3] = 255u;
-             interpolatedDataCPU[idx * 4 + 3] = mTransparencyPaintHeightsCPU[idx];
-             //interpolatedDataCPU[idx * 4 + 3] = 0u;
-
+             mInterpolatedDataCPU[idx * 4 + 3] = mTransparencyPaintHeightsCPU[idx];
          }
-         //for ( float fx = 0.0f; fx <= 1.0f; fx += 1.0f / (endX - startX + 1) ) {
-
-         //    const auto mixRGB = startColor * (1.0f-fx) + endColor * fx;
-
-         //    /*interpolatedDataCPU[startX+idx] = 
-         //        ( static_cast<uint32_t>( mixRGB[0] * 255.0f ) << 24u ) |
-         //        ( static_cast<uint32_t>( mixRGB[1] * 255.0f ) << 16u ) |
-         //        ( static_cast<uint32_t>( mixRGB[2] * 255.0f ) <<  8u ) | 255u;*/
-
-         //    interpolatedDataCPU[startX+idx] = 0xFFFFFFFF;
-         //    idx++;
-         //}
-
+         
          currLeft = currRight;
     }
 
     //printf( "같같 ----- 같같\n" );
-    mpDensityColorsTex2d->uploadData( interpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+    mpDensityColorsTex2d->uploadData( mInterpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 }
 
 void ApplicationTransferFunction::densityHistogramToTex2d() {
@@ -860,5 +858,4 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     }
 
     mpDensityTransparenciesTex2d->uploadData( densityTransparenciesCPU.data(), GL_RG, GL_UNSIGNED_BYTE, 0 );
-
 }

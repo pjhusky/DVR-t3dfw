@@ -4,6 +4,7 @@ in vec3 v_coord3d;
 layout ( location = 0 ) out vec4 o_fragColor;
 
 uniform sampler3D u_densityTex;
+uniform sampler2D u_colorAndAlphaTex;
 
 uniform vec3 u_minMaxScaleVal;
 uniform vec4 u_camPos_OS;

@@ -20,8 +20,9 @@
 //#include <namedpipeapi.h>
 //#include <Windows.h>
 
+#include "applicationDVR_common.h"
 
-#include "ApplicationDVR.h"
+#include "applicationDVR.h"
 #include "fileLoaders/volumeData.h"
 #include "fileLoaders/offLoader.h"
 #include "fileLoaders/stlModel.h" // used for the unit-cube
@@ -241,6 +242,7 @@ ApplicationDVR::ApplicationDVR(
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
     , mpNormalTex3d( nullptr )
+    , mpDensityColorsTex2d( nullptr )
     , mpProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true ) {
@@ -259,6 +261,9 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpNormalTex3d;
     mpNormalTex3d = nullptr;
     
+    delete mpDensityColorsTex2d;
+    mpDensityColorsTex2d = nullptr;
+
     //if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
     if (mpProcess) { mSharedMem.put( "stopTransferFunctionApp", "true" ); int exitStatus = mpProcess->get_exit_status(); }
     delete mpProcess;
@@ -431,6 +436,7 @@ Status_t ApplicationDVR::run() {
     volShader.use( true );
     volShader.setInt( "u_densityTex", 0 );
     volShader.setFloat( "u_recipTexDim", 1.0f );
+    volShader.setInt( "u_colorAndAlphaTex", 7 );
     volShader.use( false );
     
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
@@ -503,9 +509,22 @@ Status_t ApplicationDVR::run() {
     gfxUtils::createShader( meshShader, meshShaderDesc );
     meshShader.use( true );
     meshShader.setInt( "u_densityTex", 0 );
+    meshShader.setInt( "u_colorAndAlphaTex", 7 );
     meshShader.use( false );
 
     tryStartTransferFunctionApp(); // start TF process
+
+    { // colors
+        const GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
+
+        mpDensityColorsTex2d = new GfxAPI::Texture;
+        mpDensityColorsTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
+        //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    }
+
 
     bool guiWantsMouseCapture = false;
 
@@ -514,6 +533,19 @@ Status_t ApplicationDVR::run() {
 
         const auto frameStartTime = std::chrono::system_clock::now();
         
+        if ( frameNum % 5 == 0 && mSharedMem.get( "TFdirty" ) == "true" ) {
+            std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
+
+            uint32_t bytesRead;
+            bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDataCPU.data(), interpolatedDataCPU.size(), &bytesRead );
+            if ( retVal ) {
+                assert( retVal == true && bytesRead == interpolatedDataCPU.size() );
+
+                mpDensityColorsTex2d->uploadData( interpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+                mSharedMem.put( "TFdirty", "false" );
+            }
+        }
+
         glfwPollEvents();
         processInput( pWindow );
         glfwGetCursorPos( pWindow, &dCurrMouseX, &dCurrMouseY );
@@ -731,6 +763,8 @@ Status_t ApplicationDVR::run() {
         //       this should make data traversal easier...
 
 
+        mpDensityColorsTex2d->bindToTexUnit( 7 );
+
     #if 1 // unit-cube STL file
         if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster ) {
             glEnable( GL_CULL_FACE );
@@ -925,6 +959,16 @@ Status_t ApplicationDVR::run() {
 }
 
 void ApplicationDVR::tryStartTransferFunctionApp() {
+
+    if ( mpData != nullptr ) {
+        const auto& texDim =  mpDensityTex3d->desc().texDim;
+        const auto& histoBuckets = mpData->getHistoBuckets();
+
+        mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), texDim.size() * sizeof( texDim[0] ) );
+        mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
+        mSharedMem.put( "histoBucketsDirty", "true" );
+    }
+
     int exitStatus;
     if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus )) {
         if (mpProcess) { mpProcess->kill(); }

@@ -46,6 +46,8 @@ private:
     GfxAPI::Texture*                mpDensityColorsTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
 
+    std::array<uint8_t, 1024 * 4>   mInterpolatedDataCPU;
+
     std::vector< uint32_t >         mHistogramBuckets;
 
     std::vector<uint8_t>            mTransparencyPaintHeightsCPU;

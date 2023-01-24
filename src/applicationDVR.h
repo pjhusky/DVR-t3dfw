@@ -53,6 +53,8 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Texture*                mpDensityTex3d;
     GfxAPI::Texture*                mpNormalTex3d;
 
+    GfxAPI::Texture*                mpDensityColorsTex2d;
+
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;
     linAlg::mat3x4_t mViewMatrix3x4;

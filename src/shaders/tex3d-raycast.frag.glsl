@@ -5,6 +5,7 @@ in vec3 v_coord3d;
 layout ( location = 0 ) out vec4 o_fragColor;
 
 uniform sampler3D u_densityTex;
+uniform sampler2D u_colorAndAlphaTex;
 
 // L top
 // L btm

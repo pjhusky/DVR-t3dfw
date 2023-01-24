@@ -156,9 +156,12 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     printf( "begin ApplicationTransferFunction ctor\n" );
 
-    mScaleAndOffset_Transparencies  = { 0.7f, 0.0f };
-    mScaleAndOffset_Histograms      = { 0.2f, 0.7f };
-    mScaleAndOffset_Colors          = { 0.1f, 0.9f };
+    //mScaleAndOffset_Transparencies  = { 0.7f, 0.0f };
+    //mScaleAndOffset_Histograms      = { 0.2f, 0.7f };
+    //mScaleAndOffset_Colors          = { 0.1f, 0.9f };
+
+    mScaleAndOffset_Transparencies  = { 0.8f, 0.0f };
+    mScaleAndOffset_Colors          = { 0.2f, 0.8f };
 
     mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
     printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
@@ -237,12 +240,14 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
-    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
-
     mDensityColors.clear();
-    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+
+    //mDensityColors.clear();
+    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
+
     colorKeysToTex2d();
 
     {
@@ -397,6 +402,8 @@ Status_t ApplicationTransferFunction::run() {
 
         const auto frameStartTime = std::chrono::system_clock::now();
         
+        if ( mSharedMem.get( "stopTransferFunctionApp" ) == "true"  ) { break; }
+
         if ( frameNum % 5 == 0 && mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
             
             uint32_t bytesRead = 0;
@@ -593,13 +600,13 @@ Status_t ApplicationTransferFunction::run() {
 
         shader.setInt( "u_mode", 0 );
 
-        if (mpDensityHistogramTex2d != nullptr) {
-            mpDensityHistogramTex2d->bindToTexUnit( 1 );
-            shader.setInt( "u_mapTex", 1 );
-            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
-            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
-            mpDensityHistogramTex2d->unbindFromTexUnit();
-        }
+        //if (mpDensityHistogramTex2d != nullptr) {
+        //    mpDensityHistogramTex2d->bindToTexUnit( 1 );
+        //    shader.setInt( "u_mapTex", 1 );
+        //    shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
+        //    glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+        //    mpDensityHistogramTex2d->unbindFromTexUnit();
+        //}
 
     #if 0
         glEnable(GL_BLEND);

@@ -259,7 +259,8 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpNormalTex3d;
     mpNormalTex3d = nullptr;
     
-    if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
+    //if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
+    if (mpProcess) { mSharedMem.put( "stopTransferFunctionApp", "true" ); int exitStatus = mpProcess->get_exit_status(); }
     delete mpProcess;
     mpProcess = nullptr;
 }
@@ -503,6 +504,8 @@ Status_t ApplicationDVR::run() {
     meshShader.use( true );
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.use( false );
+
+    tryStartTransferFunctionApp(); // start TF process
 
     bool guiWantsMouseCapture = false;
 
@@ -876,12 +879,7 @@ Status_t ApplicationDVR::run() {
             }
             
             if (guiUserData.editTransferFunction) {
-                int exitStatus;
-                if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus ) ) {
-                    if (mpProcess) { mpProcess->kill(); }
-                    delete mpProcess;
-                    mpProcess = new TinyProcessLib::Process( mCmdLinePath );
-                }
+                tryStartTransferFunctionApp();
             }
 
         }
@@ -924,6 +922,15 @@ Status_t ApplicationDVR::run() {
     #endif
 
     return Status_t::OK();
+}
+
+void ApplicationDVR::tryStartTransferFunctionApp() {
+    int exitStatus;
+    if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus )) {
+        if (mpProcess) { mpProcess->kill(); }
+        delete mpProcess;
+        mpProcess = new TinyProcessLib::Process( mCmdLinePath );
+    }
 }
 
 void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle )

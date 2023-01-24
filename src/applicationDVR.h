@@ -40,6 +40,8 @@ struct ApplicationDVR : public iApplication {
 
     virtual Status_t run() override;
 
+    void tryStartTransferFunctionApp();
+
     void resetTransformations( ArcBall::ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle );
 
     void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mCmdLinePath = cmdLinePath; }

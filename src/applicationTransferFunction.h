@@ -50,7 +50,7 @@ private:
 
     std::vector<uint8_t>            mTransparencyPaintHeightsCPU;
     linAlg::vec2_t                  mScaleAndOffset_Transparencies;
-    linAlg::vec2_t                  mScaleAndOffset_Histograms;
+    //linAlg::vec2_t                  mScaleAndOffset_Histograms;
     linAlg::vec2_t                  mScaleAndOffset_Colors;
     
 

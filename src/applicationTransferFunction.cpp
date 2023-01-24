@@ -239,11 +239,21 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
-    mDensityColors.clear();
-    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
 
-    //mDensityColors.clear();
+    mDensityColors.clear();
+
+    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+
+    mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair(  250, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
+    //mDensityColors.insert( std::make_pair( 200, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
+
     //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
     //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
 
@@ -410,6 +420,11 @@ Status_t ApplicationTransferFunction::run() {
 
         const auto frameStartTime = std::chrono::system_clock::now();
         
+        //std::time_t dvrTime = stringUtils::convStrTo<std::time_t>( mSharedMem.get( "DVR-app-time" ) );
+        //if ( std::chrono::system_clock::to_time_t(frameStartTime) - dvrTime > 5 ) { 
+        //    printf( "WATCHDOG time - haven't heard from DVR app for more than 5sec - bailing out!\n" ); 
+        //}
+
         if ( mSharedMem.get( "stopTransferFunctionApp" ) == "true"  ) { break; }
 
         if ( frameNum % 5 == 0 && mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
@@ -478,9 +493,11 @@ Status_t ApplicationTransferFunction::run() {
             printf( "appTF: LMB pressed\n" );
         #if 1
             const float maxY_transparencies = ( mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) * fbHeight;
-            if ( currMouseY < maxY_transparencies ) {
+            if ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) {
 
                 inTransparencyInteractionMode = true;
+
+                currMouseY = linAlg::clamp( currMouseY, 0.0f, maxY_transparencies - 1.0f );
 
                 float relMouseStartX = currMouseX / fbWidth;
                 float relMouseEndX   = prevMouseX / fbWidth;
@@ -492,8 +509,10 @@ Status_t ApplicationTransferFunction::run() {
                 const uint32_t texEndX   = static_cast<uint32_t>( relMouseEndX   * ( mpDensityTransparenciesTex2d->desc().texDim[0] - 1 ) );
                 const uint32_t texY = static_cast<uint32_t>( (1.0f - relMouseY ) * ( mpDensityTransparenciesTex2d->desc().texDim[1] - 1 ) );
 
-                const int32_t kernelSize = 4;
-                for ( int32_t x = linAlg::maximum<int32_t>( texStartX - kernelSize, 0 ); x < linAlg::minimum<int32_t>( texEndX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] ); x++ ) {
+                const int32_t kernelSize = 2;
+                for (   int32_t x = linAlg::maximum<int32_t>( texStartX - kernelSize, 0 ); 
+                        x < linAlg::minimum<int32_t>( texEndX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] ); 
+                        x++ ) {
                     mTransparencyPaintHeightsCPU[x] = texY;
                 }
 
@@ -505,7 +524,7 @@ Status_t ApplicationTransferFunction::run() {
 
                 colorKeysToTex2d(); // uses the updated transparencies for the alpha value!
 
-                mSharedMem.put( "TFcolorsAndAlpha", mInterpolatedDataCPU.data(), mInterpolatedDataCPU.size() );
+                
                 mSharedMem.put( "TFdirty", "true" );
 
             } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[1] * fbHeight && !leftMouseButton_down ) {
@@ -793,6 +812,9 @@ void ApplicationTransferFunction::colorKeysToTex2d() {
 
     //printf( "같같 ----- 같같\n" );
     mpDensityColorsTex2d->uploadData( mInterpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+
+    mSharedMem.put( "TFcolorsAndAlpha", mInterpolatedDataCPU.data(), mInterpolatedDataCPU.size() );
+
 }
 
 void ApplicationTransferFunction::densityHistogramToTex2d() {
@@ -827,11 +849,11 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     densityTransparenciesCPU.resize( dim_x * dim_y * mpDensityTransparenciesTex2d->desc().numChannels ); // GL_RG texture
     std::fill( densityTransparenciesCPU.begin(), densityTransparenciesCPU.end(), 0 );
 
-    constexpr int32_t kernelSize = 3;
+    constexpr int32_t kernelSize = 2;
     constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
 
-    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 200, 100, 150 }; // change of colors away from set transparency
-    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 200, 64, 16 }; // change of display transpareny for anti-aliasing of line (just for display
+    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 100, 150 }; // change of colors away from set transparency
+    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 64, 16 }; // change of display transpareny for anti-aliasing of line (just for display
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto transparencyVal = mTransparencyPaintHeightsCPU[x];

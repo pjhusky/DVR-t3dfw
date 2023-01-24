@@ -19,6 +19,38 @@ uniform vec4 u_camPos_OS;
 uniform vec3 u_volDimRatio;
 uniform float u_recipTexDim;
 
+#if 0
+vec3 rand01(inout uvec3 x){                   // pseudo-random number generator
+    for (int i=3; i-->0;) x = ((x>>8U)^x.yzx)*1103515245U;
+    return vec3(x)*(1.0/float(0xffffffffU));
+}
+#else
+// http://www.jcgt.org/published/0009/03/02/
+// https://www.shadertoy.com/view/XlGcRh
+vec3 rand01( inout uvec3 v ) {
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    v ^= ( v >> 16u );
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    vec3 fval = vec3( v.x, v.y, v.z );
+    return fval * ( 1.0f / 0xffffffffU );
+}
+#endif
+
+//float RANDOM( inout int g_seed ) {
+//    g_seed = (214013 * g_seed + 2531011);
+//    return ( (g_seed >> 16) & 0x7FFF / 66635.0 );
+//}
+//
+
 // intersect ray with a box
 // http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
 
@@ -73,6 +105,11 @@ void main() {
     vec4 color = vec4( 0.0 );
     float numPosDensities = 1.0;
     
+    uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
+    uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
+//    uvec3 randInput = uvec3( ray_start * 4096.0 );
+    vec3 rnd01 = rand01(randInput);
+
 #if 0 // fixed number of steps (denser sampling on shorter distances, less dense on larger dists)
 
     curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
@@ -106,13 +143,49 @@ void main() {
 //        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
 //    }
 
+    
     vol_step_ray *= 0.0033; // max steps roughly 300
+
+    curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+        
         curr_sample_pos += vol_step_ray;
+
+        rnd01 = rand01(randInput);
+        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
         // texVal = (texVal - u_minMaxScaleVal.x) * u_minMaxScaleVal.z; // we can do this once after the loop
+
+    #if 0
         color += vec4( texVal );
         numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+    #elif 1
+        //texVal *= 4095.0 / 65535.0;
+        texVal *= 65535.0 / 4095.0;
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
+        texVal = colorAndAlpha.a;
+        //color += vec4( texVal );
+        color += vec4( colorAndAlpha.rgb * texVal, texVal );
+        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+    #else
+//        color += vec4( texVal );
+//        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
+        //if ( colorAndAlpha.a > 0.1 ) {
+//            color.rgb += colorAndAlpha.rgb;
+//            numPosDensities += 0.25;
+            //color.rgb = mix ( color.rgb, colorAndAlpha.rgb, colorAndAlpha.a );
+            color = mix ( color, colorAndAlpha, colorAndAlpha.a );
+            numPosDensities += colorAndAlpha.a;
+        //}
+//        color.rgb += colorAndAlpha.rgb;
+//        // numPosDensities += colorAndAlpha.a;
+//        numPosDensities += (colorAndAlpha.a > 0.1) ? 0.25 : 0.0;
+//
+    #endif
     }
 
 #endif

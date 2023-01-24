@@ -516,7 +516,7 @@ Status_t ApplicationDVR::run() {
 
     { // colors
         const GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
-
+        delete mpDensityColorsTex2d;
         mpDensityColorsTex2d = new GfxAPI::Texture;
         mpDensityColorsTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
@@ -532,7 +532,9 @@ Status_t ApplicationDVR::run() {
     while( !glfwWindowShouldClose( pWindow ) ) {
 
         const auto frameStartTime = std::chrono::system_clock::now();
-        
+        std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
+        mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
+
         if ( frameNum % 5 == 0 && mSharedMem.get( "TFdirty" ) == "true" ) {
             std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
 
@@ -575,7 +577,7 @@ Status_t ApplicationDVR::run() {
 
         if (rightMouseButtonPressed) {
             //printf( "RMB pressed!\n" );
-            targetCamZoomDist += mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
+            targetCamZoomDist -= mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
             targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
         }
         if (middleMouseButtonPressed) {
@@ -734,7 +736,8 @@ Status_t ApplicationDVR::run() {
         { // clear screen
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-            constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.0f, 0.0f };
+            //constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.0f, 0.0f };
+            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
             glClearBufferfv( GL_COLOR, 0, clearColorValue );
             constexpr float clearDepthValue = 1.0f;
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );

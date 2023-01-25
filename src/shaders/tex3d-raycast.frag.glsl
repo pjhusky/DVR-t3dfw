@@ -158,9 +158,16 @@ void main() {
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
         // texVal = (texVal - u_minMaxScaleVal.x) * u_minMaxScaleVal.z; // we can do this once after the loop
 
-    #if 0
+    #if 0 // x-Ray
         color += vec4( texVal );
         numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+    #elif 0 // x-Ray with "my" densities, should look like the above => note the corrections regarding the density values (volTex not normalized)
+        texVal *= 65535.0 / 4095.0;
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
+        texVal = colorAndAlpha.a * ( 4095.0 / 65535.0 );
+        color += vec4( texVal );
+        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+
     #elif 1
         //texVal *= 4095.0 / 65535.0;
         texVal *= 65535.0 / 4095.0;

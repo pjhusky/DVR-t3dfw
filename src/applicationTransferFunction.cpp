@@ -456,7 +456,7 @@ Status_t ApplicationTransferFunction::run() {
             break;
         }
 
-        if ( frameNum % 5 == 0 && mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
+        if ( /*frameNum % 3 == 0 &&*/ mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
             
             uint32_t bytesRead = 0;
 

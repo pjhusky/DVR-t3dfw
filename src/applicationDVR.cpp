@@ -556,7 +556,7 @@ Status_t ApplicationDVR::run() {
         std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
         mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
 
-        if ( frameNum % 5 == 0 && mSharedMem.get( "TFdirty" ) == "true" ) {
+        if ( /*frameNum % 3 == 0 &&*/ mSharedMem.get( "TFdirty" ) == "true" ) {
             std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
 
             uint32_t bytesRead;

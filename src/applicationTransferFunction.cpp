@@ -192,30 +192,32 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         { // transparencies
 
             uint32_t bytesRead;
-            bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size(), &bytesRead );
+            bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ), &bytesRead );
             //if ( !foundTransparencies ) {// linear ramp
             //    const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
             //    for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
             //        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
             //    }
             //}
+            const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 20 / 100);
+            const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 30 / 100);
             if (!foundTransparencies) {// linear ramp
-                for (int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size() * 20 / 100; idx++) {
+                for (uint32_t idx = 0; idx < lowerBound; idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 0;
                 }
-                for (int32_t idx = mTransparencyPaintHeightsCPU.size() * 20 / 100; 
-                             idx < mTransparencyPaintHeightsCPU.size() * 40 / 100; idx++) {
+                for (uint32_t idx = lowerBound; 
+                             idx < upperBound; idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 30u;
                 }
 
-                for (int32_t idx = mTransparencyPaintHeightsCPU.size() * 40 / 100; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
+                for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 0;
                 }
 
             }
             densityTransparenciesToTex2d();
 
-            mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size() );
+            mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ) );
             mSharedMem.put( "TFdirty", "true" );
         }
 
@@ -458,13 +460,13 @@ Status_t ApplicationTransferFunction::run() {
             
             uint32_t bytesRead = 0;
 
-            const auto resultVolTexDim3D = mSharedMem.get( "volTexDim3D", texDim.data(), texDim.size() * sizeof( texDim[0] ), &bytesRead );
+            const auto resultVolTexDim3D = mSharedMem.get( "volTexDim3D", texDim.data(), static_cast<uint32_t>( texDim.size() * sizeof( texDim[0] ) ), &bytesRead );
             if ( resultVolTexDim3D == true ) {
                 assert( bytesRead == texDim.size() * sizeof( texDim[0] ) );
                 printf( "shared mem read tex dim %d %d %d\n", texDim[0], texDim[1], texDim[2] );
             }
 
-            const auto resultHistoBuckets = mSharedMem.get( "histoBuckets", mHistogramBuckets.data(), mHistogramBuckets.size() * sizeof( uint32_t ), &bytesRead );
+            const auto resultHistoBuckets = mSharedMem.get( "histoBuckets", mHistogramBuckets.data(), static_cast<uint32_t>( mHistogramBuckets.size() * sizeof( uint32_t ) ), &bytesRead );
             if ( resultHistoBuckets == true ) {
                 assert( bytesRead == mHistogramBuckets.size() * sizeof( uint32_t ) );
             }
@@ -473,7 +475,7 @@ Status_t ApplicationTransferFunction::run() {
 
             { // transparencies                
                 uint32_t bytesRead;
-                bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size(), &bytesRead );
+                bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ), &bytesRead );
                 if ( !foundTransparencies ) {// linear ramp
                     const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
                     for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
@@ -545,7 +547,7 @@ Status_t ApplicationTransferFunction::run() {
 
                 densityTransparenciesToTex2d();
 
-                mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size() );
+                mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ) );
                 
 
 

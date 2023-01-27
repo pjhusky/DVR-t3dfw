@@ -193,11 +193,25 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
             uint32_t bytesRead;
             bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), mTransparencyPaintHeightsCPU.size(), &bytesRead );
-            if ( !foundTransparencies ) {// linear ramp
-                const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
-                for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
-                    mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
+            //if ( !foundTransparencies ) {// linear ramp
+            //    const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
+            //    for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
+            //        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
+            //    }
+            //}
+            if (!foundTransparencies) {// linear ramp
+                for (int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size() * 20 / 100; idx++) {
+                    mTransparencyPaintHeightsCPU[idx] = 0;
                 }
+                for (int32_t idx = mTransparencyPaintHeightsCPU.size() * 20 / 100; 
+                             idx < mTransparencyPaintHeightsCPU.size() * 40 / 100; idx++) {
+                    mTransparencyPaintHeightsCPU[idx] = 30u;
+                }
+
+                for (int32_t idx = mTransparencyPaintHeightsCPU.size() * 40 / 100; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
+                    mTransparencyPaintHeightsCPU[idx] = 0;
+                }
+
             }
             densityTransparenciesToTex2d();
 
@@ -416,6 +430,7 @@ Status_t ApplicationTransferFunction::run() {
     //linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
     linAlg::vec3_t clearColor{ 0.0f, 0.0f, 0.0f };
     uint64_t frameNum = 0;
+    uint64_t parentProcessWatchdogTicks = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
 
         const auto frameStartTime = std::chrono::system_clock::now();
@@ -426,6 +441,18 @@ Status_t ApplicationTransferFunction::run() {
         //}
 
         if ( mSharedMem.get( "stopTransferFunctionApp" ) == "true"  ) { break; }
+
+        if (mSharedMem.get( "DVR_TF_tick" ) == "1") {
+            mSharedMem.put( "DVR_TF_tick", "0" );
+            parentProcessWatchdogTicks = 0;
+        } else {
+            parentProcessWatchdogTicks++;
+        }
+
+        if (parentProcessWatchdogTicks > 180) {
+            printf( "watchdog timer expired, parent process most probably doesn't exist anymore!\n" );
+            break;
+        }
 
         if ( frameNum % 5 == 0 && mSharedMem.get( "histoBucketsDirty" ) == "true" ) {
             
@@ -528,7 +555,10 @@ Status_t ApplicationTransferFunction::run() {
                 mSharedMem.put( "TFdirty", "true" );
 
             } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[1] * fbHeight && !leftMouseButton_down ) {
-                unsigned char lRgbColor[3]{ clearColor[0] * 255.0f, clearColor[1] * 255.0f, clearColor[2] * 255.0f };
+                uint8_t lRgbColor[3]{ 
+                    static_cast<uint8_t>( clearColor[0] * 255.0f ), 
+                    static_cast<uint8_t>( clearColor[1] * 255.0f ), 
+                    static_cast<uint8_t>( clearColor[2] * 255.0f ) };
                 auto lTheHexColor = tinyfd_colorChooser(
                     "Choose Transfer-function Color",
                     "#FF0077",
@@ -813,7 +843,7 @@ void ApplicationTransferFunction::colorKeysToTex2d() {
     //printf( "같같 ----- 같같\n" );
     mpDensityColorsTex2d->uploadData( mInterpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 
-    mSharedMem.put( "TFcolorsAndAlpha", mInterpolatedDataCPU.data(), mInterpolatedDataCPU.size() );
+    mSharedMem.put( "TFcolorsAndAlpha", mInterpolatedDataCPU.data(), static_cast<uint32_t>( mInterpolatedDataCPU.size() ) );
 
 }
 

@@ -6,6 +6,8 @@
 
 
 struct ApplicationDVR_common {
+	static constexpr auto sharedMemId = "DVR_shared_memory";
+
 	static GfxAPI::Texture::Desc_t densityColorsTexDesc() {
 		return GfxAPI::Texture::Desc_t{
 			.texDim = linAlg::i32vec3_t{ 1024, 1, 0 },

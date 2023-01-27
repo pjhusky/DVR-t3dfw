@@ -235,6 +235,12 @@ namespace {
 } // namespace
 
 
+extern "C" {
+    static void atExit() { 
+        SharedMemIPC( ApplicationDVR_common::sharedMemId ).put( "stopTransferFunctionApp", "true" ); 
+    }
+}
+
 ApplicationDVR::ApplicationDVR(
     const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
@@ -244,8 +250,10 @@ ApplicationDVR::ApplicationDVR(
     , mpNormalTex3d( nullptr )
     , mpDensityColorsTex2d( nullptr )
     , mpProcess( nullptr )
-    , mSharedMem( "DVR_shared_memory" )
+    , mSharedMem( ApplicationDVR_common::sharedMemId )
     , mGrabCursor( true ) {
+
+    std::atexit( atExit );
 
     mSharedMem.put( "histoBucketEntries", std::to_string( VolumeData::mNumHistogramBuckets ) );
     DVR_GUI::InitGui( contextOpenGL );
@@ -534,6 +542,8 @@ Status_t ApplicationDVR::run() {
         const auto frameStartTime = std::chrono::system_clock::now();
         std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
         mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
+
+        mSharedMem.put( "DVR_TF_tick", "1" );
 
         if ( frameNum % 5 == 0 && mSharedMem.get( "TFdirty" ) == "true" ) {
             std::array<uint8_t, 1024 * 4> interpolatedDataCPU;

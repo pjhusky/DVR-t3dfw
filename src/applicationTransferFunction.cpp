@@ -199,15 +199,15 @@ ApplicationTransferFunction::ApplicationTransferFunction(
             //        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
             //    }
             //}
-            const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 20 / 100);
-            const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 30 / 100);
+            const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 15 / 100);
+            const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 25 / 100);
             if (!foundTransparencies) {// linear ramp
                 for (uint32_t idx = 0; idx < lowerBound; idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 0;
                 }
                 for (uint32_t idx = lowerBound; 
                              idx < upperBound; idx++) {
-                    mTransparencyPaintHeightsCPU[idx] = 30u;
+                    mTransparencyPaintHeightsCPU[idx] = 10u;
                 }
 
                 for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {

@@ -205,15 +205,12 @@ ApplicationTransferFunction::ApplicationTransferFunction(
                 for (uint32_t idx = 0; idx < lowerBound; idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 0;
                 }
-                for (uint32_t idx = lowerBound; 
-                             idx < upperBound; idx++) {
+                for (uint32_t idx = lowerBound; idx < upperBound; idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 10u;
                 }
-
                 for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
                     mTransparencyPaintHeightsCPU[idx] = 0;
                 }
-
             }
             densityTransparenciesToTex2d();
 

@@ -41,7 +41,6 @@
 #include <chrono>
 #include <thread>
 
-
 #include <cassert>
 
 #include "glad/glad.h"
@@ -257,6 +256,15 @@ ApplicationDVR::ApplicationDVR(
 
     mSharedMem.put( "histoBucketEntries", std::to_string( VolumeData::mNumHistogramBuckets ) );
     DVR_GUI::InitGui( contextOpenGL );
+
+    mSharedMem.put( "DVR_WatchdogTime_shouldRun", "true" );
+    mpWatchdogThread = new std::thread( [=]() {
+        while (mSharedMem.get( "DVR_WatchdogTime_shouldRun" ) == "true") {
+            mSharedMem.put( "DVR_TF_tick", "1" );
+            std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
+        }
+    } );
+
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -271,6 +279,11 @@ ApplicationDVR::~ApplicationDVR() {
     
     delete mpDensityColorsTex2d;
     mpDensityColorsTex2d = nullptr;
+
+    mSharedMem.put( "DVR_WatchdogTime_shouldRun", "false" );
+    mpWatchdogThread->join();
+    delete mpWatchdogThread;
+    mpWatchdogThread = nullptr;
 
     //if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
     if (mpProcess) { mSharedMem.put( "stopTransferFunctionApp", "true" ); int exitStatus = mpProcess->get_exit_status(); }
@@ -308,8 +321,8 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();
 
-    mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), texDim.size() * sizeof( texDim[0] ) );
-    mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
+    mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), static_cast<uint32_t>( texDim.size() * sizeof( texDim[0] ) ) );
+    mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), static_cast<uint32_t>( histoBuckets.size() * sizeof( histoBuckets[0] ) ) );
     mSharedMem.put( "histoBucketsDirty", "true" );
 
     return Status_t::OK();
@@ -543,13 +556,11 @@ Status_t ApplicationDVR::run() {
         std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
         mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
 
-        mSharedMem.put( "DVR_TF_tick", "1" );
-
         if ( frameNum % 5 == 0 && mSharedMem.get( "TFdirty" ) == "true" ) {
             std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
 
             uint32_t bytesRead;
-            bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDataCPU.data(), interpolatedDataCPU.size(), &bytesRead );
+            bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDataCPU.data(), static_cast<uint32_t>( interpolatedDataCPU.size() ), &bytesRead );
             if ( retVal ) {
                 assert( retVal == true && bytesRead == interpolatedDataCPU.size() );
 
@@ -977,8 +988,8 @@ void ApplicationDVR::tryStartTransferFunctionApp() {
         const auto& texDim =  mpDensityTex3d->desc().texDim;
         const auto& histoBuckets = mpData->getHistoBuckets();
 
-        mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), texDim.size() * sizeof( texDim[0] ) );
-        mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), histoBuckets.size() * sizeof( histoBuckets[0] ) );
+        mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), static_cast<uint32_t>( texDim.size() * sizeof( texDim[0] ) ) );
+        mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), static_cast<uint32_t>( histoBuckets.size() * sizeof( histoBuckets[0] ) ) );
         mSharedMem.put( "histoBucketsDirty", "true" );
     }
 

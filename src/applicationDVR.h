@@ -71,6 +71,8 @@ struct ApplicationDVR : public iApplication {
 
     SharedMemIPC                    mSharedMem;
 
+    std::thread*                    mpWatchdogThread;
+
     bool                            mGrabCursor;
 };
 

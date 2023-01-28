@@ -580,7 +580,7 @@ Status_t ApplicationTransferFunction::run() {
                 const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
 
                 const int32_t maxDeviationX = 5;
-                decltype(mDensityColors)::iterator result;
+                decltype(mDensityColors)::iterator result = mDensityColors.end();
                 for ( uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX, 0 );
                       xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX, fbWidth );
                       xWithDeviation++) {
@@ -591,13 +591,18 @@ Status_t ApplicationTransferFunction::run() {
                     }
                 }
 
+                if (result == mDensityColors.end()) { // no existing color dot clicked
+                    mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                    result = mDensityColors.find( densityBucketIdx );
+                }
+
                 uint8_t lRgbColor[3]{ 
                     static_cast<uint8_t>( clearColor[0] * 255.0f ), 
                     static_cast<uint8_t>( clearColor[1] * 255.0f ), 
                     static_cast<uint8_t>( clearColor[2] * 255.0f ) };
                 auto lTheHexColor = tinyfd_colorChooser(
                     "Choose Transfer-function Color",
-                    nullptr, //"#FF0077",
+                    nullptr, 
                     lRgbColor,
                     lRgbColor);
                 if (lTheHexColor) {

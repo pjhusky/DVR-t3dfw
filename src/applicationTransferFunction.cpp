@@ -615,6 +615,7 @@ Status_t ApplicationTransferFunction::run() {
                     }
                 }
                 colorKeysToTex2d();
+                mSharedMem.put( "TFdirty", "true" );
             }
         #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );

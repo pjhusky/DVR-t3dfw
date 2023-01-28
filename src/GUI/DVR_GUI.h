@@ -1,6 +1,7 @@
 #ifndef _DVR_GUI_H_3CA9AA94_C3B8_49C7_9142_1B376C6F3B73
 #define _DVR_GUI_H_3CA9AA94_C3B8_49C7_9142_1B376C6F3B73
 
+#include <array>
 #include <vector>
 #include <string>
 //#include <functional>
@@ -26,6 +27,7 @@ struct DVR_GUI {
         bool& resetTrafos;
         bool& wantsToCaptureMouse;
         bool& editTransferFunction;
+        std::array<int, 3>& dim;
     };
 
     enum class eRayMarchAlgo: int {

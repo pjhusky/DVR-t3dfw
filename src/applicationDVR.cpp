@@ -312,11 +312,11 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
 
     mpDensityTex3d = new GfxAPI::Texture;
     mpDensityTex3d->create( volTexDesc );
-    const uint32_t mipLvl = 0;
-    mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
+    const int32_t mipLvl = 0;
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
 
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();
@@ -889,6 +889,9 @@ Status_t ApplicationDVR::run() {
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
             int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
             bool editTransferFunction = false;
+            
+            std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
+
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
@@ -896,6 +899,7 @@ Status_t ApplicationDVR::run() {
                 .resetTrafos = resetTrafos,
                 .wantsToCaptureMouse = guiWantsMouseCapture,
                 .editTransferFunction = editTransferFunction,
+                .dim = dimArray,
             };
 
             DVR_GUI::DisplayGui( &guiUserData );

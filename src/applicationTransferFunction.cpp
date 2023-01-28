@@ -7,7 +7,6 @@
 #include <tchar.h>
 #include <filesystem>
 
-#include "applicationDVR_common.h"
 #include "applicationTransferFunction.h"
 #include "stringUtils.h"
 
@@ -15,6 +14,8 @@
 #include "gfxAPI/shader.h"
 #include "gfxAPI/texture.h"
 #include "gfxAPI/checkErrorGL.h"
+
+#include "fileLoaders/stb/stb_image.h"
 
 
 #include "external/libtinyfiledialogs/tinyfiledialogs.h"
@@ -35,7 +36,7 @@
 #define IS_READY    0
 
 namespace {
-
+    static constexpr uint32_t minRelevantDensity = 40u;
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
 
@@ -150,6 +151,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     : mContextOpenGL( contextOpenGL ) 
     , mpDensityTransparenciesTex2d( nullptr )
     , mpDensityColorsTex2d( nullptr )
+    , mpDensityColorDotTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
@@ -157,12 +159,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     printf( "begin ApplicationTransferFunction ctor\n" );
 
-    //mScaleAndOffset_Transparencies  = { 0.7f, 0.0f };
-    //mScaleAndOffset_Histograms      = { 0.2f, 0.7f };
-    //mScaleAndOffset_Colors          = { 0.1f, 0.9f };
-
-    mScaleAndOffset_Transparencies  = { 0.8f, 0.0f };
-    mScaleAndOffset_Colors          = { 0.2f, 0.8f };
+    mScaleAndOffset_Transparencies  = { 1.0f, 0.8f, 0.0, 0.0f };
+    mScaleAndOffset_Colors          = { 1.0f, 0.2f, 0.0, 0.8f };
 
     mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
     printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
@@ -173,7 +171,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     { // transparency
         const GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
+            .texDim = linAlg::i32vec3_t{ ApplicationDVR_common::numDensityBuckets, 256, 0 },
             .numChannels = 2,
             .channelType = GfxAPI::eChannelType::i8,
             .semantics = GfxAPI::eSemantics::color,
@@ -222,7 +220,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     { // histogram
         const GfxAPI::Texture::Desc_t texDesc{
-            .texDim = linAlg::i32vec3_t{ 1024, 256, 0 },
+            .texDim = linAlg::i32vec3_t{ ApplicationDVR_common::numDensityBuckets, 256, 0 },
             .numChannels = 1,
             .channelType = GfxAPI::eChannelType::i8,
             .semantics = GfxAPI::eSemantics::color,
@@ -252,6 +250,29 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
+    { // color dot
+        GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
+        delete mpDensityColorDotTex2d;
+
+        stbi_set_flip_vertically_on_load( 1 );
+        int32_t imgNumChannels;
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
+        //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent_blurred.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+        uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+
+
+        mpDensityColorDotTex2d = new GfxAPI::Texture;
+        mpDensityColorDotTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+        mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
+
+
+        mpDensityColorDotTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
+
+        //gfxUtils::createTexFromImage( "data/colorDot_biggerCutOut_512_transparent_blurred.png", 
+    }
+    
 
     mDensityColors.clear();
 
@@ -374,7 +395,7 @@ Status_t ApplicationTransferFunction::run() {
     constexpr int32_t numSrcChannels = 3;
     std::shared_ptr< uint8_t > pGrabbedFramebuffer = std::shared_ptr< uint8_t >( new uint8_t[ fbWidth * fbHeight * numSrcChannels ], std::default_delete< uint8_t[] >() );
 
-    glEnable( GL_DEPTH_TEST );
+    glDisable( GL_DEPTH_TEST );
 
     glfwSwapInterval( 1 );    // should sync to display framerate
 
@@ -518,9 +539,9 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > 4 ) {
             printf( "appTF: LMB pressed\n" );
         #if 1
-            const float maxY_transparencies = ( mScaleAndOffset_Transparencies[0] + mScaleAndOffset_Transparencies[1] ) * fbHeight;
+            const float maxY_transparencies = ( mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3] ) * fbHeight;
             if ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) {
-
+                // clicked into the density-to-transparency & density histogram window
                 inTransparencyInteractionMode = true;
 
                 currMouseY = linAlg::clamp( currMouseY, 0.0f, maxY_transparencies - 1.0f );
@@ -553,21 +574,42 @@ Status_t ApplicationTransferFunction::run() {
                 
                 mSharedMem.put( "TFdirty", "true" );
 
-            } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[1] * fbHeight && !leftMouseButton_down ) {
+            } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[3] * fbHeight && !leftMouseButton_down ) {
+                // clicked into the density-to-color window (color picker)
+
+                const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
+
+                const int32_t maxDeviationX = 5;
+                decltype(mDensityColors)::iterator result;
+                for ( uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX, 0 );
+                      xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX, fbWidth );
+                      xWithDeviation++) {
+                    result = mDensityColors.find( xWithDeviation );
+                    if ( result != mDensityColors.end() ) {
+                        clearColor = result->second;
+                        break;
+                    }
+                }
+
                 uint8_t lRgbColor[3]{ 
                     static_cast<uint8_t>( clearColor[0] * 255.0f ), 
                     static_cast<uint8_t>( clearColor[1] * 255.0f ), 
                     static_cast<uint8_t>( clearColor[2] * 255.0f ) };
                 auto lTheHexColor = tinyfd_colorChooser(
                     "Choose Transfer-function Color",
-                    "#FF0077",
+                    nullptr, //"#FF0077",
                     lRgbColor,
                     lRgbColor);
                 if (lTheHexColor) {
                     clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
                     clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
                     clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+
+                    if (result != mDensityColors.end()) {
+                        result->second = clearColor;
+                    }
                 }
+                colorKeysToTex2d();
             }
         #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
@@ -619,8 +661,8 @@ Status_t ApplicationTransferFunction::run() {
 
         glCheckError();
 
-        glEnable( GL_DEPTH_TEST );
-        glDepthFunc( GL_LESS );
+        
+        
         glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
         { // clear screen
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -653,7 +695,7 @@ Status_t ApplicationTransferFunction::run() {
         if ( mpDensityTransparenciesTex2d != nullptr ) {
             mpDensityTransparenciesTex2d->bindToTexUnit( 0 );
             shader.setInt( "u_mapTex", 0 );
-            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Transparencies );
+            shader.setVec4( "u_scaleOffset", mScaleAndOffset_Transparencies );
 
             if (mpDensityHistogramTex2d != nullptr) {
                 mpDensityHistogramTex2d->bindToTexUnit( 1 );
@@ -661,125 +703,44 @@ Status_t ApplicationTransferFunction::run() {
             }
             shader.setInt( "u_mode", 1 );
 
-            //glEnable(GL_BLEND);    
-            //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
             mpDensityTransparenciesTex2d->unbindFromTexUnit();
-            //glDisable(GL_BLEND);
         }
 
         shader.setInt( "u_mode", 0 );
 
-        //if (mpDensityHistogramTex2d != nullptr) {
-        //    mpDensityHistogramTex2d->bindToTexUnit( 1 );
-        //    shader.setInt( "u_mapTex", 1 );
-        //    shader.setVec2( "u_scaleOffset", mScaleAndOffset_Histograms );
-        //    glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
-        //    mpDensityHistogramTex2d->unbindFromTexUnit();
-        //}
-
-    #if 0
-        glEnable(GL_BLEND);
-        //glBlendFunc( GL_ONE, GL_ONE );
-        //glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    #endif
         if ( mpDensityColorsTex2d != nullptr ) {
             mpDensityColorsTex2d->bindToTexUnit( 2 );
             shader.setInt( "u_mapTex", 2 );
-            shader.setVec2( "u_scaleOffset", mScaleAndOffset_Colors );
+            shader.setVec4( "u_scaleOffset", mScaleAndOffset_Colors );
             glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );        
             mpDensityColorsTex2d->unbindFromTexUnit();
         }
-    #if 0
+
+    #if 1
+        glEnable( GL_BLEND );
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    #endif
+        if (mpDensityColorDotTex2d != nullptr) {
+            mpDensityColorDotTex2d->bindToTexUnit( 3 );
+            shader.setInt( "u_mapTex", 3 );
+
+            const auto screenRatio = static_cast<float>(fbHeight) / fbWidth;
+            linAlg::vec4_t scaleAndOffset{ 0.03f * screenRatio, 0.03f, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
+            for ( const auto& colorDesc : mDensityColors ) {
+                scaleAndOffset[2] = static_cast<float>(colorDesc.first) / ApplicationDVR_common::numDensityBuckets;
+                scaleAndOffset[2] -= scaleAndOffset[0] * 0.5f;
+                shader.setVec4( "u_scaleOffset", scaleAndOffset );
+                glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+            }
+            mpDensityColorDotTex2d->unbindFromTexUnit();
+        }
+    #if 1
         glDisable(GL_BLEND);
     #endif
 
         shader.use( false );
         glBindVertexArray( 0 );
-
-
-    #if 0 // unit-cube STL file
-        if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster ) {
-            glEnable( GL_CULL_FACE );
-            glCullFace( GL_FRONT );
-
-            glBindVertexArray( mStlModelHandle.vaoHandle );
-            shader.use( true );
-
-            GfxAPI::Texture::unbindAllTextures();
-
-            // linAlg::mat4_t mvpMatrix;
-            // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
-            auto retSetUniform = shader.setMat4( "u_mvpMat", mMvpMatrix );
-            if (mpDensityHistogramTex2d != nullptr) {
-                mpDensityHistogramTex2d->bindToTexUnit( 0 );
-            }
-
-            linAlg::mat4_t invModelViewMatrix;
-            linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-            const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-            linAlg::vec4_t camPos_OS = camPos_ES;
-            linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            shader.setVec4( "u_camPos_OS", camPos_OS );
-            shader.setVec3( "u_volDimRatio", volDimRatio );
-
-            glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( stlModel.indices().size() ), GL_UNSIGNED_INT, 0 );
-
-            if (mpDensityHistogramTex2d != nullptr) {
-                mpDensityHistogramTex2d->unbindFromTexUnit();
-            }
-
-            shader.use( false );
-            glBindVertexArray( 0 );
-        }
-    #endif
-
-
-    #if 0 
-        if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect ) {
-            glDisable( GL_CULL_FACE );
-            volShader.use( true );
-            if (mpDensityHistogramTex2d != nullptr) {
-                mpDensityHistogramTex2d->bindToTexUnit( 0 );
-            }
-            glBindVertexArray( mScreenQuadHandle.vaoHandle );
-
-            linAlg::mat4_t invModelViewMatrix;
-            linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-            const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-            linAlg::vec4_t camPos_OS = camPos_ES;
-            linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            volShader.setVec4( "u_camPos_OS", camPos_OS );
-            volShader.setVec3( "u_volDimRatio", volDimRatio );
-
-            //linAlg::mat4_t mvpMatrix;
-            //linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
-
-            linAlg::mat4_t invModelViewProjectionMatrix;
-            linAlg::inverse( invModelViewProjectionMatrix, mMvpMatrix );
-
-            constexpr float fpDist_NDC = +1.0f;
-            std::array< linAlg::vec4_t, 4 > cornersFarPlane_NDC{
-                linAlg::vec4_t{ -1.0f, +1.0f, fpDist_NDC, 1.0f }, // L top
-                linAlg::vec4_t{ -1.0f, -1.0f, fpDist_NDC, 1.0f }, // L bottom
-                linAlg::vec4_t{ +1.0f, -1.0f, fpDist_NDC, 1.0f }, // R bottom
-                linAlg::vec4_t{ +1.0f, +1.0f, fpDist_NDC, 1.0f }, // R top
-            };
-            
-            // transform points to Object Space of Volume Data
-            linAlg::applyTransformationToPoint( invModelViewProjectionMatrix, cornersFarPlane_NDC.data(), cornersFarPlane_NDC.size() );
-
-            volShader.setVec4Array( "u_fpDist_OS", cornersFarPlane_NDC.data(), 4 );
-
-            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
-
-            if (mpDensityHistogramTex2d != nullptr) {
-                mpDensityHistogramTex2d->unbindFromTexUnit();
-            }
-            volShader.use( false );
-        }
-    #endif
 
         glCheckError();
 
@@ -851,10 +812,10 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
     const uint32_t dim_x = mpDensityHistogramTex2d->desc().texDim[0];
     const uint32_t dim_y = mpDensityHistogramTex2d->desc().texDim[1];
     densityHistogramCPU.resize( dim_x * dim_y );
-    std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 255 );
+    std::fill( densityHistogramCPU.begin(), densityHistogramCPU.end(), 255 ); // set background to "white"
 
     uint32_t maxHistoVal = 1;
-    for( uint32_t x = 30; x < mNumHistogramBuckets; x++ ) {
+    for( uint32_t x = minRelevantDensity; x < mNumHistogramBuckets; x++ ) {
         maxHistoVal = linAlg::maximum( maxHistoVal, mHistogramBuckets[x] );
     }
     const float fRecipMaxHistoVal = 1.0f / static_cast<float>( maxHistoVal );
@@ -864,7 +825,7 @@ void ApplicationTransferFunction::densityHistogramToTex2d() {
         const float relativeHistoH = histoVal * fRecipMaxHistoVal;
         for ( uint32_t y = 0; y < static_cast<uint32_t>(relativeHistoH * dim_y); y++ ) {
             if ( y >= dim_y ) { break; }
-            densityHistogramCPU[ y * dim_x + x ] = 120;
+            densityHistogramCPU[ y * dim_x + x ] = 120; // set color of current bar to slight gray
         }
     }
 
@@ -878,11 +839,12 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     densityTransparenciesCPU.resize( dim_x * dim_y * mpDensityTransparenciesTex2d->desc().numChannels ); // GL_RG texture
     std::fill( densityTransparenciesCPU.begin(), densityTransparenciesCPU.end(), 0 );
 
-    constexpr int32_t kernelSize = 2;
+    constexpr int32_t kernelSize = 3;
     constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
 
-    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 100, 150 }; // change of colors away from set transparency
-    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 255, 64, 16 }; // change of display transpareny for anti-aliasing of line (just for display
+    //constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 100, 150 }; // change of colors away from set transparency
+    constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 0, 80, 170, 230 }; // change of colors away from set transparency
+    constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 200, 64, 16, 4 }; // change of display transpareny for anti-aliasing of line (just for display
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto transparencyVal = mTransparencyPaintHeightsCPU[x];

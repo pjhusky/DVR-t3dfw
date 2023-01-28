@@ -146,7 +146,7 @@ void main() {
     
     vol_step_ray *= 0.0033; // max steps roughly 300
 
-    curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+    //curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
 
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
         

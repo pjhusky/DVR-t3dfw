@@ -2,6 +2,7 @@
 #define _ApplicationTransferFunction_H_6635ff59_825e_41bd_9358_85cad169f5eb
 
 #include "applicationInterface/iApplication.h"
+#include "applicationDVR_common.h"
 
 #include "gfxUtils.h"
 #include "math/linAlg.h"
@@ -44,24 +45,24 @@ private:
     FileLoader::VolumeData*         mpData;
     GfxAPI::Texture*                mpDensityTransparenciesTex2d;
     GfxAPI::Texture*                mpDensityColorsTex2d;
+    GfxAPI::Texture*                mpDensityColorDotTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
 
-    std::array<uint8_t, 1024 * 4>   mInterpolatedDataCPU;
+    std::array<uint8_t, ApplicationDVR_common::numDensityBuckets * 4>   mInterpolatedDataCPU;
 
     std::vector< uint32_t >         mHistogramBuckets;
 
     std::vector<uint8_t>            mTransparencyPaintHeightsCPU;
-    linAlg::vec2_t                  mScaleAndOffset_Transparencies;
-    //linAlg::vec2_t                  mScaleAndOffset_Histograms;
-    linAlg::vec2_t                  mScaleAndOffset_Colors;
+    linAlg::vec4_t                  mScaleAndOffset_Transparencies;
+    linAlg::vec4_t                  mScaleAndOffset_Colors;
     
 
     //struct colorElement_t {
     //    uint32_t       index;
     //    linAlg::vec3_t color;
     //};
-    std::map< uint32_t, linAlg::vec3_t >     mDensityColors;
-    uint32_t mNumHistogramBuckets;
+    std::map< uint32_t, linAlg::vec3_t > mDensityColors;
+    uint32_t                        mNumHistogramBuckets;
 
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };

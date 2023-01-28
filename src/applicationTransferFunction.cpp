@@ -446,6 +446,7 @@ Status_t ApplicationTransferFunction::run() {
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
     bool inTransparencyInteractionMode = false;
     bool inColorInteractionMode = false;
+    float distMouseMovementWhileInColorInteractionMode = 0.0f;
     
     bool prevLeftMouseButtonPressed = false;
     uint32_t lockedBucketIdx = std::numeric_limits<uint32_t>::max(); //  static_cast<uint32_t>(-1);
@@ -591,6 +592,8 @@ Status_t ApplicationTransferFunction::run() {
                 const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
 
                 if (inColorInteractionMode) {
+                    distMouseMovementWhileInColorInteractionMode += mouse_dx;
+
                     mDensityColors.erase( lockedBucketIdx );
                     lockedBucketIdx = densityBucketIdx;
                     mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
@@ -608,7 +611,9 @@ Status_t ApplicationTransferFunction::run() {
                             clearColor = result->second;
                             lockedBucketIdx = xWithDeviation;
                             //mDensityColors.erase( xWithDeviation );
-                            inColorInteractionMode = true;
+                            if (result->first != 0 && result->first != 1023) { // TODO: handle edges left and right
+                                inColorInteractionMode = true;
+                            }
                             break;
                         }
                     }
@@ -665,9 +670,39 @@ Status_t ApplicationTransferFunction::run() {
         if (leftMouseButtonJustReleased) {
             if (inColorInteractionMode) {
                 //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
+                if (distMouseMovementWhileInColorInteractionMode < maxDeviationX_colorDots) {
+                    decltype(mDensityColors)::iterator result = mDensityColors.end();
+                    //mDensityColors.erase( lockedBucketIdx );
+                    //lockedBucketIdx = densityBucketIdx;
+                    //mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                    result = mDensityColors.find( lockedBucketIdx );
+
+                    uint8_t lRgbColor[3]{
+                        static_cast<uint8_t>(clearColor[0] * 255.0f),
+                        static_cast<uint8_t>(clearColor[1] * 255.0f),
+                        static_cast<uint8_t>(clearColor[2] * 255.0f) };
+                    auto lTheHexColor = tinyfd_colorChooser(
+                        "Choose Transfer-function Color",
+                        nullptr,
+                        lRgbColor,
+                        lRgbColor );
+                    if (lTheHexColor) {
+                        clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
+                        clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
+                        clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
+
+                        if (result != mDensityColors.end()) {
+                            result->second = clearColor;
+                        }
+                    }
+                    colorKeysToTex2d();
+                    mSharedMem.put( "TFdirty", "true" );
+
+                }
             }
             //lockedBucketIdx = std::numeric_limits<uint32_t>::max();
             inColorInteractionMode = false;
+            distMouseMovementWhileInColorInteractionMode = 0.0f;
         }
 
         if (rightMouseButtonPressed) {

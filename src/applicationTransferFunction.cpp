@@ -426,7 +426,7 @@ Status_t ApplicationTransferFunction::run() {
     float targetMouse_dx = 0.0f;
     float targetMouse_dy = 0.0f;
 
-    bool leftMouseButton_down = false;
+    //bool leftMouseButton_down = false;
 
     linAlg::mat3x4_t tiltRotMat;
     linAlg::loadIdentityMatrix( tiltRotMat );
@@ -445,6 +445,10 @@ Status_t ApplicationTransferFunction::run() {
 
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
     bool inTransparencyInteractionMode = false;
+    bool inColorInteractionMode = false;
+    
+    bool prevLeftMouseButtonPressed = false;
+    uint32_t lockedBucketIdx = std::numeric_limits<uint32_t>::max(); //  static_cast<uint32_t>(-1);
 
     //bool guiWantsMouseCapture = false;
     //linAlg::vec3_t clearColor{ 0.0f, 0.5f, 0.55f };
@@ -520,6 +524,8 @@ Status_t ApplicationTransferFunction::run() {
         bool middleMouseButtonPressed = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_3 ) == GLFW_PRESS );
         bool rightMouseButtonPressed  = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_2 ) == GLFW_PRESS );
 
+        bool leftMouseButtonJustReleased = ( !leftMouseButtonPressed && prevLeftMouseButtonPressed );
+
         static uint8_t setNewRotationPivot = 0;
 
         //if ( ( leftMouseButtonPressed && !guiWantsMouseCapture ) || rightMouseButtonPressed || middleMouseButtonPressed ) {
@@ -533,7 +539,9 @@ Status_t ApplicationTransferFunction::run() {
         //    leftMouseButton_down = false;
         //}
 
-        if ( !leftMouseButtonPressed ) { inTransparencyInteractionMode = false; }
+        if ( !leftMouseButtonPressed ) { 
+            inTransparencyInteractionMode = false; 
+        }
 
         const int32_t maxDeviationX_colorDots = 5;
         constexpr uint32_t startIdleFrames = 4;
@@ -542,7 +550,7 @@ Status_t ApplicationTransferFunction::run() {
             //printf( "appTF: LMB pressed\n" );
         #if 1
             const float maxY_transparencies = ( mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3] ) * fbHeight;
-            if ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) {
+            if ( !inColorInteractionMode && ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) ) {
                 // clicked into the density-to-transparency & density histogram window
                 inTransparencyInteractionMode = true;
 
@@ -576,47 +584,61 @@ Status_t ApplicationTransferFunction::run() {
                 
                 mSharedMem.put( "TFdirty", "true" );
 
-            } else if ( !inTransparencyInteractionMode && currMouseY > mScaleAndOffset_Colors[3] * fbHeight && !leftMouseButton_down ) {
+            } else if ( !inTransparencyInteractionMode && ( currMouseY > mScaleAndOffset_Colors[3] * fbHeight || inColorInteractionMode ) ) {
                 // clicked into the density-to-color window (color picker)
+                
 
                 const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
 
-                decltype(mDensityColors)::iterator result = mDensityColors.end();
-                for ( uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
-                      xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
-                      xWithDeviation++) {
-                    result = mDensityColors.find( xWithDeviation );
-                    if ( result != mDensityColors.end() ) {
-                        clearColor = result->second;
-                        break;
-                    }
-                }
-
-                if (result == mDensityColors.end()) { // no existing color dot clicked
+                if (inColorInteractionMode) {
+                    mDensityColors.erase( lockedBucketIdx );
+                    lockedBucketIdx = densityBucketIdx;
                     mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
-                    result = mDensityColors.find( densityBucketIdx );
-                }
 
-                uint8_t lRgbColor[3]{ 
-                    static_cast<uint8_t>( clearColor[0] * 255.0f ), 
-                    static_cast<uint8_t>( clearColor[1] * 255.0f ), 
-                    static_cast<uint8_t>( clearColor[2] * 255.0f ) };
-                auto lTheHexColor = tinyfd_colorChooser(
-                    "Choose Transfer-function Color",
-                    nullptr, 
-                    lRgbColor,
-                    lRgbColor);
-                if (lTheHexColor) {
-                    clearColor[0] = ( 1.0f / 255.0f ) * lRgbColor[ 0 ];
-                    clearColor[1] = ( 1.0f / 255.0f ) * lRgbColor[ 1 ];
-                    clearColor[2] = ( 1.0f / 255.0f ) * lRgbColor[ 2 ];
+                    colorKeysToTex2d();
+                    mSharedMem.put( "TFdirty", "true" );
+                } else {
 
-                    if (result != mDensityColors.end()) {
-                        result->second = clearColor;
+                    decltype(mDensityColors)::iterator result = mDensityColors.end();
+                    for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                        xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
+                        xWithDeviation++) {
+                        result = mDensityColors.find( xWithDeviation );
+                        if (result != mDensityColors.end()) {
+                            clearColor = result->second;
+                            lockedBucketIdx = xWithDeviation;
+                            //mDensityColors.erase( xWithDeviation );
+                            inColorInteractionMode = true;
+                            break;
+                        }
+                    }
+
+                    if (result == mDensityColors.end()) { // no existing color dot clicked
+                        mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                        result = mDensityColors.find( densityBucketIdx );
+
+                        uint8_t lRgbColor[3]{
+                            static_cast<uint8_t>(clearColor[0] * 255.0f),
+                            static_cast<uint8_t>(clearColor[1] * 255.0f),
+                            static_cast<uint8_t>(clearColor[2] * 255.0f) };
+                        auto lTheHexColor = tinyfd_colorChooser(
+                            "Choose Transfer-function Color",
+                            nullptr,
+                            lRgbColor,
+                            lRgbColor );
+                        if (lTheHexColor) {
+                            clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
+                            clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
+                            clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
+
+                            if (result != mDensityColors.end()) {
+                                result->second = clearColor;
+                            }
+                        }
+                        colorKeysToTex2d();
+                        mSharedMem.put( "TFdirty", "true" );
                     }
                 }
-                colorKeysToTex2d();
-                mSharedMem.put( "TFdirty", "true" );
             }
         #else
             printf( "appTF: mpColorPickerProcess is nullptr? %s\n", ( mpColorPickerProcess == nullptr ) ? "yes" : "no" );
@@ -638,6 +660,14 @@ Status_t ApplicationTransferFunction::run() {
                 mpColorPickerProcess = new TinyProcessLib::Process( mCmdLineColorPickerProcess );
             }
         #endif
+        }
+
+        if (leftMouseButtonJustReleased) {
+            if (inColorInteractionMode) {
+                //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
+            }
+            //lockedBucketIdx = std::numeric_limits<uint32_t>::max();
+            inColorInteractionMode = false;
         }
 
         if (rightMouseButtonPressed) {
@@ -781,6 +811,8 @@ Status_t ApplicationTransferFunction::run() {
 
         prevMouseX = currMouseX;
         prevMouseY = currMouseY;
+
+        prevLeftMouseButtonPressed = leftMouseButtonPressed;
 
         frameNum++;
     }

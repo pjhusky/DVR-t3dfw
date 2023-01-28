@@ -354,7 +354,7 @@ Status_t ApplicationColorPicker::run() {
         glfwSwapBuffers( pWindow );
 
         const auto frameEndTime = std::chrono::system_clock::now();
-        frameDelta = std::chrono::duration_cast<std::chrono::duration<double>>( frameEndTime - frameStartTime ).count();
+        frameDelta = static_cast<float>( std::chrono::duration_cast<std::chrono::duration<double>>( frameEndTime - frameStartTime ).count() );
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         frameNum++;

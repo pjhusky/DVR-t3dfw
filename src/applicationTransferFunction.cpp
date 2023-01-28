@@ -535,9 +535,11 @@ Status_t ApplicationTransferFunction::run() {
 
         if ( !leftMouseButtonPressed ) { inTransparencyInteractionMode = false; }
 
+        const int32_t maxDeviationX_colorDots = 5;
+        constexpr uint32_t startIdleFrames = 4;
 
-        if ( leftMouseButtonPressed && frameNum > 4 ) {
-            printf( "appTF: LMB pressed\n" );
+        if ( leftMouseButtonPressed && frameNum > startIdleFrames ) {
+            //printf( "appTF: LMB pressed\n" );
         #if 1
             const float maxY_transparencies = ( mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3] ) * fbHeight;
             if ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) {
@@ -579,10 +581,9 @@ Status_t ApplicationTransferFunction::run() {
 
                 const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
 
-                const int32_t maxDeviationX = 5;
                 decltype(mDensityColors)::iterator result = mDensityColors.end();
-                for ( uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX, 0 );
-                      xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX, fbWidth );
+                for ( uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                      xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
                       xWithDeviation++) {
                     result = mDensityColors.find( xWithDeviation );
                     if ( result != mDensityColors.end() ) {
@@ -643,6 +644,23 @@ Status_t ApplicationTransferFunction::run() {
             //printf( "RMB pressed!\n" );
             targetCamZoomDist += mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
             targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
+
+            if (frameNum > startIdleFrames) { // check if existing color dot was right-clicked and if yes erase that color dot
+                const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
+
+                decltype(mDensityColors)::iterator result = mDensityColors.end();
+                for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                    xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
+                    xWithDeviation++) {
+                    result = mDensityColors.find( xWithDeviation );
+                    if (result != mDensityColors.end()) {
+                        mDensityColors.erase( xWithDeviation );
+                        colorKeysToTex2d();
+                        mSharedMem.put( "TFdirty", "true" );
+                        break;
+                    }
+                }
+            }
         }
         if (middleMouseButtonPressed) {
             //printf( "MMB pressed!\n" );
@@ -732,7 +750,7 @@ Status_t ApplicationTransferFunction::run() {
             shader.setInt( "u_mapTex", 3 );
 
             const auto screenRatio = static_cast<float>(fbHeight) / fbWidth;
-            linAlg::vec4_t scaleAndOffset{ 0.03f * screenRatio, 0.03f, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
+            linAlg::vec4_t scaleAndOffset{ 0.02f * screenRatio, 0.02f, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
             for ( const auto& colorDesc : mDensityColors ) {
                 scaleAndOffset[2] = static_cast<float>(colorDesc.first) / ApplicationDVR_common::numDensityBuckets;
                 scaleAndOffset[2] -= scaleAndOffset[0] * 0.5f;

@@ -753,7 +753,7 @@ Status_t ApplicationTransferFunction::run() {
                 idx = lastColorDotIdx;
             }
 
-            if ( idx > 0) {
+            if ( idx >= 0) {
                 decltype(mDensityColors)::iterator result = mDensityColors.end();
                 result = mDensityColors.find( idx );
 

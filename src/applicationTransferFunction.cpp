@@ -445,7 +445,8 @@ Status_t ApplicationTransferFunction::run() {
     shader.use( false );
 
     linAlg::i32vec3_t texDim{ 0, 0 , 0 };
-    bool inTransparencyInteractionMode = false;
+    bool inTransparencyInteractionMode_LMB = false;
+    bool inTransparencyInteractionMode_RMB = false;
     bool inColorInteractionMode = false;
     float distMouseMovementWhileInColorInteractionMode = 0.0f;
     bool interactingWithFirstColorDot_LMB = false;
@@ -544,9 +545,10 @@ Status_t ApplicationTransferFunction::run() {
         //}
 
         if ( !leftMouseButtonPressed ) { 
-            inTransparencyInteractionMode = false; 
-            //interactingWithFirstColorDot_LMB = false;
-            //interactingWithLastColorDot_LMB = false;
+            inTransparencyInteractionMode_LMB = false; 
+        }
+        if ( !rightMouseButtonPressed ) {
+            inTransparencyInteractionMode_RMB = false;
         }
 
         const int32_t maxDeviationX_colorDots = 5;
@@ -557,9 +559,9 @@ Status_t ApplicationTransferFunction::run() {
         if ( leftMouseButtonPressed && frameNum > startIdleFrames ) {
             //printf( "appTF: LMB pressed\n" );
         #if 1
-            if ( !inColorInteractionMode && ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) ) {
+            if ( !inColorInteractionMode && ( currMouseY < maxY_transparencies || inTransparencyInteractionMode_LMB ) ) {
                 // clicked into the density-to-transparency & density histogram window
-                inTransparencyInteractionMode = true;
+                inTransparencyInteractionMode_LMB = true;
 
                 currMouseY = linAlg::clamp( currMouseY, 0.0f, maxY_transparencies - 1.0f );
 
@@ -581,17 +583,10 @@ Status_t ApplicationTransferFunction::run() {
                 }
 
                 densityTransparenciesToTex2d();
-
                 mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ) );
-                
-
-
                 colorKeysToTex2d(); // uses the updated transparencies for the alpha value!
-
-                
                 mSharedMem.put( "TFdirty", "true" );
-
-            } else if ( !inTransparencyInteractionMode && ( currMouseY > mScaleAndOffset_Colors[3] * fbHeight || inColorInteractionMode ) ) {
+            } else if ( !inTransparencyInteractionMode_LMB && ( currMouseY > mScaleAndOffset_Colors[3] * fbHeight || inColorInteractionMode ) ) {
                 // clicked into the density-to-color window (color picker)
                 
                 //const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
@@ -796,7 +791,29 @@ Status_t ApplicationTransferFunction::run() {
             if (frameNum > startIdleFrames) { 
                 const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
 
-                if (currMouseY < maxY_transparencies) { // set transparency to zero in swiped-over range
+                if (!inColorInteractionMode && (currMouseY < maxY_transparencies || inTransparencyInteractionMode_RMB)) { // set transparency to zero in swiped-over range
+                    // clicked into the density-to-transparency & density histogram window
+                    inTransparencyInteractionMode_RMB = true;
+
+                    float relMouseStartX = currMouseX / fbWidth;
+                    float relMouseEndX = prevMouseX / fbWidth;
+                    if (relMouseEndX < relMouseStartX) { std::swap( relMouseStartX, relMouseEndX ); }
+
+                    const uint32_t texStartX = static_cast<uint32_t>(relMouseStartX * (mpDensityTransparenciesTex2d->desc().texDim[0] - 1));
+                    const uint32_t texEndX = static_cast<uint32_t>(relMouseEndX * (mpDensityTransparenciesTex2d->desc().texDim[0] - 1));
+                    const uint32_t texY = static_cast<uint32_t>(0.0f * (mpDensityTransparenciesTex2d->desc().texDim[1] - 1));
+
+                    const int32_t kernelSize = 2;
+                    for (int32_t x = linAlg::maximum<int32_t>( texStartX - kernelSize, 0 );
+                        x < linAlg::minimum<int32_t>( texEndX + kernelSize, mpDensityTransparenciesTex2d->desc().texDim[0] );
+                        x++) {
+                        mTransparencyPaintHeightsCPU[x] = texY;
+                    }
+
+                    densityTransparenciesToTex2d();
+                    mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size()) );
+                    colorKeysToTex2d(); // uses the updated transparencies for the alpha value!
+                    mSharedMem.put( "TFdirty", "true" );
                 }
 
                 if (currMouseY > mScaleAndOffset_Colors[3] * fbHeight) { // check if existing color dot was right-clicked and if yes erase that color dot

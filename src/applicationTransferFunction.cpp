@@ -36,6 +36,7 @@
 #define IS_READY    0
 
 namespace {
+    static constexpr float colorDotScale = 0.02f;
     static constexpr uint32_t minRelevantDensity = 40u;
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
@@ -551,7 +552,9 @@ Status_t ApplicationTransferFunction::run() {
             inTransparencyInteractionMode_RMB = false;
         }
 
-        const int32_t maxDeviationX_colorDots = 5;
+        //const int32_t maxDeviationX_colorDots = 5;
+        const int32_t maxDeviationX_colorDots = static_cast<int32_t>(colorDotScale * 0.333f * fbWidth );
+
         constexpr uint32_t startIdleFrames = 4;
 
         const float maxY_transparencies = (mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3]) * fbHeight;
@@ -922,7 +925,7 @@ Status_t ApplicationTransferFunction::run() {
             shader.setInt( "u_mapTex", 3 );
 
             const auto screenRatio = static_cast<float>(fbHeight) / fbWidth;
-            linAlg::vec4_t scaleAndOffset{ 0.02f * screenRatio, 0.02f, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
+            linAlg::vec4_t scaleAndOffset{ colorDotScale * screenRatio, colorDotScale, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
             for ( const auto& colorDesc : mDensityColors ) {
                 scaleAndOffset[2] = static_cast<float>(colorDesc.first) / ApplicationDVR_common::numDensityBuckets;
                 scaleAndOffset[2] -= scaleAndOffset[0] * 0.5f;

@@ -613,12 +613,15 @@ Status_t ApplicationTransferFunction::run() {
                         ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots );
 
                     if (mDensityColors.find( allowedDragBucketIdx ) == mDensityColors.end()) { // prevent erasing existing color dots when dragging past them
-                        mDensityColors.erase( lockedBucketIdx );
-                        lockedBucketIdx = allowedDragBucketIdx;
-                        mDensityColors.insert( std::make_pair( allowedDragBucketIdx, clearColor ) );
+                        const auto moveThres = maxDeviationX_colorDots;
+                        if (abs( static_cast<int>(lockedBucketIdx) - densityBucketIdx ) > moveThres || distMouseMovementWhileInColorInteractionMode > moveThres ) {
+                            mDensityColors.erase( lockedBucketIdx );
+                                lockedBucketIdx = allowedDragBucketIdx;
+                                mDensityColors.insert( std::make_pair( allowedDragBucketIdx, clearColor ) );
 
-                        colorKeysToTex2d();
-                        mSharedMem.put( "TFdirty", "true" );
+                                colorKeysToTex2d();
+                                mSharedMem.put( "TFdirty", "true" );
+                        }
                     }
                 } else {
 

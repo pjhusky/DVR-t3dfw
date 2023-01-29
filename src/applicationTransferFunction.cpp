@@ -594,12 +594,14 @@ Status_t ApplicationTransferFunction::run() {
                 if (inColorInteractionMode) {
                     distMouseMovementWhileInColorInteractionMode += mouse_dx;
 
-                    mDensityColors.erase( lockedBucketIdx );
-                    lockedBucketIdx = densityBucketIdx;
-                    mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                    if (mDensityColors.find( densityBucketIdx ) == mDensityColors.end()) { // prevent erasing existing color dots when dragging past those
+                        mDensityColors.erase( lockedBucketIdx );
+                        lockedBucketIdx = densityBucketIdx;
+                        mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
 
-                    colorKeysToTex2d();
-                    mSharedMem.put( "TFdirty", "true" );
+                        colorKeysToTex2d();
+                        mSharedMem.put( "TFdirty", "true" );
+                    }
                 } else {
 
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
@@ -670,7 +672,7 @@ Status_t ApplicationTransferFunction::run() {
         if (leftMouseButtonJustReleased) {
             if (inColorInteractionMode) {
                 //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
-                if (distMouseMovementWhileInColorInteractionMode < maxDeviationX_colorDots) {
+                if (distMouseMovementWhileInColorInteractionMode < 0.01f) {
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
                     //mDensityColors.erase( lockedBucketIdx );
                     //lockedBucketIdx = densityBucketIdx;

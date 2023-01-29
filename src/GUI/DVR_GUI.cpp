@@ -136,6 +136,7 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         //const char* items[] = { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO", "PPPP", "QQQQQQQQQQ", "RRR", "SSSS" };
         static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
 
+    #if 0
         if (ImGui::BeginCombo( "##combo", current_item )) { // The second parameter is the label previewed before opening the combo.
             //for (int n = 0; n < IM_ARRAYSIZE( &rayMarchAlgoNames[0] ); n++) {
             for (int n = 0; n < rayMarchAlgoNames.size(); n++) {
@@ -150,6 +151,12 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
             }
             ImGui::EndCombo();
         }
+    #else
+        for (int32_t i = 0; i < rayMarchAlgoNames.size(); i++) {
+            ImGui::RadioButton( rayMarchAlgoNames[i], pGuiUserData->pRayMarchAlgoIdx, i );
+        }
+    #endif
+
     }
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );

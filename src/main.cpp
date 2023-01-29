@@ -214,7 +214,8 @@ int main( int argc, const char* argv[] )
     //return 0;
 
 #if 0
-    std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
+    const bool checkWatchdog = false;
+    std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL, checkWatchdog ) };
     reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
     pApp->run();
     return 0;

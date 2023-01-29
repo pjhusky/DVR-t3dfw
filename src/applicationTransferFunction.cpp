@@ -147,7 +147,7 @@ namespace {
 
 
 ApplicationTransferFunction::ApplicationTransferFunction(
-    const GfxAPI::ContextOpenGL& contextOpenGL )
+    const GfxAPI::ContextOpenGL& contextOpenGL, const bool checkWatchdog )
     : mContextOpenGL( contextOpenGL ) 
     , mpDensityTransparenciesTex2d( nullptr )
     , mpDensityColorsTex2d( nullptr )
@@ -155,7 +155,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityHistogramTex2d( nullptr )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
-    , mGrabCursor( true ) {
+    , mGrabCursor( true )
+    , mCheckWatchdog( checkWatchdog ) {
 
     printf( "begin ApplicationTransferFunction ctor\n" );
 
@@ -447,6 +448,8 @@ Status_t ApplicationTransferFunction::run() {
     bool inTransparencyInteractionMode = false;
     bool inColorInteractionMode = false;
     float distMouseMovementWhileInColorInteractionMode = 0.0f;
+    bool interactingWithFirstColorDot_LMB = false;
+    bool interactingWithLastColorDot_LMB = false;
     
     bool prevLeftMouseButtonPressed = false;
     uint32_t lockedBucketIdx = std::numeric_limits<uint32_t>::max(); //  static_cast<uint32_t>(-1);
@@ -474,7 +477,7 @@ Status_t ApplicationTransferFunction::run() {
             parentProcessWatchdogTicks++;
         }
 
-        if (parentProcessWatchdogTicks > 180) {
+        if (mCheckWatchdog && parentProcessWatchdogTicks > 180) {
             printf( "watchdog timer expired, parent process most probably doesn't exist anymore!\n" );
             break;
         }
@@ -542,15 +545,18 @@ Status_t ApplicationTransferFunction::run() {
 
         if ( !leftMouseButtonPressed ) { 
             inTransparencyInteractionMode = false; 
+            //interactingWithFirstColorDot_LMB = false;
+            //interactingWithLastColorDot_LMB = false;
         }
 
         const int32_t maxDeviationX_colorDots = 5;
         constexpr uint32_t startIdleFrames = 4;
 
+        const float maxY_transparencies = (mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3]) * fbHeight;
+
         if ( leftMouseButtonPressed && frameNum > startIdleFrames ) {
             //printf( "appTF: LMB pressed\n" );
         #if 1
-            const float maxY_transparencies = ( mScaleAndOffset_Transparencies[1] + mScaleAndOffset_Transparencies[3] ) * fbHeight;
             if ( !inColorInteractionMode && ( currMouseY < maxY_transparencies || inTransparencyInteractionMode ) ) {
                 // clicked into the density-to-transparency & density histogram window
                 inTransparencyInteractionMode = true;
@@ -588,41 +594,72 @@ Status_t ApplicationTransferFunction::run() {
             } else if ( !inTransparencyInteractionMode && ( currMouseY > mScaleAndOffset_Colors[3] * fbHeight || inColorInteractionMode ) ) {
                 // clicked into the density-to-color window (color picker)
                 
-
-                const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
+                //const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
+                const auto densityBucketIdx = (interactingWithFirstColorDot_LMB) 
+                                                ? 0
+                                                : ( (interactingWithLastColorDot_LMB )
+                                                    ? (ApplicationDVR_common::numDensityBuckets - 1)
+                                                    //: static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f) );
+                                                    : linAlg::clamp( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
+                                                    //: linAlg::clamp( 
+                                                    //    static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 
+                                                    //    maxDeviationX_colorDots, 
+                                                    //    ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots ));
 
                 if (inColorInteractionMode) {
-                    distMouseMovementWhileInColorInteractionMode += mouse_dx;
+                    distMouseMovementWhileInColorInteractionMode += fabs( mouse_dx );
 
-                    if (mDensityColors.find( densityBucketIdx ) == mDensityColors.end()) { // prevent erasing existing color dots when dragging past those
+                    const auto allowedDragBucketIdx = linAlg::clamp( 
+                        densityBucketIdx, 
+                        maxDeviationX_colorDots, 
+                        ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots );
+
+                    if (mDensityColors.find( allowedDragBucketIdx ) == mDensityColors.end()) { // prevent erasing existing color dots when dragging past them
                         mDensityColors.erase( lockedBucketIdx );
-                        lockedBucketIdx = densityBucketIdx;
-                        mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                        lockedBucketIdx = allowedDragBucketIdx;
+                        mDensityColors.insert( std::make_pair( allowedDragBucketIdx, clearColor ) );
 
                         colorKeysToTex2d();
                         mSharedMem.put( "TFdirty", "true" );
                     }
                 } else {
 
+                    //const int32_t leftBound = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, maxDeviationX_colorDots );
+                    //const int32_t rightBound = linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth - 1 - maxDeviationX_colorDots );
+                    const int32_t leftBound = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                    const int32_t rightBound = linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth - 1 );
+
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
-                    for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
-                        xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
-                        xWithDeviation++) {
+                    for (uint32_t xWithDeviation = leftBound; xWithDeviation <= rightBound; xWithDeviation++) {
+
                         result = mDensityColors.find( xWithDeviation );
+
+                        // don't move first / last color dot
+                        if (xWithDeviation == 0) { 
+                            interactingWithFirstColorDot_LMB = true;
+                            break; 
+                        }
+                        if (xWithDeviation == ApplicationDVR_common::numDensityBuckets - 1) {
+                            interactingWithLastColorDot_LMB = true;
+                            break;
+                        }
+
                         if (result != mDensityColors.end()) {
                             clearColor = result->second;
                             lockedBucketIdx = xWithDeviation;
-                            //mDensityColors.erase( xWithDeviation );
-                            if (result->first != 0 && result->first != 1023) { // TODO: handle edges left and right
-                                inColorInteractionMode = true;
-                            }
+                            
+                            inColorInteractionMode = true;
                             break;
                         }
                     }
 
-                    if (result == mDensityColors.end()) { // no existing color dot clicked
-                        mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
-                        result = mDensityColors.find( densityBucketIdx );
+                    if (result == mDensityColors.end() ) { // no existing color dot clicked
+                    //if (result == mDensityColors.end() || (interactingWithFirstColorDot_LMB || interactingWithLastColorDot_LMB)) { // no existing color dot clicked - or first or last color dot clicked
+
+                        //if ( !(interactingWithFirstColorDot_LMB||interactingWithLastColorDot_LMB) ) {
+                            mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                            result = mDensityColors.find( densityBucketIdx );
+                        //}
 
                         uint8_t lRgbColor[3]{
                             static_cast<uint8_t>(clearColor[0] * 255.0f),
@@ -669,62 +706,111 @@ Status_t ApplicationTransferFunction::run() {
         #endif
         }
 
-        if (leftMouseButtonJustReleased) {
-            if (inColorInteractionMode) {
-                //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
-                if (distMouseMovementWhileInColorInteractionMode < 0.01f) {
-                    decltype(mDensityColors)::iterator result = mDensityColors.end();
-                    //mDensityColors.erase( lockedBucketIdx );
-                    //lockedBucketIdx = densityBucketIdx;
-                    //mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
-                    result = mDensityColors.find( lockedBucketIdx );
+        //if (leftMouseButtonJustReleased) {
+        if (!leftMouseButtonPressed && inColorInteractionMode) { // LMB released after drag&drop action, but moved just a little => edit exisiting color dot
+            
+            //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
+            if (distMouseMovementWhileInColorInteractionMode < 0.01f) {
+                decltype(mDensityColors)::iterator result = mDensityColors.end();
+                //mDensityColors.erase( lockedBucketIdx );
+                //lockedBucketIdx = densityBucketIdx;
+                //mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                result = mDensityColors.find( lockedBucketIdx );
 
-                    uint8_t lRgbColor[3]{
-                        static_cast<uint8_t>(clearColor[0] * 255.0f),
-                        static_cast<uint8_t>(clearColor[1] * 255.0f),
-                        static_cast<uint8_t>(clearColor[2] * 255.0f) };
-                    auto lTheHexColor = tinyfd_colorChooser(
-                        "Choose Transfer-function Color",
-                        nullptr,
-                        lRgbColor,
-                        lRgbColor );
-                    if (lTheHexColor) {
-                        clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
-                        clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
-                        clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
+                uint8_t lRgbColor[3]{
+                    static_cast<uint8_t>(clearColor[0] * 255.0f),
+                    static_cast<uint8_t>(clearColor[1] * 255.0f),
+                    static_cast<uint8_t>(clearColor[2] * 255.0f) };
+                auto lTheHexColor = tinyfd_colorChooser(
+                    "Choose Transfer-function Color",
+                    nullptr,
+                    lRgbColor,
+                    lRgbColor );
+                if (lTheHexColor) {
+                    clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
+                    clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
+                    clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
 
-                        if (result != mDensityColors.end()) {
-                            result->second = clearColor;
-                        }
+                    if (result != mDensityColors.end()) {
+                        result->second = clearColor;
                     }
-                    colorKeysToTex2d();
-                    mSharedMem.put( "TFdirty", "true" );
-
                 }
+                colorKeysToTex2d();
+                mSharedMem.put( "TFdirty", "true" );
             }
-            //lockedBucketIdx = std::numeric_limits<uint32_t>::max();
+
+            lockedBucketIdx = std::numeric_limits<uint32_t>::max();
             inColorInteractionMode = false;
             distMouseMovementWhileInColorInteractionMode = 0.0f;
         }
+
+        if (!leftMouseButtonPressed && (interactingWithFirstColorDot_LMB || interactingWithLastColorDot_LMB)) { // LMB released after initial click on first or last color dot
+            const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
+
+            //was click released reasonably close to first or last color dot? if yes, edit it
+            int32_t idx = -1;
+            const auto lastColorDotIdx = ApplicationDVR_common::numDensityBuckets - 1;
+            if (densityBucketIdx - maxDeviationX_colorDots < 0 && densityBucketIdx + maxDeviationX_colorDots > 0) {
+                idx = 0;
+            }
+            else if (densityBucketIdx - maxDeviationX_colorDots < lastColorDotIdx && densityBucketIdx + maxDeviationX_colorDots > lastColorDotIdx) {
+                idx = lastColorDotIdx;
+            }
+
+            if ( idx > 0) {
+                decltype(mDensityColors)::iterator result = mDensityColors.end();
+                result = mDensityColors.find( idx );
+
+                uint8_t lRgbColor[3]{
+                    static_cast<uint8_t>(clearColor[0] * 255.0f),
+                    static_cast<uint8_t>(clearColor[1] * 255.0f),
+                    static_cast<uint8_t>(clearColor[2] * 255.0f) };
+                auto lTheHexColor = tinyfd_colorChooser(
+                    "Choose Transfer-function Color",
+                    nullptr,
+                    lRgbColor,
+                    lRgbColor );
+                if (lTheHexColor) {
+                    clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
+                    clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
+                    clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
+
+                    if (result != mDensityColors.end()) {
+                        result->second = clearColor;
+                    }
+                }
+                colorKeysToTex2d();
+                mSharedMem.put( "TFdirty", "true" );
+            }
+
+            interactingWithFirstColorDot_LMB = false;
+            interactingWithLastColorDot_LMB = false;
+        }
+
 
         if (rightMouseButtonPressed) {
             //printf( "RMB pressed!\n" );
             targetCamZoomDist += mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
             targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
 
-            if (frameNum > startIdleFrames) { // check if existing color dot was right-clicked and if yes erase that color dot
+            if (frameNum > startIdleFrames) { 
                 const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
 
-                decltype(mDensityColors)::iterator result = mDensityColors.end();
-                for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
-                    xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
-                    xWithDeviation++) {
-                    result = mDensityColors.find( xWithDeviation );
-                    if (result != mDensityColors.end()) {
-                        mDensityColors.erase( xWithDeviation );
-                        colorKeysToTex2d();
-                        mSharedMem.put( "TFdirty", "true" );
-                        break;
+                if (currMouseY < maxY_transparencies) { // set transparency to zero in swiped-over range
+                }
+
+                if (currMouseY > mScaleAndOffset_Colors[3] * fbHeight) { // check if existing color dot was right-clicked and if yes erase that color dot
+                    decltype(mDensityColors)::iterator result = mDensityColors.end();
+                    for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                        xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
+                        xWithDeviation++) {
+                        result = mDensityColors.find( xWithDeviation );
+                        if (result != mDensityColors.end() && xWithDeviation != 0 && xWithDeviation != ApplicationDVR_common::numDensityBuckets - 1) {
+                            mDensityColors.erase( xWithDeviation );
+                            colorKeysToTex2d();
+                            mSharedMem.put( "TFdirty", "true" );
+                            break;
+                        }
                     }
                 }
             }

@@ -25,7 +25,8 @@ namespace FileLoader {
 
 struct ApplicationTransferFunction : public iApplication {
     ApplicationTransferFunction( 
-        const GfxAPI::ContextOpenGL& contextOpenGL );
+        const GfxAPI::ContextOpenGL& contextOpenGL,
+        const bool checkWatchdog = true );
     virtual ~ApplicationTransferFunction();
 
     Status_t load( const std::string& fileUrl );
@@ -73,6 +74,7 @@ private:
     SharedMemIPC                    mSharedMem;
 
     bool                            mGrabCursor;
+    bool                            mCheckWatchdog;
 };
 
 #endif // _ApplicationTransferFunction_H_6635ff59_825e_41bd_9358_85cad169f5eb

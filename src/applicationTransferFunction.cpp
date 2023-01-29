@@ -652,8 +652,6 @@ Status_t ApplicationTransferFunction::run() {
                     //if (result == mDensityColors.end() || (interactingWithFirstColorDot_LMB || interactingWithLastColorDot_LMB)) { // no existing color dot clicked - or first or last color dot clicked
 
                         //if ( !(interactingWithFirstColorDot_LMB||interactingWithLastColorDot_LMB) ) {
-                            mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
-                            result = mDensityColors.find( densityBucketIdx );
                         //}
 
                         uint8_t lRgbColor[3]{
@@ -669,6 +667,9 @@ Status_t ApplicationTransferFunction::run() {
                             clearColor[0] = (1.0f / 255.0f) * lRgbColor[0];
                             clearColor[1] = (1.0f / 255.0f) * lRgbColor[1];
                             clearColor[2] = (1.0f / 255.0f) * lRgbColor[2];
+
+                            mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
+                            result = mDensityColors.find( densityBucketIdx );
 
                             if (result != mDensityColors.end()) {
                                 result->second = clearColor;
@@ -816,13 +817,14 @@ Status_t ApplicationTransferFunction::run() {
                     mSharedMem.put( "TFdirty", "true" );
                 }
 
-                if (currMouseY > mScaleAndOffset_Colors[3] * fbHeight) { // check if existing color dot was right-clicked and if yes erase that color dot
+                if (currMouseY > mScaleAndOffset_Colors[3] * fbHeight && !inTransparencyInteractionMode_RMB) { // check if existing color dot was right-clicked and if yes erase that color dot
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
                     for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
                         xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
                         xWithDeviation++) {
                         result = mDensityColors.find( xWithDeviation );
                         if (result != mDensityColors.end() && xWithDeviation != 0 && xWithDeviation != ApplicationDVR_common::numDensityBuckets - 1) {
+                            clearColor = result->second;
                             mDensityColors.erase( xWithDeviation );
                             colorKeysToTex2d();
                             mSharedMem.put( "TFdirty", "true" );

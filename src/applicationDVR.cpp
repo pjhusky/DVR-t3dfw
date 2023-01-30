@@ -789,87 +789,89 @@ Status_t ApplicationDVR::run() {
 
         mpDensityColorsTex2d->bindToTexUnit( 7 );
 
-    #if 1 // unit-cube STL file
-        if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster ) {
-            glEnable( GL_CULL_FACE );
-            glCullFace( GL_FRONT );
+        if (!mDataFileUrl.empty()) {
 
-            glBindVertexArray( mStlModelHandle.vaoHandle );
-            meshShader.use( true );
+        #if 1 // unit-cube STL file
+            if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
+                glEnable( GL_CULL_FACE );
+                glCullFace( GL_FRONT );
 
-            GfxAPI::Texture::unbindAllTextures();
+                glBindVertexArray( mStlModelHandle.vaoHandle );
+                meshShader.use( true );
 
-            // linAlg::mat4_t mvpMatrix;
-            // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
-            auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
-            if (mpDensityTex3d != nullptr) {
-                mpDensityTex3d->bindToTexUnit( 0 );
+                GfxAPI::Texture::unbindAllTextures();
+
+                // linAlg::mat4_t mvpMatrix;
+                // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
+                auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
+                if (mpDensityTex3d != nullptr) {
+                    mpDensityTex3d->bindToTexUnit( 0 );
+                }
+
+                linAlg::mat4_t invModelViewMatrix;
+                linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
+                const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
+                linAlg::vec4_t camPos_OS = camPos_ES;
+                linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
+                meshShader.setVec4( "u_camPos_OS", camPos_OS );
+                meshShader.setVec3( "u_volDimRatio", volDimRatio );
+
+                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+
+                if (mpDensityTex3d != nullptr) {
+                    mpDensityTex3d->unbindFromTexUnit();
+                }
+
+                meshShader.use( false );
+                glBindVertexArray( 0 );
             }
+        #endif
 
-            linAlg::mat4_t invModelViewMatrix;
-            linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-            const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-            linAlg::vec4_t camPos_OS = camPos_ES;
-            linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            meshShader.setVec4( "u_camPos_OS", camPos_OS );
-            meshShader.setVec3( "u_volDimRatio", volDimRatio );
+        #if 1 
+            if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect) {
+                glDisable( GL_CULL_FACE );
+                volShader.use( true );
+                if (mpDensityTex3d != nullptr) {
+                    mpDensityTex3d->bindToTexUnit( 0 );
+                }
+                glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
-            glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( stlModel.indices().size() ), GL_UNSIGNED_INT, 0 );
+                linAlg::mat4_t invModelViewMatrix;
+                linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
+                const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
+                linAlg::vec4_t camPos_OS = camPos_ES;
+                linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
+                volShader.setVec4( "u_camPos_OS", camPos_OS );
+                volShader.setVec3( "u_volDimRatio", volDimRatio );
 
-            if (mpDensityTex3d != nullptr) {
-                mpDensityTex3d->unbindFromTexUnit();
+                //linAlg::mat4_t mvpMatrix;
+                //linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
+
+                linAlg::mat4_t invModelViewProjectionMatrix;
+                linAlg::inverse( invModelViewProjectionMatrix, mMvpMatrix );
+
+                constexpr float fpDist_NDC = +1.0f;
+                std::array< linAlg::vec4_t, 4 > cornersFarPlane_NDC{
+                    linAlg::vec4_t{ -1.0f, +1.0f, fpDist_NDC, 1.0f }, // L top
+                    linAlg::vec4_t{ -1.0f, -1.0f, fpDist_NDC, 1.0f }, // L bottom
+                    linAlg::vec4_t{ +1.0f, -1.0f, fpDist_NDC, 1.0f }, // R bottom
+                    linAlg::vec4_t{ +1.0f, +1.0f, fpDist_NDC, 1.0f }, // R top
+                };
+
+                // transform points to Object Space of Volume Data
+                linAlg::applyTransformationToPoint( invModelViewProjectionMatrix, cornersFarPlane_NDC.data(), cornersFarPlane_NDC.size() );
+
+                volShader.setVec4Array( "u_fpDist_OS", cornersFarPlane_NDC.data(), 4 );
+
+                glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+
+                if (mpDensityTex3d != nullptr) {
+                    mpDensityTex3d->unbindFromTexUnit();
+                }
+                volShader.use( false );
             }
-
-            meshShader.use( false );
-            glBindVertexArray( 0 );
+        #endif
         }
-    #endif
-
-
-    #if 1 
-        if ( rayMarchAlgo == DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect ) {
-            glDisable( GL_CULL_FACE );
-            volShader.use( true );
-            if (mpDensityTex3d != nullptr) {
-                mpDensityTex3d->bindToTexUnit( 0 );
-            }
-            glBindVertexArray( mScreenQuadHandle.vaoHandle );
-
-            linAlg::mat4_t invModelViewMatrix;
-            linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-            const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-            linAlg::vec4_t camPos_OS = camPos_ES;
-            linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            volShader.setVec4( "u_camPos_OS", camPos_OS );
-            volShader.setVec3( "u_volDimRatio", volDimRatio );
-
-            //linAlg::mat4_t mvpMatrix;
-            //linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
-
-            linAlg::mat4_t invModelViewProjectionMatrix;
-            linAlg::inverse( invModelViewProjectionMatrix, mMvpMatrix );
-
-            constexpr float fpDist_NDC = +1.0f;
-            std::array< linAlg::vec4_t, 4 > cornersFarPlane_NDC{
-                linAlg::vec4_t{ -1.0f, +1.0f, fpDist_NDC, 1.0f }, // L top
-                linAlg::vec4_t{ -1.0f, -1.0f, fpDist_NDC, 1.0f }, // L bottom
-                linAlg::vec4_t{ +1.0f, -1.0f, fpDist_NDC, 1.0f }, // R bottom
-                linAlg::vec4_t{ +1.0f, +1.0f, fpDist_NDC, 1.0f }, // R top
-            };
-            
-            // transform points to Object Space of Volume Data
-            linAlg::applyTransformationToPoint( invModelViewProjectionMatrix, cornersFarPlane_NDC.data(), cornersFarPlane_NDC.size() );
-
-            volShader.setVec4Array( "u_fpDist_OS", cornersFarPlane_NDC.data(), 4 );
-
-            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
-
-            if (mpDensityTex3d != nullptr) {
-                mpDensityTex3d->unbindFromTexUnit();
-            }
-            volShader.use( false );
-        }
-    #endif
 
         glCheckError();
 

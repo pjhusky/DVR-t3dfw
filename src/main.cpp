@@ -231,7 +231,7 @@ int main( int argc, const char* argv[] )
         std::shared_ptr< iApplication > pApp{ new ApplicationColorPicker( contextOpenGL ) };
         pApp->run();
     } else {
-        std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
+        //std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
         std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
         reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath_TransferFunction( contextOpenGL, argv[0] ) );
         pApp->run();

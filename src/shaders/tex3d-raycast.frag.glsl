@@ -76,6 +76,135 @@ int intersectBox(vec3 S, vec3 v, vec3 boxmin, vec3 boxmax, out float tnear, out 
 }
 
 void main() {
+    vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
+    vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
+    vec4 fp_xy_ipol = mix(fp_x_ipol_btm, fp_x_ipol_top, v_coord3d.y);
+
+    // project interpolated homogeneous OS pos to real OS
+    vec3 ray_far_OS = fp_xy_ipol.xyz / fp_xy_ipol.w;
+
+    vec3 ray_end   = ray_far_OS;
+    vec3 ray_start = u_camPos_OS.xyz;
+
+    vec3 ray_dir = ray_end - ray_start;
+
+    ray_dir = normalize( ray_dir ); // not strictly necessary but maybe better for tnear and tfar meaningfulness
+
+    float tnear, tfar;
+    int hit = intersectBox(ray_start, ray_dir, -u_volDimRatio, u_volDimRatio, tnear, tfar);
+    if ( hit == 0 ) { discard; return; }
+
+    tnear = max( 0.0, tnear );
+    tfar = max( tfar, tnear );
+    vec3 curr_sample_pos = ray_start + tnear * ray_dir;
+    vec3 end_sample_pos = ray_start + tfar * ray_dir;
+
+    vec4 color = vec4( 0.0 );
+    float numPosDensities = 0.0;
+    
+    uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
+    uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
+    vec3 rnd01 = rand01(randInput);
+
+    // perform transformation into "non-square" dataset only once instead of at each sampling position
+    curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
+    end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
+
+    float lenInVolume = length( end_sample_pos - curr_sample_pos );    
+    vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
+    
+    vol_step_ray *= 0.0033; // max steps roughly 300
+
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+        
+        curr_sample_pos += vol_step_ray;
+
+        rnd01 = rand01(randInput);
+        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+
+        float texVal = texture( u_densityTex, curr_sample_pos ).r;
+
+        texVal *= ( 65535.0 / 4095.0 );
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
+        float currAlpha = colorAndAlpha.a;
+        vec3 currColor = colorAndAlpha.rgb;
+        //color += vec4( colorAndAlpha.rgb * texVal, texVal );
+        color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
+        color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
+        //numPosDensities += 1.0;
+    }
+    
+    //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+
+    //o_fragColor.rgb = color.rgb / numPosDensities;
+    o_fragColor.rgb = color.rgb;
+    o_fragColor.a = 1.0;
+}
+
+
+void main_XRay() {
+    vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
+    vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
+    vec4 fp_xy_ipol = mix(fp_x_ipol_btm, fp_x_ipol_top, v_coord3d.y);
+
+    // project interpolated homogeneous OS pos to real OS
+    vec3 ray_far_OS = fp_xy_ipol.xyz / fp_xy_ipol.w;
+
+    vec3 ray_end   = ray_far_OS;
+    vec3 ray_start = u_camPos_OS.xyz;
+
+    vec3 ray_dir = ray_end - ray_start;
+
+    ray_dir = normalize( ray_dir ); // not strictly necessary but maybe better for tnear and tfar meaningfulness
+
+    float tnear, tfar;
+    int hit = intersectBox(ray_start, ray_dir, -u_volDimRatio, u_volDimRatio, tnear, tfar);
+    if ( hit == 0 ) { discard; return; }
+
+    tnear = max( 0.0, tnear );
+    tfar = max( tfar, tnear );
+    vec3 curr_sample_pos = ray_start + tnear * ray_dir;
+    vec3 end_sample_pos = ray_start + tfar * ray_dir;
+
+    vec4 color = vec4( 0.0 );
+    float numPosDensities = 0.0;
+    
+    uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
+    uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
+    vec3 rnd01 = rand01(randInput);
+
+    // perform transformation into "non-square" dataset only once instead of at each sampling position
+    curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
+    end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
+
+    float lenInVolume = length( end_sample_pos - curr_sample_pos );    
+    vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
+    
+    vol_step_ray *= 0.0033; // max steps roughly 300
+
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+        
+        curr_sample_pos += vol_step_ray;
+
+        rnd01 = rand01(randInput);
+        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+
+        float texVal = texture( u_densityTex, curr_sample_pos ).r;
+
+        texVal *= ( 65535.0 / 4095.0 );
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
+        texVal = colorAndAlpha.a;
+        color += vec4( colorAndAlpha.rgb * texVal, texVal );
+        numPosDensities += 1.0;
+    }
+    
+    color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+
+    o_fragColor.rgb = color.rgb / numPosDensities;
+    o_fragColor.a = 1.0;
+}
+
+void main_Tests() {
 
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
     vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
@@ -103,7 +232,8 @@ void main() {
     vec3 end_sample_pos = ray_start + tfar * ray_dir;
 
     vec4 color = vec4( 0.0 );
-    float numPosDensities = 1.0;
+    //float numPosDensities = 1.0;
+    float numPosDensities = 0.0;
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
@@ -175,7 +305,8 @@ void main() {
         texVal = colorAndAlpha.a;
         //color += vec4( texVal );
         color += vec4( colorAndAlpha.rgb * texVal, texVal );
-        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+        //numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
+        numPosDensities += 1.0;
     #else
 //        color += vec4( texVal );
 //        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
@@ -200,5 +331,7 @@ void main() {
     color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
 
     o_fragColor.rgb = color.rgb / numPosDensities;
+    //o_fragColor.rgb = color.rgb / 0.0033 / numPosDensities;
+    
     o_fragColor.a = 1.0;
 }

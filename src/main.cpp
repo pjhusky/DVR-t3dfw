@@ -46,8 +46,8 @@ namespace {
 
             float sx, sy;
             glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(contextOpenGl.window()), &sx, &sy );
-            int32_t desiredWindowW = static_cast<int32_t>( 1024.0f * sx );
-            int32_t desiredWindowH = static_cast<int32_t>(  512.0f * sy );
+            int32_t desiredWindowW = static_cast<int32_t>(  600.0f * sx );
+            int32_t desiredWindowH = static_cast<int32_t>(  200.0f * sy );
 
             auto strWindowW = stringUtils::ToString( desiredWindowW );
             auto strWindowH = stringUtils::ToString( desiredWindowH );            

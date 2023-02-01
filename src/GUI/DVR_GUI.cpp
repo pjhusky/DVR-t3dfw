@@ -116,7 +116,7 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
     ImGui::Text( "%d", (pGuiUserData->dim)[0] );
     ImGui::SameLine();
-    ImGui::Text( "%d", (pGuiUserData->dim)[1] );
+    ImGui::Text( "x %d x", (pGuiUserData->dim)[1] );
     ImGui::SameLine();
     ImGui::Text( "%d", (pGuiUserData->dim)[2] );
 

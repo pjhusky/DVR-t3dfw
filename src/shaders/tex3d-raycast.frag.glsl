@@ -100,7 +100,7 @@ void main() {
     vec3 end_sample_pos = ray_start + tfar * ray_dir;
 
     vec4 color = vec4( 0.0 );
-    float numPosDensities = 0.0;
+    //float numPosDensities = 0.0;
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);

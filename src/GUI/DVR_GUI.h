@@ -28,6 +28,7 @@ struct DVR_GUI {
         bool& wantsToCaptureMouse;
         bool& editTransferFunction;
         std::array<int, 3>& dim;
+        std::array<float, 2>& surfaceIsoAndThickness;
     };
 
     enum class eRayMarchAlgo: int {

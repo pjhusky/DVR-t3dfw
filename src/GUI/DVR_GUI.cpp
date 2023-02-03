@@ -157,6 +157,8 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         }
     #endif
 
+        ImGui::SliderFloat( "Iso value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
+        ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 50.0f / 4096.0f, "%.5f" );
     }
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );

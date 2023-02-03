@@ -59,6 +59,8 @@ namespace {
     constexpr float mouseSensitivity = 0.23f;
     constexpr float zoomSpeed = 1.5f;
 
+    static linAlg::vec2_t surfaceIsoAndThickness{ 0.5f, 8.0f / 4096.0f };
+
     static linAlg::vec3_t pivotCompensationES{ 0.0f, 0.0f, 0.0f };
     static linAlg::vec3_t rotPivotOffset{ 0.0f, 0.0f, 0.0f };
     static linAlg::vec3_t rotPivotPosOS{ 0.0f, 0.0f, 0.0f };
@@ -482,10 +484,11 @@ Status_t ApplicationDVR::run() {
     };
     gfxUtils::createShader( volShader, volShaderDesc );
     volShader.use( true );
-    volShader.setInt( "u_densityTex", 0 );
-    volShader.setInt( "u_gradientTex", 1 );
+    volShader.setInt(   "u_densityTex", 0 );
+    volShader.setInt(   "u_gradientTex", 1 );
     volShader.setFloat( "u_recipTexDim", 1.0f );
-    volShader.setInt( "u_colorAndAlphaTex", 7 );
+    volShader.setInt(   "u_colorAndAlphaTex", 7 );
+    volShader.setVec2(  "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     volShader.use( false );
     
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
@@ -560,6 +563,7 @@ Status_t ApplicationDVR::run() {
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.setInt( "u_gradientTex", 1 );
     meshShader.setInt( "u_colorAndAlphaTex", 7 );
+    meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     meshShader.use( false );
 
     tryStartTransferFunctionApp(); // start TF process
@@ -846,6 +850,8 @@ Status_t ApplicationDVR::run() {
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
                 meshShader.setVec3( "u_volDimRatio", volDimRatio );
 
+                meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
+
                 glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
 
                 if (mpDensityTex3d != nullptr) {
@@ -875,6 +881,8 @@ Status_t ApplicationDVR::run() {
                 linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
                 volShader.setVec4( "u_camPos_OS", camPos_OS );
                 volShader.setVec3( "u_volDimRatio", volDimRatio );
+
+                volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
 
                 //linAlg::mat4_t mvpMatrix;
                 //linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
@@ -935,6 +943,7 @@ Status_t ApplicationDVR::run() {
                 .wantsToCaptureMouse = guiWantsMouseCapture,
                 .editTransferFunction = editTransferFunction,
                 .dim = dimArray,
+                .surfaceIsoAndThickness = surfaceIsoAndThickness,
             };
 
             DVR_GUI::DisplayGui( &guiUserData );

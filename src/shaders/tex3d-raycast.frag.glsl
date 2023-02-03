@@ -130,18 +130,19 @@ void main() {
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
-        gradient.z = sqrt( 1.0 - dot( gradient.xy, gradient.xy ) );
+        //gradient.z = sqrt( 1.0 - dot( gradient.xy, gradient.xy ) );
         //gradient = vec3( 0.0, 1.0, 0.0 );
         
+        vec3 gradient_unit = normalize( gradient );
 
         texVal *= ( 65535.0 / 4095.0 );
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
         float currAlpha = colorAndAlpha.a;
         vec3 currColor = colorAndAlpha.rgb;
 
-        float n_dot_l_raw = dot( lightDir, gradient );
+        float n_dot_l_raw = dot( lightDir, gradient_unit );
         float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
-        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient, -lightDir ) ) ) );
+        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir ) ) ) );
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
 

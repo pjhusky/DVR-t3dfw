@@ -320,8 +320,10 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
 
     GfxAPI::Texture::Desc_t gradientTexDesc{
         .texDim = texDim,
-        .numChannels = 2,
-        .channelType = GfxAPI::eChannelType::f32, // ::f16
+        //.numChannels = 2,
+        .numChannels = 3,
+        //.channelType = GfxAPI::eChannelType::f32,
+        .channelType = GfxAPI::eChannelType::f16,
         .semantics = GfxAPI::eSemantics::color,
         .isMipMapped = false,
     };
@@ -331,17 +333,17 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
     mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
-    //mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RG, GL_FLOAT, mipLvl );
-    {
-        std::vector< linAlg::vec2_t > gradients2;
-        const uint32_t numElements = texDim[0] * texDim[1] * texDim[2];
-        gradients2.resize( numElements );
-        for (uint32_t i = 0u; i < numElements; i++) {
-            gradients2[i][0] = mpData->getNormals()[i][0];
-            gradients2[i][1] = mpData->getNormals()[i][1];
-        }
-        mpGradientTex3d->uploadData( gradients2.data(), GL_RG, GL_FLOAT, mipLvl );
-    }
+    mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RGB, GL_FLOAT, mipLvl );
+    //{
+    //    std::vector< linAlg::vec2_t > gradients2;
+    //    const uint32_t numElements = texDim[0] * texDim[1] * texDim[2];
+    //    gradients2.resize( numElements );
+    //    for (uint32_t i = 0u; i < numElements; i++) {
+    //        gradients2[i][0] = mpData->getNormals()[i][0];
+    //        gradients2[i][1] = mpData->getNormals()[i][1];
+    //    }
+    //    mpGradientTex3d->uploadData( gradients2.data(), GL_RG, GL_FLOAT, mipLvl );
+    //}
 
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();

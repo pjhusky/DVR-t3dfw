@@ -381,6 +381,7 @@ Status_t ApplicationTransferFunction::run() {
     gfxUtils::createShader( volShader, volShaderDesc );
     volShader.use( true );
     volShader.setInt( "u_densityTex", 0 );
+    volShader.setInt( "u_gradientTex", 1 );
     volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.use( false );
     

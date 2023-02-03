@@ -51,7 +51,7 @@ struct ApplicationDVR : public iApplication {
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
     GfxAPI::Texture*                mpDensityTex3d;
-    GfxAPI::Texture*                mpNormalTex3d;
+    GfxAPI::Texture*                mpGradientTex3d;
 
     GfxAPI::Texture*                mpDensityColorsTex2d;
 

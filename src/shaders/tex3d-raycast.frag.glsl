@@ -5,6 +5,7 @@ in vec3 v_coord3d;
 layout ( location = 0 ) out vec4 o_fragColor;
 
 uniform sampler3D u_densityTex;
+uniform sampler3D u_gradientTex;
 uniform sampler2D u_colorAndAlphaTex;
 
 // L top
@@ -100,7 +101,6 @@ void main() {
     vec3 end_sample_pos = ray_start + tfar * ray_dir;
 
     vec4 color = vec4( 0.0 );
-    //float numPosDensities = 0.0;
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
@@ -111,9 +111,15 @@ void main() {
     end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
 
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
-    vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
+    vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
-    vol_step_ray *= 0.0033; // max steps roughly 300
+    vec3 vol_step_ray = vol_step_ray_unit * 0.0033; // max steps roughly 300
+
+    /* const */ float ambientIntensity = 0.01;
+    /* const */ vec3 lightColor = vec3( 0.95, 0.8, 0.8 );
+    /* const */ vec3 lightDir = normalize( vec3( 0.2, 0.7, -0.1 ) );
+    float materialDiffuse = 0.8;
+    float materialSpecular = 0.3;
 
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
         
@@ -123,21 +129,36 @@ void main() {
         curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
+        vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
+        gradient.z = sqrt( 1.0 - dot( gradient.xy, gradient.xy ) );
+        //gradient = vec3( 0.0, 1.0, 0.0 );
+        
 
         texVal *= ( 65535.0 / 4095.0 );
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
         float currAlpha = colorAndAlpha.a;
         vec3 currColor = colorAndAlpha.rgb;
+
+        float n_dot_l_raw = dot( lightDir, gradient );
+        float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
+        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient, -lightDir ) ) ) );
+        float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
+        currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
+
         //color += vec4( colorAndAlpha.rgb * texVal, texVal );
         color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
         color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
-        //numPosDensities += 1.0;
+    
+        if ( color.a >= 0.99 ) {
+            // color.rgb = vec3( 1.0, 0.0, 0.0 ); // visualize early outs
+            break;
+        }
     }
     
     //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
 
     //o_fragColor.rgb = color.rgb / numPosDensities;
-    o_fragColor.rgb = color.rgb;
+    o_fragColor.rgb = color.rgb * lightColor;
     o_fragColor.a = 1.0;
 }
 

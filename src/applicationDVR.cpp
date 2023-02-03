@@ -246,7 +246,7 @@ ApplicationDVR::ApplicationDVR(
     , mDataFileUrl( "" )
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
-    , mpNormalTex3d( nullptr )
+    , mpGradientTex3d( nullptr )
     , mpDensityColorsTex2d( nullptr )
     , mpProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
@@ -274,8 +274,8 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpDensityTex3d;
     mpDensityTex3d = nullptr;
     
-    delete mpNormalTex3d;
-    mpNormalTex3d = nullptr;
+    delete mpGradientTex3d;
+    mpGradientTex3d = nullptr;
     
     delete mpDensityColorsTex2d;
     mpDensityColorsTex2d = nullptr;
@@ -299,6 +299,8 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
     mpData = new VolumeData;
     mpData->load( fileUrl.c_str() );
 
+    constexpr int32_t mipLvl = 0;
+
     const auto volDim = mpData->getDim();
     const auto texDim = linAlg::i32vec3_t{ volDim[0], volDim[1], volDim[2] };
     GfxAPI::Texture::Desc_t volTexDesc{
@@ -309,14 +311,37 @@ Status_t ApplicationDVR::load( const std::string& fileUrl )
         .isMipMapped = false,
     };
     delete mpDensityTex3d;
-
     mpDensityTex3d = new GfxAPI::Texture;
     mpDensityTex3d->create( volTexDesc );
-    const int32_t mipLvl = 0;
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
     mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
+
+    GfxAPI::Texture::Desc_t gradientTexDesc{
+        .texDim = texDim,
+        .numChannels = 2,
+        .channelType = GfxAPI::eChannelType::f32, // ::f16
+        .semantics = GfxAPI::eSemantics::color,
+        .isMipMapped = false,
+    };
+    delete mpGradientTex3d;
+    mpGradientTex3d = new GfxAPI::Texture;
+    mpGradientTex3d->create( gradientTexDesc );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    //mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RG, GL_FLOAT, mipLvl );
+    {
+        std::vector< linAlg::vec2_t > gradients2;
+        const uint32_t numElements = texDim[0] * texDim[1] * texDim[2];
+        gradients2.resize( numElements );
+        for (uint32_t i = 0u; i < numElements; i++) {
+            gradients2[i][0] = mpData->getNormals()[i][0];
+            gradients2[i][1] = mpData->getNormals()[i][1];
+        }
+        mpGradientTex3d->uploadData( gradients2.data(), GL_RG, GL_FLOAT, mipLvl );
+    }
 
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();
@@ -456,6 +481,7 @@ Status_t ApplicationDVR::run() {
     gfxUtils::createShader( volShader, volShaderDesc );
     volShader.use( true );
     volShader.setInt( "u_densityTex", 0 );
+    volShader.setInt( "u_gradientTex", 1 );
     volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.setInt( "u_colorAndAlphaTex", 7 );
     volShader.use( false );
@@ -530,6 +556,7 @@ Status_t ApplicationDVR::run() {
     gfxUtils::createShader( meshShader, meshShaderDesc );
     meshShader.use( true );
     meshShader.setInt( "u_densityTex", 0 );
+    meshShader.setInt( "u_gradientTex", 1 );
     meshShader.setInt( "u_colorAndAlphaTex", 7 );
     meshShader.use( false );
 
@@ -806,6 +833,7 @@ Status_t ApplicationDVR::run() {
                 auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
                 if (mpDensityTex3d != nullptr) {
                     mpDensityTex3d->bindToTexUnit( 0 );
+                    mpGradientTex3d->bindToTexUnit( 1 );
                 }
 
                 linAlg::mat4_t invModelViewMatrix;
@@ -820,6 +848,7 @@ Status_t ApplicationDVR::run() {
 
                 if (mpDensityTex3d != nullptr) {
                     mpDensityTex3d->unbindFromTexUnit();
+                    mpGradientTex3d->unbindFromTexUnit();
                 }
 
                 meshShader.use( false );
@@ -833,6 +862,7 @@ Status_t ApplicationDVR::run() {
                 volShader.use( true );
                 if (mpDensityTex3d != nullptr) {
                     mpDensityTex3d->bindToTexUnit( 0 );
+                    mpGradientTex3d->bindToTexUnit( 1 );
                 }
                 glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
@@ -867,6 +897,7 @@ Status_t ApplicationDVR::run() {
 
                 if (mpDensityTex3d != nullptr) {
                     mpDensityTex3d->unbindFromTexUnit();
+                    mpGradientTex3d->unbindFromTexUnit();
                 }
                 volShader.use( false );
             }

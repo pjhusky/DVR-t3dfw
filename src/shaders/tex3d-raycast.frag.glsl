@@ -120,7 +120,7 @@ void main_levoySurface() {
     /* const */ vec3 lightColor = vec3( 0.95, 0.8, 0.8 );
     /* const */ vec3 lightDir = normalize( vec3( 0.2, 0.7, -0.1 ) );
     float materialDiffuse = 0.8;
-    float materialSpecular = 0.3;
+    float materialSpecular = 0.95;
 
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
@@ -146,9 +146,9 @@ void main_levoySurface() {
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( densityVal, 0.5 ) );
         //float currAlpha = colorAndAlpha.a;
         float currAlpha = 0.0;
-        if ( len_gradient <= 0.000000001 && raw_densityVal == surfaceIso ) { currAlpha = 1.0; }
-        else if ( len_gradient > 0.0 && ( surfaceIso - surfaceThickness * len_gradient < raw_densityVal && raw_densityVal < surfaceIso + surfaceThickness * len_gradient ) ) {
-            currAlpha = 1.0 - 1.0 / surfaceThickness * abs( ( surfaceIso - raw_densityVal ) / len_gradient );
+        if ( len_gradient <= 0.000000001 && densityVal == surfaceIso ) { currAlpha = 1.0; }
+        else if ( len_gradient > 0.0 && ( surfaceIso - surfaceThickness * len_gradient < densityVal && densityVal < surfaceIso + surfaceThickness * len_gradient ) ) {
+            currAlpha = 1.0 - 1.0 / surfaceThickness * abs( ( surfaceIso - densityVal ) / len_gradient );
         }
         currAlpha *= colorAndAlpha.a;
 

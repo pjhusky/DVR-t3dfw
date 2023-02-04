@@ -261,6 +261,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
         //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent_blurred.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
         //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+
+        // based on template from https://icon-library.com/icon/location-icon-for-resume-26.html
         uint8_t* pData = stbi_load( "data/colorMarker_white.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
 
 

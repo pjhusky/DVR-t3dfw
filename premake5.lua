@@ -81,31 +81,39 @@ workspace "T3DFW_DVR_Workspace"
 
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
 
-		local PRJ_LOCATION = "%{prj.location}/"
+		local PRJ_LOCATION = path.normalize( "%{prj.location}" )
 		-- local T3DFW_BASE_DIR = "t3dfw/"
-		local T3DFW_BASE_DIR = PRJ_LOCATION .. "t3dfw/"
+		--local T3DFW_BASE_DIR = PRJ_LOCATION .. "t3dfw/"
+		local T3DFW_BASE_DIR = path.normalize( path.join( PRJ_LOCATION, "t3dfw" ) )
 		
-		local EXTERNAL_DIR = PRJ_LOCATION .. "external/"
+		--local EXTERNAL_DIR = PRJ_LOCATION .. "external/"
+		local EXTERNAL_DIR = path.normalize( path.join( PRJ_LOCATION, "external" ) )
 		
-		local T3DFW_EXTERNAL_DIR = T3DFW_BASE_DIR .. "external/"
-		local T3DFW_SRC_DIR = T3DFW_BASE_DIR .. "src/"
+		local T3DFW_EXTERNAL_DIR = path.normalize( path.join( T3DFW_BASE_DIR, "external" ) )
+		local T3DFW_SRC_DIR = path.normalize( path.join( T3DFW_BASE_DIR, "src" ) )
 
-		local GFX_API_DIR = T3DFW_SRC_DIR .. "gfxAPI/"
+		local GFX_API_DIR = path.normalize( path.join( T3DFW_SRC_DIR, "gfxAPI" ) )
 	
-		local NATIVEFILEDIALOG_DIR = T3DFW_EXTERNAL_DIR .. "nativefiledialog/"
-		local TINYPROCESS_DIR = EXTERNAL_DIR .. "tiny-process-library/"
-		local UTFCPP_DIR = EXTERNAL_DIR .. "utfcpp/"
-		local SIMDB_DIR = EXTERNAL_DIR .. "simdb/"
+		local NATIVEFILEDIALOG_DIR = path.normalize( path.join( T3DFW_EXTERNAL_DIR, "nativefiledialog" ) )
+		local TINYPROCESS_DIR = path.normalize( path.join( EXTERNAL_DIR, "tiny-process-library" ) )
+		local UTFCPP_DIR = path.normalize( path.join( EXTERNAL_DIR, "utfcpp" ) )
+		local SIMDB_DIR = path.normalize( path.join( EXTERNAL_DIR, "simdb" ) )
+
+		local GLSL_LANG_VALIDATOR_DIR = path.normalize( path.join( EXTERNAL_DIR, "glslang-master-windows-x64-Release" ) )
+		local GLSL_LANG_VALIDATOR_BIN_DIR = path.normalize( path.join( GLSL_LANG_VALIDATOR_DIR, "bin" ) )
 	
-		local IMGUI_DIR = T3DFW_EXTERNAL_DIR .. "imgui/"
+		local IMGUI_DIR = path.normalize( path.join( T3DFW_EXTERNAL_DIR, "imgui" ) )
 
 		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
-		local GLAD_BASE_DIR = GFX_API_DIR .. "glad/"
+		local GLAD_BASE_DIR = path.normalize( path.join( GFX_API_DIR, "glad" ) )
 		
-		
-		
+		--local SHADER_DIR = path.join( "**" , "src", "shaders" )
+		--local SHADER_DIR = PRJ_LOCATION .. "shaders"
+		--local SHADER_DIR = path.normalize( PRJ_LOCATION .. "shaders/" )
+		local SHADER_DIR = path.normalize( path.join( PRJ_LOCATION, "shaders" ) )
+
 		filter {"platforms:Win*", "vs*"}
-			defines { "_USE_MATH_DEFINES", "_WIN32", "_WIN64" }
+			defines { "_USE_MATH_DEFINES", "_WIN32", "_WIN64", "_CRT_SECURE_NO_WARNINGS" }
 
 		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
 			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
@@ -147,11 +155,11 @@ workspace "T3DFW_DVR_Workspace"
 			T3DFW_EXTERNAL_DIR, 
 			T3DFW_SRC_DIR, 
 			
-			GLFW_BASE_DIR .. "include/",
-			GLAD_BASE_DIR .. "include/", 
+			path.normalize( path.join( GLFW_BASE_DIR, "include" ) ),
+			path.normalize( path.join( GLAD_BASE_DIR, "include" ) ), 
 			GFX_API_DIR,
 			
-			NATIVEFILEDIALOG_DIR .. "include/",
+			path.normalize( path.join( NATIVEFILEDIALOG_DIR, "include" ) ),
 			TINYPROCESS_DIR,
 			UTFCPP_DIR,
 			SIMDB_DIR,
@@ -185,26 +193,46 @@ workspace "T3DFW_DVR_Workspace"
 		removefiles { "t3dfw/**" }
 		-- excludes { "t3dfw/**" }
 		--removefiles { "externals/tiny-process-library/tests/**" }
-		excludes { TINYPROCESS_DIR .. "tests/**" }
-		removefiles{ TINYPROCESS_DIR .. "tests/**" }
+		excludes { path.join( TINYPROCESS_DIR, "tests/**" ) }
+		removefiles{ path.join( TINYPROCESS_DIR, "tests/**" ) }
 		
 		filter { "platforms:Win*" }
-			removefiles { TINYPROCESS_DIR .. "process_unix.cpp", TINYPROCESS_DIR .. "examples.cpp" }
+			removefiles { path.join( TINYPROCESS_DIR, "process_unix.cpp" ), path.join( TINYPROCESS_DIR, "examples.cpp" ) }
 			defines { "_WIN32", "WIN32", "_WIN64", "_AMD64_", "_WINDOWS" }
 		filter {}
-			removefiles { UTFCPP_DIR .. "tests/**", UTFCPP_DIR .. "samples/**" }
-			removefiles { SIMDB_DIR .. "ConcurrentMap.cpp" }
+			removefiles { path.join( UTFCPP_DIR, "tests/**" ), path.join( UTFCPP_DIR, "samples/**" ) }
+			removefiles { path.join( SIMDB_DIR, "ConcurrentMap.cpp" ) }
 		
 		-- https://premake.github.io/docs/defines/
 		-- "_MBCS", 
 		
+		-- https://premake.github.io/docs/buildcommands/
+		--filter 'files:**.glsl'
+		filter "files:**.vert.glsl or files:**.geom.glsl or files:**.frag.glsl"
+		   -- A message to display while this build step is running (optional)
+		   buildmessage 'Compiling Shader %{file.relpath}'
 
-		links{ "T3DFW_LIB_Project" }
+		   -- One or more commands to run (required)
+		   buildcommands {
+			  -- 'echo blah2.2',
+			  -- 'echo ' .. SHADER_DIR,
+			  -- 'echo blah3',
+			  '%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" -E %{file.relpath} > %{file.relpath}.preprocessed',
+			  --'%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" --target-env opengl --vn %{file.relpath}.c %{file.relpath}',
+		   }
+
+		   -- One or more outputs resulting from the build (required)
+		   -- buildoutputs { '%{cfg.objdir}/%{file.basename}.preprocessed' }
+		   buildoutputs { '%{file.relpath}.preprocessed' }
+		   
 
 		-- 
 		-- disable filters, so this is valid for all projects
 		-- 
 		filter {} 
+
+		links{ "T3DFW_LIB_Project" }
+
 
 
 	-- externalproject "TinyProcessProject"
@@ -235,6 +263,7 @@ newaction {
 		os.remove( prj.location .. "/*.sln" )
 		os.remove( prj.location .. "/*.vcxproj" )
 		os.remove( prj.location .. "/*.vcxproj.*" )
+		os.remove( prj.location .. "/src/shaders/*.preprocessed" )
 	end,		
 }
  

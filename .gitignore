@@ -19,6 +19,7 @@ data/*
 **.zip
 **-\ Copy/
 **.png
+!data/**.png
 **.tif*
 **.bin
 **.jpg

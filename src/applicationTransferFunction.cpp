@@ -36,7 +36,7 @@
 #define IS_READY    0
 
 namespace {
-    static constexpr float colorDotScale = 0.02f;
+    static constexpr float colorDotScale = 0.12f;
     static constexpr uint32_t minRelevantDensity = 40u;
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
@@ -260,7 +260,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         int32_t imgNumChannels;
         glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
         //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent_blurred.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
-        uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+        //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+        uint8_t* pData = stbi_load( "data/colorMarker_white.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
 
 
         mpDensityColorDotTex2d = new GfxAPI::Texture;
@@ -915,7 +916,7 @@ Status_t ApplicationTransferFunction::run() {
             shader.setInt( "u_mapTex", 3 );
 
             const auto screenRatio = static_cast<float>(fbHeight) / fbWidth;
-            linAlg::vec4_t scaleAndOffset{ colorDotScale * screenRatio, colorDotScale, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] / 2 };
+            linAlg::vec4_t scaleAndOffset{ colorDotScale * screenRatio, colorDotScale, 0.0f, mScaleAndOffset_Colors[3] + mScaleAndOffset_Colors[1] * 0.1f };
             for ( const auto& colorDesc : mDensityColors ) {
                 scaleAndOffset[2] = static_cast<float>(colorDesc.first) / ApplicationDVR_common::numDensityBuckets;
                 scaleAndOffset[2] -= scaleAndOffset[0] * 0.5f;

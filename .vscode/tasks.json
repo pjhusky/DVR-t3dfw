@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "make-mingw.bat",
             "args": [
-                "release_win64"
+                "release_mingw_win64"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -24,7 +24,7 @@
             "type": "shell",
             "command": "make-mingw.bat",
             "args": [
-                "debug_win64"
+                "debug_mingw_win64"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

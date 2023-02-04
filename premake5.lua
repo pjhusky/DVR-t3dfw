@@ -42,28 +42,49 @@ workspace "T3DFW_DVR_Workspace"
 	--
 	-- setup your solution's configuration here ...
 	--
-	configurations { "Debug", "Release" }
-	platforms { "Win64", "macOS" }
+	--configurations { "Debug_" .. _ACTION, "Release_" .. _ACTION }
+	--configurations { "Debug" .. (if _ACTION == "vs*" then "" else "_" .. _ACTION end), "Release" .. (if _ACTION == "vs*" then "" else "_" .. _ACTION end) }
+	if string.match( _ACTION, 'vs*') then
+		configurations { "Debug", "Release" }
+	elseif _ACTION == "gmake2" and os.host() == "windows" then
+		configurations { "Debug_MinGW", "Release_MinGW" }
+	else
+		configurations { "Debug_" .. _ACTION, "Release_" .. _ACTION }
+	end
+	
+	--platforms { "Win64", "macOS" }
+	if os.host() == "windows" then
+		platforms { "Win64" }
+	elseif os.host() == "macosx" then
+		platforms { "macOS" }
+	else
+		platforms { "linux" }
+	end
 
 	filter { "platforms:Win64" }
-		system "Windows"
-		architecture "x86_64"		
+		-- system "Windows"
+		architecture "x86_64"
 
 	filter { "platforms:macOS" }
-		system "macosx"
+		-- system "macosx"
 		architecture "x86_64"		
+
+	--filter { "system:macosx" }
+	--	removeplatforms { "Win64" }
 
 	filter { "system:Windows" }
 		systemversion "latest" -- To use the latest version of the SDK available
 		--	systemversion "10.0.10240.0" -- To specify the version of the SDK you want
-	
+		-- removeplatforms { "macOS" }
 		-- https://stackoverflow.com/questions/40667910/optimizing-a-single-file-in-a-premake-generated-vs-solution
-	filter { "configurations:Debug" }
+	filter { "configurations:Debug*" }
 		-- optimize "Debug"
 		symbols "On"
 		defines { "DEBUG", "TRACE" }
 		--buildoptions{ "-fdiagnostics-color=always" }
-	filter { "configurations:Release" }
+		targetsuffix "_d"
+
+	filter { "configurations:Release*" }
 		optimize "Speed"
 		defines { "NDEBUG" }
 
@@ -78,6 +99,12 @@ workspace "T3DFW_DVR_Workspace"
 	
 	-- main project	
 	project "T3DFW_DVR_Project"
+
+		--filter { "system:macosx" }
+		--	removeplatforms { "Win64" }
+		--filter { "system:Windows" }
+		--	removeplatforms { "macOS" }
+
 
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
 
@@ -138,14 +165,20 @@ workspace "T3DFW_DVR_Workspace"
 			-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
 			-- linkoptions {"lgomp"}
 			defines { "UNIX", "_USE_MATH_DEFINES" }
+			--undefines { "__STRICT_ANSI__" } -- for simdb wvsprintfA() - https://stackoverflow.com/questions/3445312/swprintf-and-vswprintf-not-declared
+			--cppdialect "gnu++20" -- https://github.com/assimp/assimp/issues/4190, https://premake.github.io/docs/cppdialect/
 
 			
 		filter {}
 
-		filter { "configurations:Debug", "platforms:Win*", "action:gmake*", "toolset:gcc" }		
+		filter { "configurations:Debug*", "platforms:Win*", "action:gmake*", "toolset:gcc" }		
 			buildoptions { "-g" }
 			-- https://stackoverflow.com/questions/54969270/how-to-use-gcc-for-compilation-and-debug-on-vscode
 			-- buildoptions { "-gdwarf-4 -g3" }
+		
+		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }	
+			--buildoptions { "-fpermissive" }
+
 		filter {}
 
 		includedirs { 

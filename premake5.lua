@@ -126,6 +126,7 @@ workspace "T3DFW_DVR_Workspace"
 		local UTFCPP_DIR = path.normalize( path.join( EXTERNAL_DIR, "utfcpp" ) )
 		local SIMDB_DIR = path.normalize( path.join( EXTERNAL_DIR, "simdb" ) )
 
+		-- TODO: move this to T3DFW framework
 		local GLSL_LANG_VALIDATOR_DIR = path.normalize( path.join( EXTERNAL_DIR, "glslang-master-windows-x64-Release" ) )
 		local GLSL_LANG_VALIDATOR_BIN_DIR = path.normalize( path.join( GLSL_LANG_VALIDATOR_DIR, "bin" ) )
 	

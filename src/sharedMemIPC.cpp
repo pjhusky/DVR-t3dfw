@@ -17,7 +17,7 @@ SharedMemIPC::SharedMemIPC( const std::string& name, const uint32_t smBlockSizeI
 SharedMemIPC::~SharedMemIPC() {
     auto *const pSharedMem = ptrSharedMem();
     pSharedMem->close();
-    delete mpHandle;
+    delete reinterpret_cast<simdb*>( mpHandle );
     mpHandle = nullptr;
 }
 

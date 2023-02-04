@@ -371,20 +371,6 @@ Status_t ApplicationTransferFunction::run() {
 
     mScreenQuadHandle = gfxUtils::createScreenQuadGfxBuffers();
 
-    // load shaders
-    printf( "creating volume shader\n" ); fflush( stdout );
-    GfxAPI::Shader volShader;
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
-        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
-    };
-    gfxUtils::createShader( volShader, volShaderDesc );
-    volShader.use( true );
-    volShader.setInt( "u_densityTex", 0 );
-    volShader.setInt( "u_gradientTex", 1 );
-    volShader.setFloat( "u_recipTexDim", 1.0f );
-    volShader.use( false );
-    
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL ); // not necessary
@@ -437,8 +423,8 @@ Status_t ApplicationTransferFunction::run() {
 
     GfxAPI::Shader shader;
     std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
-        std::make_pair( "./src/shaders/displayColors.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/displayColors.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
+        std::make_pair( "./src/shaders/displayColors.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/displayColors.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
     };
     gfxUtils::createShader( shader, meshShaderDesc );
     shader.use( true );

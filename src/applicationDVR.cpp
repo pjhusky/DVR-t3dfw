@@ -479,8 +479,8 @@ Status_t ApplicationDVR::run() {
     printf( "creating volume shader\n" ); fflush( stdout );
     GfxAPI::Shader volShader;
     std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
-        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
+        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
     };
     gfxUtils::createShader( volShader, volShaderDesc );
     volShader.use( true );
@@ -555,8 +555,8 @@ Status_t ApplicationDVR::run() {
         stlModel.indices() );
     GfxAPI::Shader meshShader;
     std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
-        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl", GfxAPI::Shader::eShaderStage::FS ),
+        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
     };
     gfxUtils::createShader( meshShader, meshShaderDesc );
     meshShader.use( true );

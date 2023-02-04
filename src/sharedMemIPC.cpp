@@ -39,7 +39,7 @@ const std::string SharedMemIPC::get( const std::string& key ) {
 }
 
 const bool SharedMemIPC::get( const std::string& key, void* const pOutValues, uint32_t valueByteCount, uint32_t* const bytesRead ) {
-    return ptrSharedMem()->get( key.c_str(), key.length(), pOutValues, valueByteCount, bytesRead );
+    return ptrSharedMem()->get( key.c_str(), static_cast<simdb::u32>( key.length() ), pOutValues, valueByteCount, bytesRead );
 }
 
 

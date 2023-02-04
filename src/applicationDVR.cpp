@@ -110,14 +110,7 @@ namespace {
         if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT_SHIFT ) )  { camSpeed *= 5.0f; }
         if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { 
-            targetCamZoomDist -= camSpeed * frameDelta; 
-            //targetCamZoomDist -= camSpeed;
-            //targetCamZoomDist -= 10.0f;
-            //camZoomDist -= 10.0f;
-
-            printf( "Key_w targetCamZoomDist %f\n", targetCamZoomDist );
-        }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { targetCamZoomDist -= camSpeed * frameDelta; }
         if (pressedOrRepeat( pWindow, GLFW_KEY_S ))    { targetCamZoomDist += camSpeed * frameDelta; }
 
         // if (pressedOrRepeat( pWindow, GLFW_KEY_LEFT )) { key_dx -= 10.0f * camSpeed * frameDelta; }
@@ -641,8 +634,6 @@ Status_t ApplicationDVR::run() {
             //printf( "RMB pressed!\n" );
             targetCamZoomDist -= mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
             targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
-
-            printf( "RMB targetCamZoomDist %f\n", targetCamZoomDist );
         }
         if (middleMouseButtonPressed) {
             //printf( "MMB pressed!\n" );
@@ -1011,8 +1002,6 @@ Status_t ApplicationDVR::run() {
         //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
-
-        printf( "frame - targetCamZoomDist %f\n", targetCamZoomDist );
 
         camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
 

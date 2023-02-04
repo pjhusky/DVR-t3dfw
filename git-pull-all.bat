@@ -1,7 +1,8 @@
 @echo.
 @echo ######### STEP 1 / 6 ############
-@REM git submodule foreach --recursive git pull origin main
-git submodule foreach --recursive git pull origin
+git submodule foreach --recursive git pull origin main
+git submodule foreach --recursive git pull origin master
+@REM git submodule foreach --recursive git pull origin
 
 @echo.
 @echo ######### STEP 2 / 6 ############

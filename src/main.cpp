@@ -20,6 +20,7 @@
 
 #include <stdlib.h>
 #include <memory>
+#include <filesystem>
 
 #include <thread>
 #include <process.h>
@@ -32,11 +33,53 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
+#include "../utfcpp/source/utf8.h" // solve C++17 UTF deprecation
+
 
 namespace {
     static void threadFunc( void* pData ) {
         iApplication* pApp = reinterpret_cast<iApplication*>(pData);
         pApp->run();
+    }
+
+    // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
+    static inline std::string utf8_encode( const std::wstring& wStr )
+    {
+    #if 0
+        return std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes( wStr );
+    #else
+        std::string utf8line;
+
+        if (wStr.empty())
+            return utf8line;
+
+    #ifdef _MSC_VER
+        utf8::utf16to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
+    #else
+        utf8::utf32to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
+    #endif
+        return utf8line;
+    #endif
+    }
+
+    // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
+    static inline std::wstring utf8_decode( const std::string& sStr )
+    {
+    #if 0
+        return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes( sStr );
+    #else
+        std::wstring wide_line;
+
+        if (sStr.empty())
+            return wide_line;
+
+    #ifdef _MSC_VER
+        utf8::utf8to16( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
+    #else
+        utf8::utf8to32( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
+    #endif
+        return wide_line;
+    #endif
     }
 
     static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_TransferFunction( GfxAPI::ContextOpenGL& contextOpenGl, const char *const argv ) {
@@ -53,8 +96,15 @@ namespace {
             auto strWindowH = stringUtils::ToString( desiredWindowH );            
 
             std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+            
+        #ifdef _MSC_VER
             auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
-            //const std::vector<TinyProcessLib::Process::string_type> arguments{
+        #else
+            // auto argv0Wide = std::codecvt_utf8( argv );
+            // auto argv0Wide = utf8_decode( argv );
+            auto argv0Wide = argv;
+        #endif
+            
             cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
                 //cmdLine.c_str(),
                 argv0Wide,
@@ -83,7 +133,13 @@ namespace {
             auto strWindowH = stringUtils::ToString( desiredWindowH );            
 
             std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+        #ifdef _MSC_VER
             auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
+        #else
+            // auto argv0Wide = std::codecvt_utf8( argv );
+            // auto argv0Wide = utf8_decode( argv );
+            auto argv0Wide = argv;
+        #endif
             cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
                 //cmdLine.c_str(),
                 argv0Wide,

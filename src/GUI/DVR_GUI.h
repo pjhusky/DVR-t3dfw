@@ -29,6 +29,7 @@ struct DVR_GUI {
         bool& editTransferFunction;
         std::array<int, 3>& dim;
         std::array<float, 2>& surfaceIsoAndThickness;
+        std::array<float, 3>   surfaceIsoColor;
     };
 
     enum class eRayMarchAlgo: int {

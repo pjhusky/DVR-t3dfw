@@ -18,6 +18,7 @@
 
 #include <nfd.h>
 
+#include <array>
 
 namespace {
 #if 0
@@ -158,6 +159,11 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     #endif
 
         ImGui::SliderFloat( "Iso value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
+        ImGui::SameLine();
+        //ImGui::ColorEdit3( "", std::array<float, 3>{1.0f, 0.2f, 0.0f}.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
+        ImGui::ColorEdit3( "", pGuiUserData->surfaceIsoColor.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
+        //ImGui::ColorPicker3( "", std::array<float, 3>{0.0f, 0.2f, 1.0f}.data(), ImGuiColorEditFlags_NoPicker );
+
         ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 50.0f / 4096.0f, "%.5f" );
     }
 

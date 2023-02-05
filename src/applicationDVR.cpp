@@ -227,7 +227,8 @@ namespace {
             
             printf( "polled new window size %d x %d\n", fbWidth, fbHeight );
 
-            calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
+            //calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
+            calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, projMatrix );
 
             prevFbWidth = fbWidth;
             prevFbHeight = fbHeight;
@@ -582,6 +583,7 @@ Status_t ApplicationDVR::run() {
 
 
     bool guiWantsMouseCapture = false;
+    std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
 
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
@@ -591,14 +593,13 @@ Status_t ApplicationDVR::run() {
         mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
 
         if ( /*frameNum % 3 == 0 &&*/ mSharedMem.get( "TFdirty" ) == "true" ) {
-            std::array<uint8_t, 1024 * 4> interpolatedDataCPU;
-
+            //std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
             uint32_t bytesRead;
-            bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDataCPU.data(), static_cast<uint32_t>( interpolatedDataCPU.size() ), &bytesRead );
+            bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDensityColorsCPU.data(), static_cast<uint32_t>( interpolatedDensityColorsCPU.size() ), &bytesRead );
             if ( retVal ) {
-                assert( retVal == true && bytesRead == interpolatedDataCPU.size() );
+                assert( retVal == true && bytesRead == interpolatedDensityColorsCPU.size() );
 
-                mpDensityColorsTex2d->uploadData( interpolatedDataCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+                mpDensityColorsTex2d->uploadData( interpolatedDensityColorsCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
                 mSharedMem.put( "TFdirty", "false" );
             }
         }
@@ -936,6 +937,17 @@ Status_t ApplicationDVR::run() {
             
             std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
 
+            const uint32_t colorIdx = linAlg::clamp<uint32_t>( 
+                static_cast<uint32_t>( surfaceIsoAndThickness[0] * ( interpolatedDensityColorsCPU.size()/4 ) ), 
+                0, 
+                interpolatedDensityColorsCPU.size()/4 - 1 );
+
+            std::array<float,3> isoColor{
+                1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 0 ],
+                1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 1 ],
+                1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 2 ],
+            };
+
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
@@ -945,6 +957,7 @@ Status_t ApplicationDVR::run() {
                 .editTransferFunction = editTransferFunction,
                 .dim = dimArray,
                 .surfaceIsoAndThickness = surfaceIsoAndThickness,
+                .surfaceIsoColor = isoColor,
             };
 
             DVR_GUI::DisplayGui( &guiUserData );

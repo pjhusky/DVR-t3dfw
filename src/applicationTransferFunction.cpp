@@ -264,7 +264,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         delete mpDensityColorDotTex2d;
 
         stbi_set_flip_vertically_on_load( 1 );
-        int32_t imgNumChannels;
+        
         glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
         // based on template from https://icon-library.com/icon/location-icon-for-resume-26.html
         uint8_t* pData = stbi_load( "data/colorMarker_white.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
@@ -284,7 +284,6 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         delete mpIsovalMarkerTex2d;
 
         stbi_set_flip_vertically_on_load( 0 );
-        int32_t imgNumChannels;
         glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
         // based on template from https://freeicons.io/test/arrow-direction-retro-stroke%20arrow-up-icon-687
         uint8_t* pData = stbi_load( "data/arrow-white-512.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
@@ -641,7 +640,7 @@ Status_t ApplicationTransferFunction::run() {
                     const int32_t rightBound = linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth - 1 );
 
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
-                    for (uint32_t xWithDeviation = leftBound; xWithDeviation <= rightBound; xWithDeviation++) {
+                    for (int32_t xWithDeviation = leftBound; xWithDeviation <= rightBound; xWithDeviation++) {
 
                         result = mDensityColors.find( xWithDeviation );
 
@@ -835,7 +834,7 @@ Status_t ApplicationTransferFunction::run() {
 
                 if (currMouseY > mScaleAndOffset_Colors[3] * fbHeight && !inTransparencyInteractionMode_RMB) { // check if existing color dot was right-clicked and if yes erase that color dot
                     decltype(mDensityColors)::iterator result = mDensityColors.end();
-                    for (uint32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
+                    for (int32_t xWithDeviation = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
                         xWithDeviation < linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth );
                         xWithDeviation++) {
                         result = mDensityColors.find( xWithDeviation );

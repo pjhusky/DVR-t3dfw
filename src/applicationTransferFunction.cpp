@@ -37,6 +37,7 @@
 
 namespace {
     static constexpr float colorDotScale = 0.12f;
+    static constexpr float isovalMarkerScale = 0.08f;
     static constexpr uint32_t minRelevantDensity = 40u;
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
@@ -154,6 +155,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityColorsTex2d( nullptr )
     , mpDensityColorDotTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
+    , mpIsovalMarkerTex2d( nullptr )
     , mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true )
@@ -163,11 +165,16 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     mScaleAndOffset_Transparencies  = { 1.0f, 0.8f, 0.0, 0.0f };
     mScaleAndOffset_Colors          = { 1.0f, 0.2f, 0.0, 0.8f };
+    mScaleAndOffset_Isovalues       = { 1.0f, 0.5f, 0.5, 0.01f };
 
-    mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( mSharedMem.get( "histoBucketEntries" ) );
+    const auto numHistoBucketEntries = mSharedMem.get( "histoBucketEntries" );
+    if (numHistoBucketEntries.empty()) {
+        mNumHistogramBuckets = 1024;
+    } else {
+        mNumHistogramBuckets = stringUtils::convStrTo<uint32_t>( numHistoBucketEntries );
+    }
     printf( "numHistogramBuckets: %u\n", mNumHistogramBuckets );
 
-    
     mHistogramBuckets.resize( mNumHistogramBuckets );
 
 
@@ -259,12 +266,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         stbi_set_flip_vertically_on_load( 1 );
         int32_t imgNumChannels;
         glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
-        //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent_blurred.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
-        //uint8_t* pData = stbi_load( "data/colorDot_biggerCutOut_512_transparent.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
-
         // based on template from https://icon-library.com/icon/location-icon-for-resume-26.html
         uint8_t* pData = stbi_load( "data/colorMarker_white.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
-
 
         mpDensityColorDotTex2d = new GfxAPI::Texture;
         mpDensityColorDotTex2d->create( texDesc );
@@ -272,10 +275,27 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
         mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
 
-
         mpDensityColorDotTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
+    }
+    
+    // https://freeicons.io/test/arrow-arrow%20down-down-label-luxury-stroke%20arrow-tag-icon-694
+    { // isoval marker
+        GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
+        delete mpIsovalMarkerTex2d;
 
-        //gfxUtils::createTexFromImage( "data/colorDot_biggerCutOut_512_transparent_blurred.png", 
+        stbi_set_flip_vertically_on_load( 0 );
+        int32_t imgNumChannels;
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // needed for RGB images with odd width
+        // based on template from https://freeicons.io/test/arrow-direction-retro-stroke%20arrow-up-icon-687
+        uint8_t* pData = stbi_load( "data/arrow-white-512.png", &texDesc.texDim[0], &texDesc.texDim[1], &texDesc.numChannels, 0 );
+
+        mpIsovalMarkerTex2d = new GfxAPI::Texture;
+        mpIsovalMarkerTex2d->create( texDesc );
+        const uint32_t mipLvl = 0;
+        mpIsovalMarkerTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpIsovalMarkerTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
+
+        mpIsovalMarkerTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
     }
     
 
@@ -926,6 +946,27 @@ Status_t ApplicationTransferFunction::run() {
                 glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
             }
             mpDensityColorDotTex2d->unbindFromTexUnit();
+        }
+        if (mpIsovalMarkerTex2d != nullptr) {
+            mpIsovalMarkerTex2d->bindToTexUnit( 3 );
+            shader.setInt( "u_mapTex", 3 );
+
+            const auto screenRatio = static_cast<float>(fbHeight) / fbWidth;
+            
+            linAlg::vec2_t surfaceIsoAndThickness;
+            const uint32_t expectedNumBytes = static_cast<uint32_t>(surfaceIsoAndThickness.size() * sizeof( surfaceIsoAndThickness[0] ));
+            uint32_t bytesRead = 0u;
+            const auto readOkay = mSharedMem.get( "surfaceIsoAndThickness", surfaceIsoAndThickness.data(), expectedNumBytes, &bytesRead );
+            if (readOkay && bytesRead == expectedNumBytes) {
+                mScaleAndOffset_Isovalues[2] = surfaceIsoAndThickness[0];
+            }
+            
+            linAlg::vec4_t scaleAndOffset{ isovalMarkerScale * screenRatio, isovalMarkerScale, mScaleAndOffset_Isovalues[2], mScaleAndOffset_Isovalues[3] };
+            
+            shader.setVec4( "u_scaleOffset", scaleAndOffset );
+            glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
+            
+            mpIsovalMarkerTex2d->unbindFromTexUnit();
         }
     #if 1
         glDisable(GL_BLEND);

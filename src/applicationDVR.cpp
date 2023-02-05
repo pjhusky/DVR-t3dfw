@@ -985,6 +985,10 @@ Status_t ApplicationDVR::run() {
                 resetTrafos = false;
             }
             
+            mSharedMem.put( "surfaceIsoAndThickness", 
+                            reinterpret_cast<const uint8_t *const>( surfaceIsoAndThickness.data() ), 
+                            static_cast<uint32_t>( surfaceIsoAndThickness.size() * sizeof( surfaceIsoAndThickness[0] ) ) );
+
             if (guiUserData.editTransferFunction) {
                 tryStartTransferFunctionApp();
             }

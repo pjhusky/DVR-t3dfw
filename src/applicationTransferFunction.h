@@ -48,6 +48,7 @@ private:
     GfxAPI::Texture*                mpDensityColorsTex2d;
     GfxAPI::Texture*                mpDensityColorDotTex2d;
     GfxAPI::Texture*                mpDensityHistogramTex2d;
+    GfxAPI::Texture*                mpIsovalMarkerTex2d;
 
     std::array<uint8_t, ApplicationDVR_common::numDensityBuckets * 4>   mInterpolatedDataCPU;
 
@@ -56,6 +57,7 @@ private:
     std::vector<uint8_t>            mTransparencyPaintHeightsCPU;
     linAlg::vec4_t                  mScaleAndOffset_Transparencies;
     linAlg::vec4_t                  mScaleAndOffset_Colors;
+    linAlg::vec4_t                  mScaleAndOffset_Isovalues;
     
 
     //struct colorElement_t {

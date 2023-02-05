@@ -35,6 +35,7 @@
 
 #include "../utfcpp/source/utf8.h" // solve C++17 UTF deprecation
 
+#define ONLY_TEST_TF_APP    0
 
 namespace {
     static void threadFunc( void* pData ) {
@@ -269,7 +270,7 @@ int main( int argc, const char* argv[] )
     //pApp->run();
     //return 0;
 
-#if 0
+#if ( ONLY_TEST_TF_APP != 0 )
     const bool checkWatchdog = false;
     std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL, checkWatchdog ) };
     reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );

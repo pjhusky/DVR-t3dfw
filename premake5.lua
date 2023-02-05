@@ -80,13 +80,14 @@ workspace "T3DFW_DVR_Workspace"
 	filter { "configurations:Debug*" }
 		-- optimize "Debug"
 		symbols "On"
-		defines { "DEBUG", "TRACE" }
+		--defines { "DEBUG", "TRACE" }
+
 		--buildoptions{ "-fdiagnostics-color=always" }
 		targetsuffix "_d"
 
 	filter { "configurations:Release*" }
 		optimize "Speed"
-		defines { "NDEBUG" }
+		--defines { "NDEBUG" }
 
 	filter {}
 
@@ -95,7 +96,6 @@ workspace "T3DFW_DVR_Workspace"
 
 	
 	include "t3dfw" -- runs "t3dfw/premake5.lua"
-
 	
 	-- main project	
 	project "T3DFW_DVR_Project"
@@ -105,15 +105,24 @@ workspace "T3DFW_DVR_Workspace"
 		--filter { "system:Windows" }
 		--	removeplatforms { "macOS" }
 
+		local allDefinesProject = { "_USE_MATH_DEFINES" }
+		if _ACTION == "gamke2" then
+			table.insert( allDefinesProject, "UNIX" )
+		elseif string.match( _ACTION, 'vs*') then
+			table.insert( allDefinesProject, "_WIN32" )
+			table.insert( allDefinesProject, "WIN32" )
+			table.insert( allDefinesProject, "_WIN64" )
+			table.insert( allDefinesProject, "_AMD64_" )
+			table.insert( allDefinesProject, "_WINDOWS" )
+			table.insert( allDefinesProject, "_CRT_SECURE_NO_WARNINGS" )
+		end
+
 
 		openmp "On" -- ALTERNATIVELY per filter: buildoptions {"-fopenmp"}
 
 		local PRJ_LOCATION = path.normalize( "%{prj.location}" )
-		-- local T3DFW_BASE_DIR = "t3dfw/"
-		--local T3DFW_BASE_DIR = PRJ_LOCATION .. "t3dfw/"
 		local T3DFW_BASE_DIR = path.normalize( path.join( PRJ_LOCATION, "t3dfw" ) )
 		
-		--local EXTERNAL_DIR = PRJ_LOCATION .. "external/"
 		local EXTERNAL_DIR = path.normalize( path.join( PRJ_LOCATION, "external" ) )
 		
 		local T3DFW_EXTERNAL_DIR = path.normalize( path.join( T3DFW_BASE_DIR, "external" ) )
@@ -135,13 +144,10 @@ workspace "T3DFW_DVR_Workspace"
 		local GLFW_BASE_DIR = incorporateGlfw(GFX_API_DIR)
 		local GLAD_BASE_DIR = path.normalize( path.join( GFX_API_DIR, "glad" ) )
 		
-		--local SHADER_DIR = path.join( "**" , "src", "shaders" )
-		--local SHADER_DIR = PRJ_LOCATION .. "shaders"
-		--local SHADER_DIR = path.normalize( PRJ_LOCATION .. "shaders/" )
 		local SHADER_DIR = path.normalize( path.join( PRJ_LOCATION, "shaders" ) )
 
 		filter {"platforms:Win*", "vs*"}
-			defines { "_USE_MATH_DEFINES", "_WIN32", "_WIN64", "_CRT_SECURE_NO_WARNINGS" }
+			--defines { "_USE_MATH_DEFINES", "_WIN32", "_WIN64", "_CRT_SECURE_NO_WARNINGS" }
 
 		filter { "platforms:Win*", "action:gmake*", "toolset:gcc" }
 			-- NEED TO LINK STATICALLY AGAINST libgomp.a AS WELL: https://stackoverflow.com/questions/30394848/c-openmp-undefined-reference-to-gomp-loop-dynamic-start
@@ -165,7 +171,9 @@ workspace "T3DFW_DVR_Workspace"
 			-- VS also links these two libs, but they seem to not be necessary... "odbc32.lib" "odbccp32.lib" 
 			-- buildoptions {"-fopenmp"} -- NOT NEEDED IF DEFINED AT PROJECT SCOPE AS "openmp "On""
 			-- linkoptions {"lgomp"}
-			defines { "UNIX", "_USE_MATH_DEFINES" }
+			
+			--defines { "UNIX", "_USE_MATH_DEFINES" }
+
 			--undefines { "__STRICT_ANSI__" } -- for simdb wvsprintfA() - https://stackoverflow.com/questions/3445312/swprintf-and-vswprintf-not-declared
 			--cppdialect "gnu++20" -- https://github.com/assimp/assimp/issues/4190, https://premake.github.io/docs/cppdialect/
 
@@ -181,6 +189,8 @@ workspace "T3DFW_DVR_Workspace"
 			--buildoptions { "-fpermissive" }
 
 		filter {}
+
+		
 
 		includedirs { 
 			_SCRIPT_DIR,
@@ -232,7 +242,9 @@ workspace "T3DFW_DVR_Workspace"
 		
 		filter { "platforms:Win*" }
 			removefiles { path.join( TINYPROCESS_DIR, "process_unix.cpp" ), path.join( TINYPROCESS_DIR, "examples.cpp" ) }
-			defines { "_WIN32", "WIN32", "_WIN64", "_AMD64_", "_WINDOWS" }
+			--defines { "_WIN32", "WIN32", "_WIN64", "_AMD64_", "_WINDOWS" }
+			
+
 		filter {}
 			removefiles { path.join( UTFCPP_DIR, "tests/**" ), path.join( UTFCPP_DIR, "samples/**" ) }
 			removefiles { path.join( SIMDB_DIR, "ConcurrentMap.cpp" ) }
@@ -259,6 +271,14 @@ workspace "T3DFW_DVR_Workspace"
 		   -- buildoutputs { '%{cfg.objdir}/%{file.basename}.preprocessed' }
 		   buildoutputs { '%{file.relpath}.preprocessed' }
 		   
+
+		--
+		-- apply defines
+		-- 
+		filter { "configurations:Debug*" }
+			defines { allDefinesProject, "DEBUG", "TRACE" }
+		filter { "configurations:Release*" }
+			defines { allDefinesProject, "NDEBUG" }
 
 		-- 
 		-- disable filters, so this is valid for all projects

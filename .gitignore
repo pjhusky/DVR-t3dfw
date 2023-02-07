@@ -20,6 +20,7 @@ data/*
 **-\ Copy/
 **.png
 !DVR_sample.png
+!DVR_sample_2.png
 !data/**.png
 **.tif*
 **.bin

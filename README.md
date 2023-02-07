@@ -3,6 +3,7 @@
 Simple direct-volume rendering application that uses [Tiny 3D Framework](https://github.com/pjhusky/t3dfw). 
 
 ![](DVR_sample.png)
+![](DVR_sample_2.png)
 
 # Cloning
 

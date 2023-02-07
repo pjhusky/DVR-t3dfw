@@ -19,6 +19,7 @@ data/*
 **.zip
 **-\ Copy/
 **.png
+!DVR_sample.png
 !data/**.png
 **.tif*
 **.bin

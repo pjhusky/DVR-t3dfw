@@ -1,6 +1,6 @@
 # Direct Volume Rendering
 
-Simple direct-volume rendering application that uses Tiny 3D Framework. 
+Simple direct-volume rendering application that uses [Tiny 3D Framework](https://github.com/pjhusky/t3dfw). 
 
 ![](DVR_sample.png)
 

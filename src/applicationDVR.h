@@ -7,7 +7,7 @@
 // #include "gfxAPI/apiAbstractions.h"
 #include "math/linAlg.h"
 
-#include "external/tiny-process-library/process.hpp"
+#include "tiny-process-library/process.hpp"
 #include "sharedMemIPC.h"
 
 #include <string>

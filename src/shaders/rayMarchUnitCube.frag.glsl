@@ -1,4 +1,5 @@
 #version 330 core
+#extension GL_GOOGLE_include_directive : enable
 
 in vec3 v_coord3d;
 layout ( location = 0 ) out vec4 o_fragColor;
@@ -11,29 +12,7 @@ uniform vec3 u_minMaxScaleVal;
 uniform vec4 u_camPos_OS;
 uniform vec3 u_volDimRatio;
 
-// intersect ray with a box
-// http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
-
-int intersectBox(vec3 S, vec3 v, vec3 boxmin, vec3 boxmax, out float tnear, out float tfar)
-{
-    // compute intersection of ray with all six bbox planes
-    vec3 inv_dir = vec3(1.0) / v;
-    vec3 tbot = inv_dir * (boxmin - S);
-    vec3 ttop = inv_dir * (boxmax - S);
-
-    // re-order intersections to find smallest and largest on each axis
-    vec3 tmin = min(ttop, tbot);
-    vec3 tmax = max(ttop, tbot);
-
-    // find the largest tmin and the smallest tmax
-    float largest_tmin = max(max(tmin.x, tmin.y), max(tmin.x, tmin.z));
-    float smallest_tmax = min(min(tmax.x, tmax.y), min(tmax.x, tmax.z));
-
-    tnear = largest_tmin;
-    tfar = smallest_tmax;
-
-	return int(smallest_tmax > largest_tmin);
-}
+#include "shaderUtils.h.glsl"
 
 void main() {
 
@@ -53,7 +32,6 @@ void main() {
     
     for ( float currStep = 0.0; currStep < maxSteps; currStep += 1.0, curr_sample_pos += ray_dir_step ) {
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
-        // texVal = (texVal - u_minMaxScaleVal.x) * u_minMaxScaleVal.z; // we can do this once after the loop
         color += vec4( texVal );
         numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
     }

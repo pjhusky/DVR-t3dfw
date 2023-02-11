@@ -24,3 +24,27 @@ vec3 rand01( inout uvec3 v ) {
     return fval * ( 1.0f / 0xffffffffU );
 }
 #endif
+
+// intersect ray with a box
+// http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
+
+int intersectBox(vec3 S, vec3 v, vec3 boxmin, vec3 boxmax, out float tnear, out float tfar)
+{
+    // compute intersection of ray with all six bbox planes
+    vec3 inv_dir = vec3(1.0) / v;
+    vec3 tbot = inv_dir * (boxmin - S);
+    vec3 ttop = inv_dir * (boxmax - S);
+
+    // re-order intersections to find smallest and largest on each axis
+    vec3 tmin = min(ttop, tbot);
+    vec3 tmax = max(ttop, tbot);
+
+    // find the largest tmin and the smallest tmax
+    float largest_tmin = max(max(tmin.x, tmin.y), max(tmin.x, tmin.z));
+    float smallest_tmax = min(min(tmax.x, tmax.y), min(tmax.x, tmax.z));
+
+    tnear = largest_tmin;
+    tfar = smallest_tmax;
+
+	return int(smallest_tmax > largest_tmin);
+}

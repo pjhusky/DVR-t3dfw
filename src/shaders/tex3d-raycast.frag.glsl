@@ -1,5 +1,4 @@
 #version 330 core
-
 #extension GL_GOOGLE_include_directive : enable
 
 in vec3 v_ndcPos;
@@ -23,50 +22,7 @@ uniform vec4 u_camPos_OS;
 uniform vec3 u_volDimRatio;
 uniform float u_recipTexDim;
 
-
 #include "shaderUtils.h.glsl"
-//vec3 rand01( inout uvec3 v ) {
-//    v = v * 1664525u + 1013904223u;
-//
-//    v.x += v.y*v.z;
-//    v.y += v.z*v.x;
-//    v.z += v.x*v.y;
-//
-//    v ^= ( v >> 16u );
-//
-//    v.x += v.y*v.z;
-//    v.y += v.z*v.x;
-//    v.z += v.x*v.y;
-//
-//    vec3 fval = vec3( v.x, v.y, v.z );
-//    return fval * ( 1.0f / 0xffffffffU );
-//}
-
-
-
-// intersect ray with a box
-// http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
-
-int intersectBox(vec3 S, vec3 v, vec3 boxmin, vec3 boxmax, out float tnear, out float tfar)
-{
-    // compute intersection of ray with all six bbox planes
-    vec3 inv_dir = vec3(1.0) / v;
-    vec3 tbot = inv_dir * (boxmin - S);
-    vec3 ttop = inv_dir * (boxmax - S);
-
-    // re-order intersections to find smallest and largest on each axis
-    vec3 tmin = min(ttop, tbot);
-    vec3 tmax = max(ttop, tbot);
-
-    // find the largest tmin and the smallest tmax
-    float largest_tmin = max(max(tmin.x, tmin.y), max(tmin.x, tmin.z));
-    float smallest_tmax = min(min(tmax.x, tmax.y), min(tmax.x, tmax.z));
-
-    tnear = largest_tmin;
-    tfar = smallest_tmax;
-
-	return int(smallest_tmax > largest_tmin);
-}
 
 void main_levoySurface() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
@@ -125,17 +81,12 @@ void main_levoySurface() {
 
         float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
-        //gradient.z = sqrt( 1.0 - dot( gradient.xy, gradient.xy ) );
-        //gradient = vec3( 0.0, 1.0, 0.0 );
-        
-        //vec3 gradient_unit = normalize( gradient );
         
         float len_gradient = length( gradient );
         vec3 gradient_unit = gradient / len_gradient;
 
         float densityVal = raw_densityVal * ( 65535.0 / 4095.0 );
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( densityVal, 0.5 ) );
-        //float currAlpha = colorAndAlpha.a;
         float currAlpha = 0.0;
         if ( len_gradient <= 0.000000001 && densityVal == surfaceIso ) { currAlpha = 1.0; }
         else if ( len_gradient > 0.0 && ( surfaceIso - surfaceThickness * len_gradient < densityVal && densityVal < surfaceIso + surfaceThickness * len_gradient ) ) {
@@ -155,7 +106,6 @@ void main_levoySurface() {
         color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
     
         if ( color.a >= 0.99 ) {
-            // color.rgb = vec3( 1.0, 0.0, 0.0 ); // visualize early outs
             break;
         }
     }
@@ -219,14 +169,9 @@ void main_composit() {
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
-        //gradient.z = sqrt( 1.0 - dot( gradient.xy, gradient.xy ) );
-        //gradient = vec3( 0.0, 1.0, 0.0 );
         
         vec3 gradient_unit = normalize( gradient );
         
-        //float len_gradient = length( gradient );
-        //vec3 gradient_unit = gradient / len_gradient;
-
         texVal *= ( 65535.0 / 4095.0 );
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
         float currAlpha = colorAndAlpha.a;
@@ -237,21 +182,17 @@ void main_composit() {
         float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir ) ) ) );
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
-        //currAlpha *= max( 1.0, len_gradient );
 
-        //color += vec4( colorAndAlpha.rgb * texVal, texVal );
         color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
         color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
     
         if ( color.a >= 0.99 ) {
-            // color.rgb = vec3( 1.0, 0.0, 0.0 ); // visualize early outs
             break;
         }
     }
     
     //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
 
-    //o_fragColor.rgb = color.rgb / numPosDensities;
     o_fragColor.rgb = color.rgb * lightColor;
     o_fragColor.a = 1.0;
 }
@@ -342,7 +283,6 @@ void main_Tests() {
     ray_dir = normalize( ray_dir ); // not strictly necessary but maybe better for tnear and tfar meaningfulness
 
     float tnear, tfar;
-	//int hit = intersectBox(ray_start, ray_dir, vec3(-1.0), vec3(1.0), tnear, tfar);
     int hit = intersectBox(ray_start, ray_dir, -u_volDimRatio, u_volDimRatio, tnear, tfar);
     if ( hit == 0 ) { discard; return; }
 
@@ -353,12 +293,10 @@ void main_Tests() {
     vec3 end_sample_pos = ray_start + tfar * ray_dir;
 
     vec4 color = vec4( 0.0 );
-    //float numPosDensities = 1.0;
     float numPosDensities = 0.0;
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
-//    uvec3 randInput = uvec3( ray_start * 4096.0 );
     vec3 rnd01 = rand01(randInput);
 
 #if 0 // fixed number of steps (denser sampling on shorter distances, less dense on larger dists)
@@ -372,8 +310,6 @@ void main_Tests() {
     for ( float currStep = 0.0; currStep < maxSteps; currStep += 1.0 ) {
         curr_sample_pos += ray_dir_step;
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
-        
-        // texVal = (texVal - u_minMaxScaleVal.x) * u_minMaxScaleVal.z; // we can do this once after the loop
         color += vec4( texVal );
         numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
     }
@@ -386,18 +322,8 @@ void main_Tests() {
 
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
-
-//    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
-//        vec3 ray_step_pos = curr_sample_pos + currStep * vol_step_ray;
-//        float texVal = texture( u_densityTex, ray_step_pos ).r;
-//        color += vec4( texVal );
-//        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
-//    }
-
     
     vol_step_ray *= 0.0033; // max steps roughly 300
-
-    //curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
 
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
         
@@ -407,7 +333,6 @@ void main_Tests() {
         curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
-        // texVal = (texVal - u_minMaxScaleVal.x) * u_minMaxScaleVal.z; // we can do this once after the loop
 
     #if 0 // x-Ray
         color += vec4( texVal );
@@ -426,24 +351,12 @@ void main_Tests() {
         texVal = colorAndAlpha.a;
         //color += vec4( texVal );
         color += vec4( colorAndAlpha.rgb * texVal, texVal );
-        //numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
         numPosDensities += 1.0;
     #else
-//        color += vec4( texVal );
-//        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
 
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( texVal, 0.5 ) );
-        //if ( colorAndAlpha.a > 0.1 ) {
-//            color.rgb += colorAndAlpha.rgb;
-//            numPosDensities += 0.25;
-            //color.rgb = mix ( color.rgb, colorAndAlpha.rgb, colorAndAlpha.a );
             color = mix ( color, colorAndAlpha, colorAndAlpha.a );
             numPosDensities += colorAndAlpha.a;
-        //}
-//        color.rgb += colorAndAlpha.rgb;
-//        // numPosDensities += colorAndAlpha.a;
-//        numPosDensities += (colorAndAlpha.a > 0.1) ? 0.25 : 0.0;
-//
     #endif
     }
 
@@ -451,8 +364,6 @@ void main_Tests() {
     
     color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
 
-    o_fragColor.rgb = color.rgb / numPosDensities;
-    //o_fragColor.rgb = color.rgb / 0.0033 / numPosDensities;
-    
+    o_fragColor.rgb = color.rgb / numPosDensities;    
     o_fragColor.a = 1.0;
 }

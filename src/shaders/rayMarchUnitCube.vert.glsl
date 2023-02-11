@@ -9,8 +9,6 @@ out vec3 v_coord3d;
  
 
 void main() {
-
     gl_Position = u_mvpMat * vec4( a_pos, 1.0 );
     v_coord3d.xyz = a_pos.xyz * 0.5 + 0.5;
-
 }

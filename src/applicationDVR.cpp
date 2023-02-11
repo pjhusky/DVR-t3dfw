@@ -2,6 +2,14 @@
 // for the unit-cube raymarcher: handle cam-in-box case => Problem is glaub ich nur die near plane, die dann die backfaces beginnt wegzuklippen weshalb ich dann die ray-exit Schnittpunkte verlier (und somit den gesamten Strahl durch dieses Pixel)
 // noisy offset um banding artifacts zu minimieren - m�gl.weise gepaart mit dem Ansatz zum Sobel-normal filtering
 
+
+// shader first entry point noise must be positive
+
+// save+load TF
+// initial color map better tuning
+// more than one Levoy iso surface?
+// runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
+
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
 #endif

@@ -17,9 +17,7 @@
 
 #include "fileLoaders/stb/stb_image.h"
 
-
 #include "external/libtinyfiledialogs/tinyfiledialogs.h"
-
 
 #include <memory>
 #include <fstream>
@@ -66,12 +64,6 @@ namespace {
         //float camSpeed = camSpeedFact;
         //if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT_SHIFT ) )  { camSpeed *= 5.0f; }
         //if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; }
-
-        //if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { targetCamZoomDist -= camSpeed * frameDelta; }
-        //if (pressedOrRepeat( pWindow, GLFW_KEY_S ))    { targetCamZoomDist += camSpeed * frameDelta; }
-
-        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_6 )) { rotPivotOffset[0] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
-        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_4 )) { rotPivotOffset[0] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
     }
 
     static void keyboardCallback( GLFWwindow *const pWindow, int32_t key, int32_t scancode, int32_t action, int32_t mods ) {
@@ -200,25 +192,26 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
             uint32_t bytesRead;
             bool foundTransparencies = mSharedMem.get( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ), &bytesRead );
-            //if ( !foundTransparencies ) {// linear ramp
-            //    const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
-            //    for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
-            //        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
-            //    }
-            //}
-            const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 15 / 100);
-            const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 25 / 100);
-            if (!foundTransparencies) {// linear ramp
-                for (uint32_t idx = 0; idx < lowerBound; idx++) {
-                    mTransparencyPaintHeightsCPU[idx] = 0;
-                }
-                for (uint32_t idx = lowerBound; idx < upperBound; idx++) {
-                    mTransparencyPaintHeightsCPU[idx] = 10u;
-                }
-                for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
-                    mTransparencyPaintHeightsCPU[idx] = 0;
+            if ( !foundTransparencies ) {// linear ramp
+                const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
+                for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
+                    mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
                 }
             }
+            //const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 15 / 100);
+            //const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 25 / 100);
+            //if (!foundTransparencies) {// linear ramp
+            //    for (uint32_t idx = 0; idx < lowerBound; idx++) {
+            //        mTransparencyPaintHeightsCPU[idx] = 0;
+            //    }
+            //    for (uint32_t idx = lowerBound; idx < upperBound; idx++) {
+            //        mTransparencyPaintHeightsCPU[idx] = 10u;
+            //    }
+            //    for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
+            //        mTransparencyPaintHeightsCPU[idx] = 0;
+            //    }
+            //}
+
             densityTransparenciesToTex2d();
 
             mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ) );
@@ -1076,28 +1069,17 @@ void ApplicationTransferFunction::densityTransparenciesToTex2d() {
     constexpr int32_t kernelSize = 3;
     constexpr float fRecipKernelSize = 1.0f / static_cast<float>(kernelSize);
 
-    //constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 255, 100, 150 }; // change of colors away from set transparency
     constexpr std::array< uint8_t, kernelSize + 1> kernelColorProile{ 0, 80, 170, 230 }; // change of colors away from set transparency
     constexpr std::array< uint8_t, kernelSize + 1> kernelAlphaProile{ 200, 64, 16, 4 }; // change of display transpareny for anti-aliasing of line (just for display
 
     for( uint32_t x = 0; x < dim_x; x++ ) {
         const auto transparencyVal = mTransparencyPaintHeightsCPU[x];
-        //const float relativeHistoH = transparencyVal * fRecipMaxHistoVal;
-        //for ( uint32_t y = 0; y < static_cast<uint32_t>(relativeHistoH * dim_y); y++ ) {
-        //    if ( y >= dim_y ) { break; }
-        //    densityTransparenciesCPU[ y * dim_x + x ] = 120;
-        //}
-
 
         int32_t centerY = static_cast<int32_t>( static_cast<float>( transparencyVal ) * (1.0f/255.0f) * dim_y );
         for (  int32_t y = linAlg::maximum( 0, centerY - kernelSize ); y < linAlg::minimum<int32_t>( centerY + kernelSize, dim_y - 1 ); y++ ) {
             uint32_t addr = ( y * dim_x + x ) * 2;
 
-            // addr + 0
-            // addr + 1
-
             const int32_t absDistToCenter = abs(centerY - y);
-            //const float fAbsDistToCenter01 = absDistToCenter * fRecipKernelSize;
 
             densityTransparenciesCPU[ addr + 0 ] = kernelColorProile[absDistToCenter];
             densityTransparenciesCPU[ addr + 1 ] = kernelAlphaProile[absDistToCenter];

@@ -25,13 +25,12 @@
 #include <chrono>
 #include <thread>
 
+#include <stdio.h>
+
 #include <cassert>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-
-
-#define IS_READY    0
 
 namespace {
     static constexpr float colorDotScale = 0.12f;
@@ -233,9 +232,6 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityHistogramTex2d = new GfxAPI::Texture;
         mpDensityHistogramTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-    #if ( IS_READY != 0 )
-        mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
-    #endif
         mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
         mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
@@ -344,35 +340,23 @@ ApplicationTransferFunction::~ApplicationTransferFunction() {
     printf( "end ApplicationTransferFunction dtor\n" );
 }
 
-Status_t ApplicationTransferFunction::load( const std::string& fileUrl )
-{
-#if ( IS_READY != 0 )
-    mDataFileUrl = fileUrl;
-
-    delete mpData;
-    mpData = new VolumeData;
-    mpData->load( fileUrl.c_str() );
-
-    const auto volDim = mpData->getDim();
-    GfxAPI::Texture::Desc_t volTexDesc{
-        .texDim = linAlg::i32vec3_t{ volDim[0], volDim[1], volDim[2] },
-        .numChannels = 1,
-        .channelType = GfxAPI::eChannelType::i16,
-        .semantics = GfxAPI::eSemantics::color,
-        .isMipMapped = false,
-    };
-    delete mpDensityHistogramTex2d;
-
-    mpDensityHistogramTex2d = new GfxAPI::Texture;
-    mpDensityHistogramTex2d->create( volTexDesc );
-    const uint32_t mipLvl = 0;
-    mpDensityHistogramTex2d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
-    mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
-    mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
-#endif
+Status_t ApplicationTransferFunction::load( const std::string& fileUrl ) {
+    // 3 bytes magic number, 1 byte LE = 0 vs BE = 1 encoding
+    // mDensityColors number of entries, and one vec3 per entry
+    // mNumHistogramBuckets and one uint32_t per entry => mHistogramBuckets
 
 
+    FILE* pFile = fopen( fileUrl.c_str(), "rb" );
+    if (pFile == nullptr) { return Status_t::ERROR( "Failed to load TF file" ); }
+
+    uint32_t headerAndEndianess;
+    fread( &headerAndEndianess, sizeof( headerAndEndianess ), 1, pFile );
+
+    uint32_t numHistogramBuckets;
+    fread( &numHistogramBuckets, sizeof( numHistogramBuckets ), 1, pFile );
+
+    uint32_t numDensityColors;
+    fread( &numDensityColors, sizeof( numDensityColors ), 1, pFile );
 
     return Status_t::OK();
 }

@@ -24,6 +24,11 @@ uniform float u_recipTexDim;
 
 #include "shaderUtils.h.glsl"
 
+#ifndef RAY_STEP_SIZE
+    //#define RAY_STEP_SIZE   0.0033
+    #define RAY_STEP_SIZE   0.004
+#endif
+
 void main_levoySurface() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
     vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
@@ -52,7 +57,7 @@ void main_levoySurface() {
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
-    vec3 rnd01 = rand01(randInput);
+    vec3 rnd01 = vec3(0.0); //rand01(randInput);
 
     // perform transformation into "non-square" dataset only once instead of at each sampling position
     curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
@@ -61,7 +66,7 @@ void main_levoySurface() {
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
-    vec3 vol_step_ray = vol_step_ray_unit * 0.0033; // max steps roughly 300
+    vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
 
     /* const */ float ambientIntensity = 0.01;
     /* const */ vec3 lightColor = vec3( 0.95, 0.8, 0.8 );
@@ -72,12 +77,21 @@ void main_levoySurface() {
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
 
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+    int iStep = 0;
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
         curr_sample_pos += vol_step_ray;
 
-        rnd01 = rand01(randInput);
-        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+        if ( iStep == 0 ) {
+            rnd01 = rand01(randInput);
+        }
+        curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
+        iStep++; iStep %= 3;
+        
+
+
+        //curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+        //curr_sample_pos += vol_step_ray * rnd01.x;
 
         float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
@@ -152,7 +166,7 @@ void main_composit() {
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
-    vec3 vol_step_ray = vol_step_ray_unit * 0.0033; // max steps roughly 300
+    vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
 
     /* const */ float ambientIntensity = 0.01;
     /* const */ vec3 lightColor = vec3( 0.95, 0.8, 0.8 );
@@ -160,7 +174,7 @@ void main_composit() {
     float materialDiffuse = 0.8;
     float materialSpecular = 0.3;
 
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
         curr_sample_pos += vol_step_ray;
 
@@ -236,9 +250,9 @@ void main_XRay() {
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
     
-    vol_step_ray *= 0.0033; // max steps roughly 300
+    vol_step_ray *= RAY_STEP_SIZE; // max steps roughly 300
 
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
         curr_sample_pos += vol_step_ray;
 
@@ -323,9 +337,9 @@ void main_Tests() {
     float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray = normalize( end_sample_pos - curr_sample_pos );
     
-    vol_step_ray *= 0.0033; // max steps roughly 300
+    vol_step_ray *= RAY_STEP_SIZE; // max steps roughly 300
 
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += 0.0033 ) {
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
         curr_sample_pos += vol_step_ray;
 

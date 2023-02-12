@@ -1,13 +1,7 @@
-// TODO: 
-// for the unit-cube raymarcher: handle cam-in-box case => Problem is glaub ich nur die near plane, die dann die backfaces beginnt wegzuklippen weshalb ich dann die ray-exit Schnittpunkte verlier (und somit den gesamten Strahl durch dieses Pixel)
+// ### TODO ###
 
-// noisy offset um banding artifacts zu minimieren - moegl.weise gepaart mit dem Ansatz zum Sobel-normal filtering
+// Sobel-normal gradient calc
 
-
-// shader first entry point noise must be positive
-
-// save+load TF
-// initial color map better tuning
 // more than 1 Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
@@ -17,7 +11,7 @@
 // * Documentation:
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
-
+// TF load-save als convenience feature
 
 
 #ifndef _USE_MATH_DEFINES

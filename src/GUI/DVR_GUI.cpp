@@ -6,6 +6,8 @@
 
 #include "gfxAPI/contextOpenGL.h"
 
+#include "../sharedMemIPC.h"
+
 //#include "volumeData.h"
 //#include "texture.h"
 //#include "gfxUtils.h"
@@ -16,9 +18,12 @@
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
 
+#include "external/libtinyfiledialogs/tinyfiledialogs.h"
+
 #include <nfd.h>
 
 #include <array>
+#include <filesystem>
 
 namespace {
 #if 0
@@ -95,16 +100,16 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
 
     if ( ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger ) {
-        printf( "Open File Dialog\n" );
+        printf( "Open DAT File Dialog\n" );
+
         nfdchar_t* outPath = NULL;
         nfdresult_t result = NFD_OpenDialog( "dat", NULL, &outPath );
 
         if (result == NFD_OKAY) {
             puts( "Success!" );
             puts( outPath );
-
-            pGuiUserData->volumeDataUrl = std::string( outPath );
             pGuiUserData->loadFileTrigger = true;
+            pGuiUserData->volumeDataUrl = std::string( outPath );
             free( outPath );
         }
         else if (result == NFD_CANCEL) {
@@ -168,6 +173,46 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     }
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
+
+    // load TF
+    
+    if ( ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/ ) {
+        printf( "Open TF File Dialog\n" );
+
+        
+        std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+        std::filesystem::path volumeDataUrlTfExtenstion = ( volumeDataUrl.empty() ) ? "" : volumeDataUrl.replace_extension( "tf" );
+        const char* filter{ "*.tf" };
+        const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+        const char* pTfFileUrl = tinyfd_openFileDialog( "Load TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc, 0 );
+
+        if (pTfFileUrl == nullptr) {
+            printf( "Load TF canceled or there was an error\n" );
+        }
+        else {
+            std::string tfFileUrl = pTfFileUrl;
+            pGuiUserData->pSharedMem->put( "loadTF", tfFileUrl );
+            //pGuiUserData->editTransferFunction = true;
+        }
+    }
+
+    // save TF
+    if ( ImGui::Button( "Save .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "saveTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/ ) {
+        printf( "Save TF File Dialog\n" );
+
+        std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+        std::filesystem::path volumeDataUrlTfExtenstion = ( volumeDataUrl.empty() ) ? "" : volumeDataUrl.replace_extension( "tf" );
+        const char* filter{ "*.tf" };
+        const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+        const char* pTfFileUrl = tinyfd_saveFileDialog( "Save TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc );
+
+        if (pTfFileUrl == nullptr) {
+            printf( "Save TF canceled or there was an error\n" );
+        } else {
+            std::string tfFileUrl = pTfFileUrl;
+            pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
+        }
+    }
 
 #if 0
     int32_t gradientID = 0;

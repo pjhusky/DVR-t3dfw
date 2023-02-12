@@ -31,6 +31,7 @@ struct ApplicationTransferFunction : public iApplication {
     virtual ~ApplicationTransferFunction();
 
     Status_t load( const std::string& fileUrl );
+    Status_t save( const std::string& fileUrl );
 
     virtual Status_t run() override;
 

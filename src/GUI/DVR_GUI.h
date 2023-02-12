@@ -13,16 +13,21 @@ namespace GfxAPI {
 //struct VolumeData;
 //struct Texture;
 //struct ApplicationDVR;
+//struct ApplicationTransferFunction;
+struct SharedMemIPC;
 
 struct DVR_GUI {
 
     struct GuiUserData_t {
         std::string& volumeDataUrl;
+        //std::string& tfUrl;
+        SharedMemIPC* pSharedMem;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
         //VolumeData* pVolumeData;
         //Texture& volumeTexture;
         //ApplicationDVR* pAppDVR;
+        //ApplicationTransferFunction* pAppTF;
         //std::function<Status_t( const std::string& )> callBack;
         bool& resetTrafos;
         bool& wantsToCaptureMouse;

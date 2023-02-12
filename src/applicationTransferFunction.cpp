@@ -35,9 +35,42 @@
 namespace {
     static constexpr float colorDotScale = 0.12f;
     static constexpr float isovalMarkerScale = 0.08f;
-    static constexpr uint32_t minRelevantDensity = 40u;
+    static constexpr uint32_t minRelevantDensity = 100u; // Hounsfield units - everything below 100 is just air!
     constexpr float mouseSensitivity = 0.23f;
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
+
+    struct scopedFile_t {
+
+        enum class mode_t : uint32_t {
+            READ = 1u << 0u,
+            WRITE = 1u << 1u,
+            BINARY = 1u << 2u,
+        };
+
+        scopedFile_t( const std::string& fileUrl, const uint32_t mode ) {
+            std::string openMode = "";
+            openMode.append( ( ( mode & static_cast<uint32_t>( mode_t::READ ) ) != 0u) ? "r" : "w" );
+            if ((mode & static_cast<uint32_t>(mode_t::BINARY)) != 0u) { openMode.append( "b" ); }
+
+            printf( "scoped file '%s', mode = %s\n", fileUrl.c_str(), openMode.c_str() );
+
+            mpFile = fopen( fileUrl.c_str(), openMode.c_str() );
+            //mpFile = fopen( R"(C:\FM-koop\DVR-fetch-test\DVR-t3dfw\data\skewed_head.tf)", "wb" );
+                            //R"(C:\FM-koop\DVR-fetch-test\DVR-t3dfw\data\skewed_head.tf)"
+
+            if (mpFile == nullptr) { printf( "ouch!\n" ); }
+        }
+
+        ~scopedFile_t() {
+            if (mpFile != nullptr) { fclose( mpFile ); }
+            mpFile = nullptr;
+        }
+
+        FILE* const handle() const { return mpFile; }
+
+    private:
+        FILE* mpFile;
+    };
 
     static std::string readFile( const std::string &filePath ) { 
         std::ifstream ifile{ filePath.c_str() };
@@ -345,18 +378,92 @@ Status_t ApplicationTransferFunction::load( const std::string& fileUrl ) {
     // mDensityColors number of entries, and one vec3 per entry
     // mNumHistogramBuckets and one uint32_t per entry => mHistogramBuckets
 
+    printf( "loading TF now\n" );
 
-    FILE* pFile = fopen( fileUrl.c_str(), "rb" );
+    //FILE* pFile = fopen( fileUrl.c_str(), "rb" );
+    scopedFile_t file{ fileUrl, static_cast<uint32_t>(scopedFile_t::mode_t::READ) | static_cast<uint32_t>(scopedFile_t::mode_t::BINARY) };
+    FILE* const pFile = file.handle();
+
     if (pFile == nullptr) { return Status_t::ERROR( "Failed to load TF file" ); }
-
+    
+    // read header / data descriptors
     uint32_t headerAndEndianess;
     fread( &headerAndEndianess, sizeof( headerAndEndianess ), 1, pFile );
 
     uint32_t numHistogramBuckets;
     fread( &numHistogramBuckets, sizeof( numHistogramBuckets ), 1, pFile );
+    printf( "numHistogramBuckets = %u\n", numHistogramBuckets );
 
     uint32_t numDensityColors;
     fread( &numDensityColors, sizeof( numDensityColors ), 1, pFile );
+    printf( "numDensityColors = %u\n", numDensityColors );
+
+    // read actual data
+    mNumHistogramBuckets = numHistogramBuckets;
+    mHistogramBuckets.resize( mNumHistogramBuckets );
+    //fread( mHistogramBuckets.data(), sizeof( mHistogramBuckets[0] ), mHistogramBuckets.size(), pFile );
+    fread( mTransparencyPaintHeightsCPU.data(), sizeof( mTransparencyPaintHeightsCPU[0] ), mTransparencyPaintHeightsCPU.size(), pFile );
+
+    for (int i = 0; i < numDensityColors; i++) {
+
+        uint32_t key;
+        fread( &key, sizeof( key ), 1, pFile );
+
+        linAlg::vec3_t value;
+        fread( value.data(), sizeof( value[0] ), value.size(), pFile );
+
+        mDensityColors.insert( {key, value} );
+    }
+
+    printf( "TF loading worked fine!\n" );
+
+    return Status_t::OK();
+}
+
+Status_t ApplicationTransferFunction::save( const std::string& fileUrl ) {
+    // 3 bytes magic number, 1 byte LE = 0 vs BE = 1 encoding
+    // mDensityColors number of entries, and one vec3 per entry
+    // mNumHistogramBuckets and one uint32_t per entry => mHistogramBuckets
+    printf( "saving TF now\n" );
+
+    scopedFile_t file{ fileUrl, static_cast<uint32_t>(scopedFile_t::mode_t::WRITE) | static_cast<uint32_t>(scopedFile_t::mode_t::BINARY) };
+    FILE* const pFile = file.handle();
+    //FILE* const pFile = fopen( fileUrl.c_str(), "wb" );
+
+    if (pFile == nullptr) { 
+        printf( "Failed to save TF file" );
+        return Status_t::ERROR( "Failed to save TF file" ); 
+    }
+    else {
+        printf( "file creation looking good" );
+    }
+
+    // read header / data descriptors
+    const uint32_t headerAndEndianess = 0xEEFF7700;
+    fwrite( &headerAndEndianess, sizeof( headerAndEndianess ), 1, pFile );
+
+    fwrite( &mNumHistogramBuckets, sizeof( mNumHistogramBuckets ), 1, pFile );
+    printf( "mNumHistogramBuckets = %u\n", mNumHistogramBuckets );
+
+    uint32_t numDensityColors = static_cast<uint32_t>(mDensityColors.size());
+    fwrite( &numDensityColors, sizeof( numDensityColors ), 1, pFile );
+    printf( "numDensityColors = %u\n", numDensityColors );
+
+    // write actual data
+    //fwrite( mHistogramBuckets.data(), sizeof( mHistogramBuckets[0] ), mHistogramBuckets.size(), pFile );
+    fwrite( mTransparencyPaintHeightsCPU.data(), sizeof( mTransparencyPaintHeightsCPU[0] ), mTransparencyPaintHeightsCPU.size(), pFile );
+    
+
+    for ( const auto& entry : mDensityColors ) {
+
+        uint32_t key = entry.first;
+        fwrite( &key, sizeof( key ), 1, pFile );
+
+        linAlg::vec3_t value = entry.second;
+        fwrite( value.data(), sizeof( value[0] ), value.size(), pFile );
+    }
+
+    printf( "TF saving worked fine!\n" );
 
     return Status_t::OK();
 }
@@ -456,7 +563,12 @@ Status_t ApplicationTransferFunction::run() {
         //    printf( "WATCHDOG time - haven't heard from DVR app for more than 5sec - bailing out!\n" ); 
         //}
 
-        if ( mSharedMem.get( "stopTransferFunctionApp" ) == "true"  ) { break; }
+        //printf( "frameNum = %llu\n", frameNum );
+
+        if ( mSharedMem.get( "stopTransferFunctionApp" ) == "true"  ) { 
+            printf( "stopTransferFunctionApp requested!\n" );
+            break; 
+        }
 
         if (mSharedMem.get( "DVR_TF_tick" ) == "1") {
             mSharedMem.put( "DVR_TF_tick", "0" );
@@ -464,6 +576,26 @@ Status_t ApplicationTransferFunction::run() {
         } else {
             parentProcessWatchdogTicks++;
         }
+
+        const std::string loadTfUrl = mSharedMem.get( std::string{ "loadTF" } );
+        if ( loadTfUrl != " " ) {
+            load( loadTfUrl );
+            colorKeysToTex2d();
+            densityTransparenciesToTex2d();
+            mSharedMem.put( "TFdirty", "true" );
+            mSharedMem.put( "loadTF", " " );
+        }
+
+        const std::string saveTfUrl = mSharedMem.get( std::string{ "saveTF" } );
+        if ( saveTfUrl != " " ) {
+            printf( "here 0\n" );
+            save( saveTfUrl );
+            //printf( "here 1\n" );
+            mSharedMem.put( std::string{ "saveTF" }, std::string{ " " } );
+            //printf( "here 2\n" );
+            printf( "after TF save done frameNum = %llu\n", frameNum );
+        }
+        //printf( "frameNum = %llu\n", frameNum );
 
         if (mCheckWatchdog && parentProcessWatchdogTicks > 180) {
             printf( "watchdog timer expired, parent process most probably doesn't exist anymore!\n" );

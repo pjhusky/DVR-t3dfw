@@ -1,21 +1,24 @@
 // TODO: 
 // for the unit-cube raymarcher: handle cam-in-box case => Problem is glaub ich nur die near plane, die dann die backfaces beginnt wegzuklippen weshalb ich dann die ray-exit Schnittpunkte verlier (und somit den gesamten Strahl durch dieses Pixel)
-// noisy offset um banding artifacts zu minimieren - m�gl.weise gepaart mit dem Ansatz zum Sobel-normal filtering
+
+// noisy offset um banding artifacts zu minimieren - moegl.weise gepaart mit dem Ansatz zum Sobel-normal filtering
 
 
 // shader first entry point noise must be positive
 
 // save+load TF
 // initial color map better tuning
-// more than one Levoy iso surface?
+// more than 1 Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
 // printVec raus-refaktoren
 // shader make more use of common functions - refactoring
 
-// Documentation:
+// * Documentation:
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
+
+
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -41,7 +44,6 @@
 #include "fileLoaders/volumeData.h"
 #include "fileLoaders/offLoader.h"
 #include "fileLoaders/stlModel.h" // used for the unit-cube
-
 
 #include "arcBall/arcBallControls.h"
 
@@ -284,7 +286,8 @@ ApplicationDVR::ApplicationDVR(
             std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
         }
     } );
-
+    mSharedMem.put( "loadTF", " " );
+    mSharedMem.put( "saveTF", " " );
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -956,9 +959,9 @@ Status_t ApplicationDVR::run() {
             std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
 
             const uint32_t colorIdx = linAlg::clamp<uint32_t>( 
-                static_cast<uint32_t>( surfaceIsoAndThickness[0] * ( interpolatedDensityColorsCPU.size()/4 ) ), 
-                0, 
-                interpolatedDensityColorsCPU.size()/4 - 1 );
+                static_cast<uint32_t>( surfaceIsoAndThickness[0] * ( interpolatedDensityColorsCPU.size()/4u ) ), 
+                0u, 
+                static_cast<uint32_t>( interpolatedDensityColorsCPU.size() )/4u - 1u );
 
             std::array<float,3> isoColor{
                 1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 0 ],
@@ -966,8 +969,11 @@ Status_t ApplicationDVR::run() {
                 1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 2 ],
             };
 
+            //std::string tfUrl = "";
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
+                .pSharedMem = &mSharedMem,
+                //.tfUrl = tfUrl,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,

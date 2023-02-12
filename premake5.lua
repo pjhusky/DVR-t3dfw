@@ -239,7 +239,7 @@ workspace "T3DFW_DVR_Workspace"
 					
 
 		filter {}
-			removefiles { path.join( UTFCPP_DIR, "tests/**" ), path.join( UTFCPP_DIR, "samples/**" ) }
+			removefiles { path.join( UTFCPP_DIR, "**/ftest/**" ), path.join( UTFCPP_DIR, "tests/**" ), path.join( UTFCPP_DIR, "samples/**" ) }
 			removefiles { path.join( SIMDB_DIR, "ConcurrentMap.cpp" ) }
 		
 		-- https://premake.github.io/docs/defines/

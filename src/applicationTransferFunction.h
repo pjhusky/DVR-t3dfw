@@ -14,6 +14,7 @@
 #include <vector>
 #include <map>
 
+
 namespace GfxAPI {
     struct ContextOpenGL;
     struct Texture;
@@ -64,7 +65,9 @@ private:
     //    uint32_t       index;
     //    linAlg::vec3_t color;
     //};
-    std::map< uint32_t, linAlg::vec3_t > mDensityColors;
+    using index_t = uint32_t;
+    using color_t = linAlg::vec3_t;
+    std::map< index_t, color_t >    mDensityColors;
     uint32_t                        mNumHistogramBuckets;
 
     // VAOs

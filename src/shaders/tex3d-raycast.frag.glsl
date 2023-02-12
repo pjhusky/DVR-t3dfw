@@ -57,7 +57,7 @@ void main_levoySurface() {
     
     uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
-    vec3 rnd01 = vec3(0.0); //rand01(randInput);
+    vec3 rnd01 = rand01(randInput);
 
     // perform transformation into "non-square" dataset only once instead of at each sampling position
     curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
@@ -77,19 +77,19 @@ void main_levoySurface() {
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
 
+    vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
-        curr_sample_pos += vol_step_ray;
+        curr_sample_pos_noRand += vol_step_ray;
 
-        if ( iStep == 0 ) {
+        // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
+        curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
+        iStep++; iStep %= 3;
+        if ( iStep == 2 ) {
             rnd01 = rand01(randInput);
         }
-        curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
-        iStep++; iStep %= 3;
         
-
-
         //curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
         //curr_sample_pos += vol_step_ray * rnd01.x;
 
@@ -174,12 +174,18 @@ void main_composit() {
     float materialDiffuse = 0.8;
     float materialSpecular = 0.3;
 
+    vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
+    int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
-        curr_sample_pos += vol_step_ray;
+        curr_sample_pos_noRand += vol_step_ray;
 
-        rnd01 = rand01(randInput);
-        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+        // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
+        curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
+        iStep++; iStep %= 3;
+        if ( iStep == 2 ) {
+            rnd01 = rand01(randInput);
+        }
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
@@ -252,12 +258,18 @@ void main_XRay() {
     
     vol_step_ray *= RAY_STEP_SIZE; // max steps roughly 300
 
+    vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
+    int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
-        curr_sample_pos += vol_step_ray;
+        curr_sample_pos_noRand += vol_step_ray;
 
-        rnd01 = rand01(randInput);
-        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+        // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
+        curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
+        iStep++; iStep %= 3;
+        if ( iStep == 2 ) {
+            rnd01 = rand01(randInput);
+        }
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
 
@@ -339,12 +351,18 @@ void main_Tests() {
     
     vol_step_ray *= RAY_STEP_SIZE; // max steps roughly 300
 
+    vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
+    int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
         
-        curr_sample_pos += vol_step_ray;
+        curr_sample_pos_noRand += vol_step_ray;
 
-        rnd01 = rand01(randInput);
-        curr_sample_pos += vol_step_ray * 0.5 * ( rnd01.x * 2.0 - 1.0 );
+        // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
+        curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
+        iStep++; iStep %= 3;
+        if ( iStep == 2 ) {
+            rnd01 = rand01(randInput);
+        }
 
         float texVal = texture( u_densityTex, curr_sample_pos ).r;
 

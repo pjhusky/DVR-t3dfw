@@ -304,14 +304,14 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     mDensityColors.clear();
 
-    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
+    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
 
-    //mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
-    //mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    //mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
-    //mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
-    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+    mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
 
     colorKeysToTex2d();
     mSharedMem.put( "TFdirty", "true" );
@@ -625,7 +625,8 @@ Status_t ApplicationTransferFunction::run() {
             inTransparencyInteractionMode_RMB = false;
         }
 
-        const int32_t maxDeviationX_colorDots = static_cast<int32_t>(colorDotScale * 0.333f * fbWidth );
+        //const int32_t maxDeviationX_colorDots = static_cast<int32_t>(colorDotScale * 0.333f * fbWidth );
+        const int32_t maxDeviationX_colorDots = static_cast<int32_t>(colorDotScale * 0.5f * 0.333f * fbWidth );
 
         constexpr uint32_t startIdleFrames = 4;
 

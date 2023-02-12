@@ -72,7 +72,8 @@ namespace {
     constexpr float angleDamping = 0.85f;
     constexpr float panDamping = 0.25f;
     constexpr float mouseSensitivity = 0.23f;
-    constexpr float zoomSpeed = 1.5f;
+    constexpr float zoomSpeedBase = 1.5f;
+    float zoomSpeed = zoomSpeedBase;
 
     static linAlg::vec2_t surfaceIsoAndThickness{ 0.5f, 8.0f / 4096.0f };
 
@@ -122,8 +123,8 @@ namespace {
         if ( glfwGetKey( pWindow, GLFW_KEY_ESCAPE ) == GLFW_PRESS ) { glfwSetWindowShouldClose( pWindow, true ); }
 
         float camSpeed = camSpeedFact;
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT_SHIFT ) )  { camSpeed *= 5.0f; }
-        if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; }
+        if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT_SHIFT ) )  { camSpeed *= 5.0f; zoomSpeed *= 4.0f; }
+        if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; zoomSpeed *= 0.25f; }
 
         if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { targetCamZoomDist -= camSpeed * frameDelta; }
         if (pressedOrRepeat( pWindow, GLFW_KEY_S ))    { targetCamZoomDist += camSpeed * frameDelta; }
@@ -619,6 +620,8 @@ Status_t ApplicationDVR::run() {
             }
         }
 
+        zoomSpeed = zoomSpeedBase;
+
         glfwPollEvents();
         processInput( pWindow );
         glfwGetCursorPos( pWindow, &dCurrMouseX, &dCurrMouseY );
@@ -1030,7 +1033,7 @@ Status_t ApplicationDVR::run() {
         frameDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::duration<double>>(frameEndTime - frameStartTime).count());
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
-        targetCamZoomDist += mouseWheelOffset * zoomSpeed;
+        targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
         //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;

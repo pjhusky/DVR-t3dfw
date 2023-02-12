@@ -55,10 +55,6 @@ namespace {
             printf( "scoped file '%s', mode = %s\n", fileUrl.c_str(), openMode.c_str() );
 
             mpFile = fopen( fileUrl.c_str(), openMode.c_str() );
-            //mpFile = fopen( R"(C:\FM-koop\DVR-fetch-test\DVR-t3dfw\data\skewed_head.tf)", "wb" );
-                            //R"(C:\FM-koop\DVR-fetch-test\DVR-t3dfw\data\skewed_head.tf)"
-
-            if (mpFile == nullptr) { printf( "ouch!\n" ); }
         }
 
         ~scopedFile_t() {
@@ -230,19 +226,6 @@ ApplicationTransferFunction::ApplicationTransferFunction(
                     mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
                 }
             }
-            //const uint32_t lowerBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 15 / 100);
-            //const uint32_t upperBound = static_cast<uint32_t>(mTransparencyPaintHeightsCPU.size() * 25 / 100);
-            //if (!foundTransparencies) {// linear ramp
-            //    for (uint32_t idx = 0; idx < lowerBound; idx++) {
-            //        mTransparencyPaintHeightsCPU[idx] = 0;
-            //    }
-            //    for (uint32_t idx = lowerBound; idx < upperBound; idx++) {
-            //        mTransparencyPaintHeightsCPU[idx] = 10u;
-            //    }
-            //    for (uint32_t idx = upperBound; idx < mTransparencyPaintHeightsCPU.size(); idx++) {
-            //        mTransparencyPaintHeightsCPU[idx] = 0;
-            //    }
-            //}
 
             densityTransparenciesToTex2d();
 
@@ -278,7 +261,6 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         const uint32_t mipLvl = 0;
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
-        //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     }
 
     { // color dot
@@ -322,20 +304,14 @@ ApplicationTransferFunction::ApplicationTransferFunction(
 
     mDensityColors.clear();
 
-    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
+
+    //mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
+    //mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
     //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
-
-    mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    //mDensityColors.insert( std::make_pair(  250, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
-    mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
-    mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
-    //mDensityColors.insert( std::make_pair( 200, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
-    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
-
-    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
-    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 0.5f, 0.5f} ) );
 
     colorKeysToTex2d();
     mSharedMem.put( "TFdirty", "true" );
@@ -428,7 +404,6 @@ Status_t ApplicationTransferFunction::save( const std::string& fileUrl ) {
 
     scopedFile_t file{ fileUrl, static_cast<uint32_t>(scopedFile_t::mode_t::WRITE) | static_cast<uint32_t>(scopedFile_t::mode_t::BINARY) };
     FILE* const pFile = file.handle();
-    //FILE* const pFile = fopen( fileUrl.c_str(), "wb" );
 
     if (pFile == nullptr) { 
         printf( "Failed to save TF file" );
@@ -450,10 +425,8 @@ Status_t ApplicationTransferFunction::save( const std::string& fileUrl ) {
     printf( "numDensityColors = %u\n", numDensityColors );
 
     // write actual data
-    //fwrite( mHistogramBuckets.data(), sizeof( mHistogramBuckets[0] ), mHistogramBuckets.size(), pFile );
     fwrite( mTransparencyPaintHeightsCPU.data(), sizeof( mTransparencyPaintHeightsCPU[0] ), mTransparencyPaintHeightsCPU.size(), pFile );
     
-
     for ( const auto& entry : mDensityColors ) {
 
         uint32_t key = entry.first;
@@ -483,7 +456,6 @@ Status_t ApplicationTransferFunction::run() {
     glDisable( GL_CULL_FACE );
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-    
     int32_t prevFbWidth = -1;
     int32_t prevFbHeight = -1;
     
@@ -520,8 +492,6 @@ Status_t ApplicationTransferFunction::run() {
 
     float targetMouse_dx = 0.0f;
     float targetMouse_dy = 0.0f;
-
-    //bool leftMouseButton_down = false;
 
     linAlg::mat3x4_t tiltRotMat;
     linAlg::loadIdentityMatrix( tiltRotMat );
@@ -588,14 +558,10 @@ Status_t ApplicationTransferFunction::run() {
 
         const std::string saveTfUrl = mSharedMem.get( std::string{ "saveTF" } );
         if ( saveTfUrl != " " ) {
-            printf( "here 0\n" );
             save( saveTfUrl );
-            //printf( "here 1\n" );
             mSharedMem.put( std::string{ "saveTF" }, std::string{ " " } );
-            //printf( "here 2\n" );
             printf( "after TF save done frameNum = %llu\n", frameNum );
         }
-        //printf( "frameNum = %llu\n", frameNum );
 
         if (mCheckWatchdog && parentProcessWatchdogTicks > 180) {
             printf( "watchdog timer expired, parent process most probably doesn't exist anymore!\n" );
@@ -652,17 +618,6 @@ Status_t ApplicationTransferFunction::run() {
 
         static uint8_t setNewRotationPivot = 0;
 
-        //if ( ( leftMouseButtonPressed && !guiWantsMouseCapture ) || rightMouseButtonPressed || middleMouseButtonPressed ) {
-        //    if (mGrabCursor) { glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED ); }
-        //    if (leftMouseButton_down == false && pressedOrRepeat( pWindow, GLFW_KEY_LEFT_CONTROL )) { // LMB was just freshly pressed
-        //        setNewRotationPivot = 2;
-        //    }
-        //    leftMouseButton_down = true;
-        //} else {
-        //    glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
-        //    leftMouseButton_down = false;
-        //}
-
         if ( !leftMouseButtonPressed ) { 
             inTransparencyInteractionMode_LMB = false; 
         }
@@ -670,7 +625,6 @@ Status_t ApplicationTransferFunction::run() {
             inTransparencyInteractionMode_RMB = false;
         }
 
-        //const int32_t maxDeviationX_colorDots = 5;
         const int32_t maxDeviationX_colorDots = static_cast<int32_t>(colorDotScale * 0.333f * fbWidth );
 
         constexpr uint32_t startIdleFrames = 4;
@@ -710,17 +664,11 @@ Status_t ApplicationTransferFunction::run() {
             } else if ( !inTransparencyInteractionMode_LMB && ( currMouseY > mScaleAndOffset_Colors[3] * fbHeight || inColorInteractionMode ) ) {
                 // clicked into the density-to-color window (color picker)
                 
-                //const auto densityBucketIdx = static_cast<int32_t>( ( currMouseX * ApplicationDVR_common::numDensityBuckets ) / (fbWidth - 1) + 0.5f );
                 const auto densityBucketIdx = (interactingWithFirstColorDot_LMB) 
                                                 ? 0
                                                 : ( (interactingWithLastColorDot_LMB )
                                                     ? (ApplicationDVR_common::numDensityBuckets - 1)
-                                                    //: static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f) );
                                                     : linAlg::clamp( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
-                                                    //: linAlg::clamp( 
-                                                    //    static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 
-                                                    //    maxDeviationX_colorDots, 
-                                                    //    ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots ));
 
                 if (inColorInteractionMode) {
                     distMouseMovementWhileInColorInteractionMode += fabs( mouse_dx );
@@ -743,8 +691,6 @@ Status_t ApplicationTransferFunction::run() {
                     }
                 } else {
 
-                    //const int32_t leftBound = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, maxDeviationX_colorDots );
-                    //const int32_t rightBound = linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth - 1 - maxDeviationX_colorDots );
                     const int32_t leftBound = linAlg::maximum( densityBucketIdx - maxDeviationX_colorDots, 0 );
                     const int32_t rightBound = linAlg::minimum( densityBucketIdx + maxDeviationX_colorDots, fbWidth - 1 );
 
@@ -773,10 +719,6 @@ Status_t ApplicationTransferFunction::run() {
                     }
 
                     if (result == mDensityColors.end() ) { // no existing color dot clicked
-                    //if (result == mDensityColors.end() || (interactingWithFirstColorDot_LMB || interactingWithLastColorDot_LMB)) { // no existing color dot clicked - or first or last color dot clicked
-
-                        //if ( !(interactingWithFirstColorDot_LMB||interactingWithLastColorDot_LMB) ) {
-                        //}
 
                         uint8_t lRgbColor[3]{
                             static_cast<uint8_t>(clearColor[0] * 255.0f),
@@ -832,9 +774,6 @@ Status_t ApplicationTransferFunction::run() {
             //const auto densityBucketIdx = static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f);
             if (distMouseMovementWhileInColorInteractionMode < 0.01f) {
                 decltype(mDensityColors)::iterator result = mDensityColors.end();
-                //mDensityColors.erase( lockedBucketIdx );
-                //lockedBucketIdx = densityBucketIdx;
-                //mDensityColors.insert( std::make_pair( densityBucketIdx, clearColor ) );
                 result = mDensityColors.find( lockedBucketIdx );
 
                 uint8_t lRgbColor[3]{
@@ -988,11 +927,9 @@ Status_t ApplicationTransferFunction::run() {
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
             const float clearColorValue[]{ clearColor[0], clearColor[1], clearColor[2], 0.0f };
-            //const float clearColorValue[]{ clearColor[0], clearColor[1], clearColor[2], 1.0f };
             glClearBufferfv( GL_COLOR, 0, clearColorValue );
             constexpr float clearDepthValue = 1.0f;
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
-            //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
         }
 
         
@@ -1005,10 +942,6 @@ Status_t ApplicationTransferFunction::run() {
         shader.use( true );
 
         GfxAPI::Texture::unbindAllTextures();
-
-        //if (mpDensityHistogramTex2d != nullptr) {
-        //    mpDensityHistogramTex2d->bindToTexUnit( 0 );
-        //}
 
         shader.setInt( "u_mode", 0 );
 
@@ -1084,7 +1017,6 @@ Status_t ApplicationTransferFunction::run() {
         glBindVertexArray( 0 );
 
         glCheckError();
-
 
 
         //glfwWaitEventsTimeout( 0.032f ); // wait time is in seconds

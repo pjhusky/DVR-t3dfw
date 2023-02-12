@@ -10,6 +10,13 @@
 // more than one Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
+// printVec raus-refaktoren
+// shader make more use of common functions - refactoring
+
+// Documentation:
+// early-ray termination, weil front-2-back compositing
+// empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
+
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
 #endif

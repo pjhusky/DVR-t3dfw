@@ -79,9 +79,7 @@ void main_levoySurface() {
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
-        
-        curr_sample_pos_noRand += vol_step_ray;
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
         // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
@@ -176,9 +174,7 @@ void main_composit() {
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
-        
-        curr_sample_pos_noRand += vol_step_ray;
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
         // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
@@ -260,9 +256,7 @@ void main_XRay() {
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
-        
-        curr_sample_pos_noRand += vol_step_ray;
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
         // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
@@ -353,9 +347,7 @@ void main_Tests() {
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
-    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE ) {
-        
-        curr_sample_pos_noRand += vol_step_ray;
+    for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
         // curr_sample_pos += vol_step_ray * rnd01[iStep] * 0.5;
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );

@@ -260,6 +260,13 @@ workspace "T3DFW_DVR_Workspace"
 			  --'%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" --target-env opengl --vn %{file.relpath}.c %{file.relpath}',
 		   }
 
+		   -- https://premake.github.io/docs/Custom-Build-Commands/
+		   -- One or more additional dependencies for this build command (optional)
+		   --buildinputs { "files:%{file.directory}/**.h.glsl" }
+		   buildinputs { "files:%{file.directory}/*.h.glsl" } -- works
+		   -- buildinputs { "files:**.h.glsl" } -- works
+		   -- builddependencies { "files:%{file.directory}/**.h.glsl" }
+
 		   -- One or more outputs resulting from the build (required)
 		   -- buildoutputs { '%{cfg.objdir}/%{file.basename}.preprocessed' }
 		   buildoutputs { '%{file.relpath}.preprocessed' }

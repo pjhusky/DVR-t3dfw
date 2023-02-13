@@ -5,8 +5,16 @@
 // more than 1 Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
+// control light + GUI 3D widget for light dir
+
 // printVec raus-refaktoren
 // shader make more use of common functions - refactoring
+
+// schaff ich jetzt NICHT!!!
+// empty space skipping
+// set up additive blending in the framebuffer
+// render small boxes front2back - immer alle small boxes, ABER jede dieser boxen repräsentiert ein texel einer groben 3D texture die das max der transparency-mapped densities ist
+// kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
 
 // * Documentation:
 // early-ray termination, weil front-2-back compositing

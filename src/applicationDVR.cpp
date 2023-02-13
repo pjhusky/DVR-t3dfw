@@ -860,6 +860,9 @@ Status_t ApplicationDVR::run() {
             const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
             linAlg::vec4_t camPos_OS = camPos_ES;
             linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
+            camPos_OS[0] /= camPos_OS[3];
+            camPos_OS[1] /= camPos_OS[3];
+            camPos_OS[2] /= camPos_OS[3];
 
         #if 1 // unit-cube STL file
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
@@ -1089,7 +1092,6 @@ void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, floa
 {
     arcBallControl.resetTrafos();
     camTiltRadAngle = 0.0f;
-    // testTiltRadAngle = 0.0f;
     targetCamTiltRadAngle = 0.0f;
     panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
     targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };

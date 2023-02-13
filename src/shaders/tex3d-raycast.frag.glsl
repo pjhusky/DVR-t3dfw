@@ -27,8 +27,8 @@ uniform float u_recipTexDim;
 
 //#define DVR_MODE                LEVOY_ISO_SURFACE
 //#define DVR_MODE                F2B_COMPOSITE
-//#define DVR_MODE                XRAY
-#define DVR_MODE                MRI
+#define DVR_MODE                XRAY
+//#define DVR_MODE                MRI
 
 
 void main() {
@@ -41,8 +41,7 @@ void main() {
 
     vec3 ray_end   = ray_far_OS;
     vec3 ray_start = u_camPos_OS.xyz;
-    vec3 ray_dir = ray_end - ray_start;
-    ray_dir = normalize( ray_dir ); // not strictly necessary but maybe better for tnear and tfar meaningfulness
+    vec3 ray_dir = ray_end - ray_start; // no need to normalize here
 
     float tnear, tfar;
     int hit = intersectBox(ray_start, ray_dir, -u_volDimRatio, u_volDimRatio, tnear, tfar);

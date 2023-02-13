@@ -5,10 +5,10 @@
 // more than 1 Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
-// control light + GUI 3D widget for light dir
+// control light + GUI 3D widget for light dir and color picker for light color
 
 // printVec raus-refaktoren
-// shader make more use of common functions - refactoring
+// # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
 
 // schaff ich jetzt NICHT!!!
 // empty space skipping
@@ -509,8 +509,8 @@ Status_t ApplicationDVR::run() {
     volShader.use( true );
     volShader.setInt(   "u_densityTex", 0 );
     volShader.setInt(   "u_gradientTex", 1 );
-    volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.setInt(   "u_colorAndAlphaTex", 7 );
+    volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.setVec2(  "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     volShader.use( false );
     
@@ -586,6 +586,7 @@ Status_t ApplicationDVR::run() {
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.setInt( "u_gradientTex", 1 );
     meshShader.setInt( "u_colorAndAlphaTex", 7 );
+    meshShader.setFloat( "u_recipTexDim", 1.0f );
     meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     meshShader.use( false );
 
@@ -849,6 +850,17 @@ Status_t ApplicationDVR::run() {
 
         if (!mDataFileUrl.empty()) {
 
+            if (mpDensityTex3d != nullptr) {
+                mpDensityTex3d->bindToTexUnit( 0 );
+                mpGradientTex3d->bindToTexUnit( 1 );
+            }
+
+            linAlg::mat4_t invModelViewMatrix;
+            linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
+            const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
+            linAlg::vec4_t camPos_OS = camPos_ES;
+            linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
+
         #if 1 // unit-cube STL file
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
                 glEnable( GL_CULL_FACE );
@@ -857,32 +869,13 @@ Status_t ApplicationDVR::run() {
                 glBindVertexArray( mStlModelHandle.vaoHandle );
                 meshShader.use( true );
 
-                GfxAPI::Texture::unbindAllTextures();
-
-                // linAlg::mat4_t mvpMatrix;
-                // linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
                 auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
-                if (mpDensityTex3d != nullptr) {
-                    mpDensityTex3d->bindToTexUnit( 0 );
-                    mpGradientTex3d->bindToTexUnit( 1 );
-                }
 
-                linAlg::mat4_t invModelViewMatrix;
-                linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-                const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-                linAlg::vec4_t camPos_OS = camPos_ES;
-                linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
                 meshShader.setVec3( "u_volDimRatio", volDimRatio );
-
                 meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
 
                 glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
-
-                if (mpDensityTex3d != nullptr) {
-                    mpDensityTex3d->unbindFromTexUnit();
-                    mpGradientTex3d->unbindFromTexUnit();
-                }
 
                 meshShader.use( false );
                 glBindVertexArray( 0 );
@@ -893,24 +886,11 @@ Status_t ApplicationDVR::run() {
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect) {
                 glDisable( GL_CULL_FACE );
                 volShader.use( true );
-                if (mpDensityTex3d != nullptr) {
-                    mpDensityTex3d->bindToTexUnit( 0 );
-                    mpGradientTex3d->bindToTexUnit( 1 );
-                }
                 glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
-                linAlg::mat4_t invModelViewMatrix;
-                linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
-                const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
-                linAlg::vec4_t camPos_OS = camPos_ES;
-                linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
                 volShader.setVec4( "u_camPos_OS", camPos_OS );
                 volShader.setVec3( "u_volDimRatio", volDimRatio );
-
                 volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
-
-                //linAlg::mat4_t mvpMatrix;
-                //linAlg::multMatrix( mvpMatrix, projMatrix, modelViewMatrix );
 
                 linAlg::mat4_t invModelViewProjectionMatrix;
                 linAlg::inverse( invModelViewProjectionMatrix, mMvpMatrix );
@@ -930,13 +910,16 @@ Status_t ApplicationDVR::run() {
 
                 glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, nullptr );
 
-                if (mpDensityTex3d != nullptr) {
-                    mpDensityTex3d->unbindFromTexUnit();
-                    mpGradientTex3d->unbindFromTexUnit();
-                }
                 volShader.use( false );
+                glBindVertexArray( 0 );
             }
         #endif
+
+            if (mpDensityTex3d != nullptr) {
+                mpDensityTex3d->unbindFromTexUnit();
+                mpGradientTex3d->unbindFromTexUnit();
+            }
+
         }
 
         glCheckError();
@@ -999,15 +982,24 @@ Status_t ApplicationDVR::run() {
                 load( mDataFileUrl );
                 glCheckError();
                 const auto& minMaxDensity = mpData->getMinMaxDensity();
-                volShader.use( true );
-                volShader.setVec3( "u_minMaxScaleVal", linAlg::vec3_t{ static_cast<float>(minMaxDensity[0]) / 65535.0f, static_cast<float>(minMaxDensity[1]) / 65535.0f, 1.0f / ( static_cast<float>(minMaxDensity[1] - minMaxDensity[0]) / 65535.0f ) } );
+
+                const auto minMaxScaleVal = linAlg::vec3_t{ 
+                    static_cast<float>(minMaxDensity[0]) / 65535.0f, 
+                    static_cast<float>(minMaxDensity[1]) / 65535.0f, 
+                    1.0f / (static_cast<float>(minMaxDensity[1] - minMaxDensity[0]) / 65535.0f) };
+
                 const auto volDim = mpData->getDim();
                 const auto maxVolDim = linAlg::maximum( volDim[0], linAlg::maximum( volDim[1], volDim[2] ) );
-                volShader.setFloat( "u_recipTexDim", 1.0f / linAlg::maximum( 1.0f, static_cast<float>(maxVolDim) ) );
+                const auto recipTexDim = 1.0f / linAlg::maximum( 1.0f, static_cast<float>(maxVolDim) );
+
+                volShader.use( true );
+                volShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
+                volShader.setFloat( "u_recipTexDim", recipTexDim );
                 volShader.use( false );
 
                 meshShader.use( true );
-                meshShader.setVec3( "u_minMaxScaleVal", linAlg::vec3_t{ static_cast<float>(minMaxDensity[0]) / 65535.0f, static_cast<float>(minMaxDensity[1]) / 65535.0f, 1.0f / (static_cast<float>(minMaxDensity[1] - minMaxDensity[0]) / 65535.0f) } );
+                meshShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
+                meshShader.setFloat( "u_recipTexDim", recipTexDim );
                 meshShader.use( false );
 
                 printf( "min max densities %u %u\n", (uint32_t)minMaxDensity[0], (uint32_t)minMaxDensity[1] );

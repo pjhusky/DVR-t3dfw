@@ -379,7 +379,7 @@ Status_t ApplicationTransferFunction::load( const std::string& fileUrl ) {
     mHistogramBuckets.resize( mNumHistogramBuckets );
     //fread( mHistogramBuckets.data(), sizeof( mHistogramBuckets[0] ), mHistogramBuckets.size(), pFile );
     fread( mTransparencyPaintHeightsCPU.data(), sizeof( mTransparencyPaintHeightsCPU[0] ), mTransparencyPaintHeightsCPU.size(), pFile );
-
+    mDensityColors.clear();
     for (int i = 0; i < numDensityColors; i++) {
 
         uint32_t key;

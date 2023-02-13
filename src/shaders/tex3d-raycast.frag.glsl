@@ -25,6 +25,12 @@ uniform float u_recipTexDim;
 #include "shaderUtils.h.glsl"
 #include "dvrCommonDefines.h.glsl"
 
+//#define DVR_MODE                LEVOY_ISO_SURFACE
+//#define DVR_MODE                F2B_COMPOSITE
+//#define DVR_MODE                XRAY
+#define DVR_MODE                MRI
+
+
 void main() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
     vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
@@ -84,24 +90,23 @@ void main() {
             rnd01 = rand01(randInput);
         }
 
-    float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
+        float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
+        raw_densityVal *= HOUNSFIELD_UNIT_SCALE;
+
+        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
+        vec3 currColor = colorAndAlpha.rgb;
 
     #if ( DVR_MODE == LEVOY_ISO_SURFACE )
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
-        
         float len_gradient = length( gradient );
         vec3 gradient_unit = gradient / len_gradient;
 
-        float densityVal = raw_densityVal * HOUNSFIELD_UNIT_SCALE;
-        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( densityVal, 0.5 ) );
         float currAlpha = 0.0;
-        if ( len_gradient <= 0.000000001 && densityVal == surfaceIso ) { currAlpha = 1.0; }
-        else if ( len_gradient > 0.0 && ( surfaceIso - surfaceThickness * len_gradient < densityVal && densityVal < surfaceIso + surfaceThickness * len_gradient ) ) {
-            currAlpha = 1.0 - 1.0 / surfaceThickness * abs( ( surfaceIso - densityVal ) / len_gradient );
+        if ( len_gradient <= 0.000000001 && raw_densityVal == surfaceIso ) { currAlpha = 1.0; }
+        else if ( len_gradient > 0.0 && ( surfaceIso - surfaceThickness * len_gradient < raw_densityVal && raw_densityVal < surfaceIso + surfaceThickness * len_gradient ) ) {
+            currAlpha = 1.0 - 1.0 / surfaceThickness * abs( ( surfaceIso - raw_densityVal ) / len_gradient );
         }
         currAlpha *= colorAndAlpha.a;
-
-        vec3 currColor = colorAndAlpha.rgb;
 
         float n_dot_l_raw = dot( lightDir, gradient_unit );
         float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
@@ -113,13 +118,9 @@ void main() {
         color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
     #elif ( DVR_MODE == F2B_COMPOSITE )
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
-        
         vec3 gradient_unit = normalize( gradient );
         
-        raw_densityVal *= ( 65535.0 / 4095.0 );
-        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
         float currAlpha = colorAndAlpha.a;
-        vec3 currColor = colorAndAlpha.rgb;
 
         float n_dot_l_raw = dot( lightDir, gradient_unit );
         float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
@@ -130,11 +131,13 @@ void main() {
         color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
         color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
     #elif ( DVR_MODE == XRAY )
-        raw_densityVal *= ( 65535.0 / 4095.0 );
-        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
         color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
         numPosDensities += 1.0;
-    //#elif ( DVR_MODE == MRI )
+    #elif ( DVR_MODE == MRI )
+        if ( colorAndAlpha.a > color.a ) {
+            color.a = colorAndAlpha.a;
+            color.rgb = colorAndAlpha.rgb;
+        }
     #endif
 
     #if ( DVR_MODE != XRAY )

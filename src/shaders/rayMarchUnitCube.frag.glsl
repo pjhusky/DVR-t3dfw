@@ -13,6 +13,7 @@ uniform vec4 u_camPos_OS;
 uniform vec3 u_volDimRatio;
 
 #include "shaderUtils.h.glsl"
+#include "dvrCommonDefines.h.glsl"
 
 void main() {
 

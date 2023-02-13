@@ -23,19 +23,7 @@ uniform vec3 u_volDimRatio;
 uniform float u_recipTexDim;
 
 #include "shaderUtils.h.glsl"
-
-#ifndef RAY_STEP_SIZE
-    #define RAY_STEP_SIZE   0.004 // 0.0033
-#endif
-
-#define LEVOY_ISO_SURFACE       1
-#define F2B_COMPOSITE           2
-#define XRAY                    3
-//#define DVR_MODE                LEVOY_ISO_SURFACE
-//#define DVR_MODE                F2B_COMPOSITE
-#define DVR_MODE                XRAY
-
-#define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )
+#include "dvrCommonDefines.h.glsl"
 
 void main() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );

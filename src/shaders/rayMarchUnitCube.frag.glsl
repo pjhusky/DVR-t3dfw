@@ -8,19 +8,22 @@ uniform sampler3D u_densityTex;
 uniform sampler3D u_gradientTex;
 uniform sampler2D u_colorAndAlphaTex;
 
+uniform vec2 u_surfaceIsoAndThickness;
+
 uniform vec3 u_minMaxScaleVal;
 uniform vec4 u_camPos_OS;
 uniform vec3 u_volDimRatio;
+//uniform float u_recipTexDim; // not needed here
 
-uniform vec2 u_surfaceIsoAndThickness;
+uniform int u_frameNum;
 
 #include "shaderUtils.h.glsl"
 #include "dvrCommonDefines.h.glsl"
 
-//#define DVR_MODE                LEVOY_ISO_SURFACE
+#define DVR_MODE                LEVOY_ISO_SURFACE
 //#define DVR_MODE                F2B_COMPOSITE
 //#define DVR_MODE                XRAY
-#define DVR_MODE                MRI
+//#define DVR_MODE                MRI
 
 
 void main() {
@@ -72,7 +75,8 @@ void main() {
     float numPosDensities = 0.0;
 #endif
     
-    uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
+    //uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
+    uvec2 pix = uvec2( uint( gl_FragCoord.x + 0.17 * u_frameNum ), uint( gl_FragCoord.y + 0.17 * u_frameNum ) );
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
     vec3 rnd01 = rand01(randInput);
 
@@ -169,5 +173,5 @@ void main() {
         o_fragColor.rgb = color.rgb * lightColor;
     #endif
 
-    o_fragColor.a = 1.0;
+    o_fragColor.a = 0.25;
 }

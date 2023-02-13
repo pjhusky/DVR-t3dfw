@@ -489,7 +489,7 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
 Status_t ApplicationDVR::run() {
     ArcBallControls arcBallControl;
     const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
-
+    arcBallControl.setDampingFactor( 0.845f );
     
     // handle window resize
     int32_t fbWidth, fbHeight;
@@ -607,8 +607,11 @@ Status_t ApplicationDVR::run() {
     bool guiWantsMouseCapture = false;
     std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
 
+    
+    bool prevDidMove = false;
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
+        
 
         const auto frameStartTime = std::chrono::system_clock::now();
         std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
@@ -639,6 +642,12 @@ Status_t ApplicationDVR::run() {
         bool leftMouseButtonPressed   = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_1 ) == GLFW_PRESS );
         bool middleMouseButtonPressed = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_3 ) == GLFW_PRESS );
         bool rightMouseButtonPressed  = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_2 ) == GLFW_PRESS );
+
+
+        bool didMove = false;
+        if (fabs( camZoomDist - targetCamZoomDist ) > FLT_EPSILON*1000.0f) { didMove = true; }
+        if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
+
 
         static uint8_t setNewRotationPivot = 0;
 
@@ -694,6 +703,12 @@ Status_t ApplicationDVR::run() {
         //arcBallControl.setRotationPivotOffset( rotPivotPosWS );
         arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
         arcBallControl.setRotationPivotOffset( rotPivotPosWS );
+
+        const float arc_dead = arcBallControl.getDeadZone();
+        const float arc_dx = arcBallControl.getTargetMovement_dx();
+        const float arc_dy = arcBallControl.getTargetMovement_dy();
+        const bool arc_isUpdating = ( arc_dx >= 10.0f * arc_dead || arc_dy >= 10.0f * arc_dead );
+        didMove = didMove || arc_isUpdating;
 
         const linAlg::mat3x4_t& arcRotMat = arcBallControl.getRotationMatrix();
 
@@ -781,12 +796,6 @@ Status_t ApplicationDVR::run() {
         //??? 
         }
 
-        //calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, mProjMatrix );
-        //linAlg::mat4_t tiltMat4;
-        //linAlg::castMatrix( tiltMat4, tiltRotMat );
-        ////mProjMatrix = tiltMat4 * mProjMatrix;
-        //mProjMatrix = mProjMatrix * tiltMat4;
-
         // update mvp matrix
         linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
 
@@ -810,6 +819,15 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
+        if (didMove || prevDidMove) {
+            glDisable( GL_BLEND );
+        }
+        else {
+            glEnable( GL_BLEND );
+            glBlendEquation( GL_FUNC_ADD );
+            glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+        }
+
         glEnable( GL_DEPTH_TEST );
         glDepthFunc( GL_LESS );
         glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
@@ -818,7 +836,11 @@ Status_t ApplicationDVR::run() {
 
             //constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.0f, 0.0f };
             constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
-            glClearBufferfv( GL_COLOR, 0, clearColorValue );
+
+            if (didMove || prevDidMove) {
+                glClearBufferfv( GL_COLOR, 0, clearColorValue );
+            }
+
             constexpr float clearDepthValue = 1.0f;
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
             //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -874,6 +896,10 @@ Status_t ApplicationDVR::run() {
 
                 auto retSetUniform = meshShader.setMat4( "u_mvpMat", mMvpMatrix );
 
+                //meshShader.setInt( "u_frameNum", frameNum );
+                if (!didMove) {
+                    meshShader.setInt( "u_frameNum", rand() % 10000 );
+                }
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
                 meshShader.setVec3( "u_volDimRatio", volDimRatio );
                 meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
@@ -891,6 +917,10 @@ Status_t ApplicationDVR::run() {
                 volShader.use( true );
                 glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
+                //volShader.setInt( "u_frameNum", frameNum );
+                if (!didMove) {
+                    volShader.setInt( "u_frameNum", rand() % 10000 );
+                }
                 volShader.setVec4( "u_camPos_OS", camPos_OS );
                 volShader.setVec3( "u_volDimRatio", volDimRatio );
                 volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
@@ -1041,12 +1071,16 @@ Status_t ApplicationDVR::run() {
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
 
+        
+
         camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
 
         linAlg::scale( targetPanDeltaVector, (1.0f - panDamping) );
 
         prevMouseX = currMouseX;
         prevMouseY = currMouseY;
+
+        prevDidMove = didMove;
 
         //if ( frameNum % 200 == 0 ) {
         //    const auto queriedSmVal = mSharedMem.get( "from TF" );

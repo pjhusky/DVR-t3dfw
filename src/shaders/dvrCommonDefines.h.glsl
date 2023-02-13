@@ -1,5 +1,5 @@
 #ifndef RAY_STEP_SIZE
-    #define RAY_STEP_SIZE   0.004 // 0.0033
+    #define RAY_STEP_SIZE   0.00475 //0.004 // 0.0033
 #endif
 
 #define LEVOY_ISO_SURFACE       1

@@ -27,8 +27,8 @@ uniform float u_recipTexDim;
 
 //#define DVR_MODE                LEVOY_ISO_SURFACE
 //#define DVR_MODE                F2B_COMPOSITE
-#define DVR_MODE                XRAY
-//#define DVR_MODE                MRI
+//#define DVR_MODE                XRAY
+#define DVR_MODE                MRI
 
 
 void main() {
@@ -52,6 +52,10 @@ void main() {
     vec3 curr_sample_pos = ray_start + tnear * ray_dir;
     vec3 end_sample_pos = ray_start + tfar * ray_dir;
 
+    // perform transformation into "non-square" dataset only once instead of at each sampling position
+    curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
+    end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
+
     vec4 color = vec4( 0.0 );
 #if ( DVR_MODE == XRAY )
     float numPosDensities = 0.0;
@@ -61,11 +65,10 @@ void main() {
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
     vec3 rnd01 = rand01(randInput);
 
-    // perform transformation into "non-square" dataset only once instead of at each sampling position
-    curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
-    end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
 
-    float lenInVolume = length( end_sample_pos - curr_sample_pos );    
+    float lenInVolume = length( end_sample_pos - curr_sample_pos );
+    //o_fragColor.rgb = vec3(lenInVolume); o_fragColor.a = 1.0; return;
+
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
     vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
@@ -113,8 +116,9 @@ void main() {
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
 
-        color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
-        color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
+        float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
+        color.rgb = color.rgb + currBlendFactor * currColor;
+        color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == F2B_COMPOSITE )
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
         vec3 gradient_unit = normalize( gradient );
@@ -127,8 +131,9 @@ void main() {
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
 
-        color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
-        color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
+        float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
+        color.rgb = color.rgb + currBlendFactor * currColor;
+        color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
         color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
         numPosDensities += 1.0;

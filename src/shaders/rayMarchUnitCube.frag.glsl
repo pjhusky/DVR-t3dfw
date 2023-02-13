@@ -17,29 +17,30 @@ uniform vec2 u_surfaceIsoAndThickness;
 #include "shaderUtils.h.glsl"
 #include "dvrCommonDefines.h.glsl"
 
-
-
 //#define DVR_MODE                LEVOY_ISO_SURFACE
 //#define DVR_MODE                F2B_COMPOSITE
-#define DVR_MODE                XRAY
-//#define DVR_MODE                MRI
+//#define DVR_MODE                XRAY
+#define DVR_MODE                MRI
 
-#if 1
+
 void main() {
 
     vec3 curr_sample_pos;
 #if 1
     vec3 ray_end = v_coord3d;
+    //o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
+
     vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
     vec3 ray_dir = ray_end - ray_start; // no need to normalize here
     float tnear, tfar;
-	int hit = intersectBox(ray_start, ray_dir, vec3(-1.0), vec3(1.0), tnear, tfar);
+	//int hit = intersectBox(ray_start, ray_dir, vec3(-1.0), vec3(1.0), tnear, tfar);
+    int hit = intersectBox(ray_start, ray_dir, vec3(0.0), vec3(1.0), tnear, tfar);
     tnear = max( 0.0, tnear );
 
     curr_sample_pos = ray_start + tnear * ray_dir;
     vec3 end_sample_pos = ray_end;
-    //vec3 end_sample_pos = ray_start + tfar * ray_dir;
-#else
+
+#else // WON'T WORK - JUST FOR REFERENCE
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
     vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
     vec4 fp_xy_ipol = mix(fp_x_ipol_btm, fp_x_ipol_top, v_coord3d.y);
@@ -66,7 +67,6 @@ void main() {
 #endif
     
 
-
     vec4 color = vec4( 0.0 );
 #if ( DVR_MODE == XRAY )
     float numPosDensities = 0.0;
@@ -76,8 +76,9 @@ void main() {
     uvec3 randInput = uvec3(pix, pix.x*7u+pix.y*3u);
     vec3 rnd01 = rand01(randInput);
 
+    float lenInVolume = length( end_sample_pos - curr_sample_pos );
+    //o_fragColor.rgb = vec3(lenInVolume); o_fragColor.a = 1.0; return;
 
-    float lenInVolume = length( end_sample_pos - curr_sample_pos );    
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
     vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
@@ -125,8 +126,9 @@ void main() {
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
 
-        color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
-        color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
+        float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
+        color.rgb = color.rgb + currBlendFactor * currColor;
+        color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == F2B_COMPOSITE )
         vec3 gradient = texture( u_gradientTex, curr_sample_pos ).rgb;
         vec3 gradient_unit = normalize( gradient );
@@ -139,8 +141,9 @@ void main() {
         float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
         currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
 
-        color.rgb = color.rgb + ( 1.0 - color.a ) * currAlpha * currColor;
-        color.a   = color.a + ( 1.0 - color.a ) * currAlpha;
+        float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
+        color.rgb = color.rgb + currBlendFactor * currColor;
+        color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
         color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
         numPosDensities += 1.0;
@@ -168,36 +171,3 @@ void main() {
 
     o_fragColor.a = 1.0;
 }
-
-#else
-
-void main() {
-
-    float maxSteps = 300.0;
-    vec4 color = vec4( 0.0 );
-    float numPosDensities = 1.0;
-
-    vec3 ray_end = v_coord3d;
-    vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
-    vec3 ray_dir = ray_end - ray_start; // no need to normalize here
-    float tnear, tfar;
-	int hit = intersectBox(ray_start, ray_dir, vec3(-1.0), vec3(1.0), tnear, tfar);
-    tnear = max( 0.0, tnear );
-    
-    vec3 curr_sample_pos = ray_start + tnear * ray_dir;
-
-    vec3 ray_dir_step = ( ray_end - curr_sample_pos ) / maxSteps;
-    
-    for ( float currStep = 0.0; currStep < maxSteps; currStep += 1.0, curr_sample_pos += ray_dir_step ) {
-        float texVal = texture( u_densityTex, curr_sample_pos ).r;
-        color += vec4( texVal );
-        numPosDensities += (texVal > 0.0) ? 0.25 : 0.0;
-    }
-    
-    color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
-
-    o_fragColor = color / numPosDensities;
-    o_fragColor.a = 1.0;
-}
-
-#endif

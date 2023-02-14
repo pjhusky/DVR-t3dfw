@@ -31,7 +31,7 @@ struct ApplicationDVR : public iApplication {
         const GfxAPI::ContextOpenGL& contextOpenGL );
     virtual ~ApplicationDVR();
 
-    Status_t load( const std::string& fileUrl );
+    Status_t load( const std::string& fileUrl, const int32_t gradientMode );
 
     void setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
                                 linAlg::vec3_t& rotPivotPosWS, 

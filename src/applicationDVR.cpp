@@ -314,13 +314,12 @@ ApplicationDVR::~ApplicationDVR() {
     mpProcess = nullptr;
 }
 
-Status_t ApplicationDVR::load( const std::string& fileUrl )
-{
+Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradientMode ) {
     mDataFileUrl = fileUrl;
 
     delete mpData;
     mpData = new VolumeData;
-    mpData->load( fileUrl.c_str() );
+    mpData->load( fileUrl.c_str(), static_cast< FileLoader::VolumeData::gradientMode_t >( gradientMode ) );
 
     constexpr int32_t mipLvl = 0;
 
@@ -605,6 +604,7 @@ Status_t ApplicationDVR::run() {
     bool guiWantsMouseCapture = false;
     std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
 
+    int gradientCalculationAlgoIdx = (mpData == nullptr) ? static_cast<int>(FileLoader::VolumeData::gradientMode_t::SOBEL_3D ) : static_cast<int>(mpData->getGradientMode());
     
     bool prevDidMove = false;
     uint64_t frameNum = 0;
@@ -985,9 +985,9 @@ Status_t ApplicationDVR::run() {
                 1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 2 ],
             };
 
-            //std::string tfUrl = "";
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
+                .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
                 //.tfUrl = tfUrl,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
@@ -999,6 +999,7 @@ Status_t ApplicationDVR::run() {
                 .surfaceIsoAndThickness = surfaceIsoAndThickness,
                 .surfaceIsoColor = isoColor,
             };
+            
 
             DVR_GUI::DisplayGui( &guiUserData );
 
@@ -1010,7 +1011,7 @@ Status_t ApplicationDVR::run() {
             }
 
             if (loadFileTrigger) {
-                load( mDataFileUrl );
+                load( mDataFileUrl, gradientCalculationAlgoIdx );
                 glCheckError();
                 const auto& minMaxDensity = mpData->getMinMaxDensity();
 
@@ -1039,6 +1040,12 @@ Status_t ApplicationDVR::run() {
                 resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
 
                 loadFileTrigger = false;
+            }
+
+            if ( mpData != nullptr && gradientCalculationAlgoIdx >= 0 &&  gradientCalculationAlgoIdx != static_cast<int>(mpData->getGradientMode()) ) {
+                const uint32_t mipLvl = 0;
+                mpData->calculateNormals( static_cast<FileLoader::VolumeData::gradientMode_t>( gradientCalculationAlgoIdx ) );
+                mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RGB, GL_FLOAT, mipLvl );
             }
 
             if (resetTrafos) {

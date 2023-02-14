@@ -33,9 +33,19 @@ namespace {
 
     static float guiScale = 1.0f;
     static auto guiButtonSize() { return ImVec2{ 400, 40 }; }
+
+    static std::vector< const char* > rayMarchAlgoNames{
+        "eRayMarchAlgo::backfaceCubeRaster",
+        "eRayMarchAlgo::fullscreenBoxIsect",
+    };
+
+    static std::vector< const char* > gradientAlgoNames{
+        "Central Differences", 
+        "Sobel 3D",
+    };
+
 }
 
-std::vector< const char* > DVR_GUI::rayMarchAlgoNames;
 
 void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
 {
@@ -58,10 +68,6 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     gradientState.AddAlphaMarker( 1.0f, 1.0f );
 #endif
 
-    DVR_GUI::rayMarchAlgoNames = std::vector< const char* >{
-        "eRayMarchAlgo::backfaceCubeRaster",
-            "eRayMarchAlgo::fullscreenBoxIsect",
-    };
 }
 
 void DVR_GUI::CreateGuiLayout( void* const pUserData )
@@ -134,6 +140,15 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     //if (ImGui::ListBox( "RenderMethod", pGuiUserData->pRayMarchAlgoIdx, &rayMarchAlgoNames[0], rayMarchAlgoNames.size() )) {
     //    printf( "RenderMethod selection - nr. %d, '%s'\n", *(pGuiUserData->pRayMarchAlgoIdx), rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)] );
     //}
+
+    if (*(pGuiUserData->pGradientModeIdx) >= 0) {
+        ImGui::Text( "Gradient Calculation Method:" );
+        static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
+
+        for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
+            ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
+        }
+    }
 
 
     { // combo box

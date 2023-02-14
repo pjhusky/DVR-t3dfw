@@ -20,7 +20,7 @@ struct DVR_GUI {
 
     struct GuiUserData_t {
         std::string& volumeDataUrl;
-        //std::string& tfUrl;
+        int* pGradientModeIdx;
         SharedMemIPC* pSharedMem;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
@@ -46,10 +46,6 @@ struct DVR_GUI {
     //    std::make_pair( eRayMarchAlgo::backfaceCubeRaster , "eRayMarchAlgo::backfaceCubeRaster" ),
     //    std::make_pair( eRayMarchAlgo::fullscreenBoxIsect , "eRayMarchAlgo::fullscreenBoxIsect" ),
     //};
-
-    static std::vector< const char* > rayMarchAlgoNames;
-    //int rayMarchAlgoIdx;
-
 
     static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );
 

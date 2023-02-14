@@ -18,7 +18,7 @@
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
 // TF load-save als convenience feature
-// jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden
+// jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden auch smooth gradient-calc switch
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -30,6 +30,7 @@
 #include "gfxAPI/checkErrorGL.h"
 
 #include <math.h>
+#include <float.h>
 #include <iostream>
 #include <tchar.h>
 #include <filesystem>

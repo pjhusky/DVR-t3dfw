@@ -1,7 +1,5 @@
 // ### TODO ###
 
-// Sobel-normal gradient calc
-
 // more than 1 Levoy iso surface?
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
@@ -20,7 +18,7 @@
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
 // TF load-save als convenience feature
-
+// jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -92,7 +90,7 @@ namespace {
     linAlg::mat3x4_t prevModelMatrix3x4;
     linAlg::mat3x4_t prevViewMatrix3x4;
 
-    constexpr static float initialCamZoomDist = 4.5f;
+    constexpr static float initialCamZoomDist = 2.75f;
     constexpr static float initialCamZoomDistTestSuite = 2.0f;
     static float camZoomDist = 0.0f;
     static float targetCamZoomDist = initialCamZoomDist;

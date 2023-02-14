@@ -18,6 +18,8 @@
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
 
+#include "imGuIZMO.quat/imGuIZMO.quat/imGuIZMOquat.h"
+
 #include "external/libtinyfiledialogs/tinyfiledialogs.h"
 
 #include <nfd.h>
@@ -32,7 +34,7 @@ namespace {
 #endif
 
     static float guiScale = 1.0f;
-    static auto guiButtonSize() { return ImVec2{ 400, 40 }; }
+    static auto guiButtonSize() { return ImVec2{ 430, 40 }; }
 
     static std::vector< const char* > rayMarchAlgoNames{
         "eRayMarchAlgo::backfaceCubeRaster",
@@ -72,7 +74,8 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
 
 void DVR_GUI::CreateGuiLayout( void* const pUserData )
 {
-    ImGui::Begin( "Controls" );
+    //ImGui::Begin( "Controls" );
+    ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     GuiUserData_t* const pGuiUserData = reinterpret_cast<GuiUserData_t* const>(pUserData);
 
@@ -178,13 +181,57 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         }
     #endif
 
+
+        static bool firstRunDofGuiParams = true;
+        if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
+        if (ImGui::TreeNode( "Light Parameters" )) {
+
+            //const std::array<float, 4> dir3{1.0f,0.0f,0.0f,0.0f};
+            static vgm::Vec3 dir3{1.0f,0.0f,0.0f};
+            dir3 = vgm::normalize( dir3 );
+            //vgm::Vec3 tmpDir3 = dir3;
+            //const float widgetSize = 180;
+            const float widgetSize = ImGui::GetTextLineHeight() * 5.5f;
+
+            //ImGui::GetTextLineHeightWithSpacing();
+            //ImGui::SetNextItemWidth( 420 );
+
+            const float step = 0.001f;
+            //ImGui::DragFloat3( "Light Dir", &tmpDir3.x, step, ImGuiSliderFlags_NoInput );
+            ImGui::DragFloat3( "Light Dir", &dir3.x, step, ImGuiSliderFlags_NoInput );
+            
+            ImGui::SameLine();
+
+            // ImGui::gizmo3D( std::string( "##" ).append( "light Direction" ).c_str(), tmpDir3, widgetSize, imguiGizmo::modeDirection );
+            // if (!std::isinf(tmpDir3.x) && !std::isnan(tmpDir3.x) &&
+            //     !std::isinf(tmpDir3.y) && !std::isnan(tmpDir3.y) &&
+            //     !std::isinf(tmpDir3.z) && !std::isnan(tmpDir3.z) ) { dir3 = tmpDir3; }
+            // else { printf("ouch!!!\n"); }
+            ImGui::gizmo3D( std::string( "##" ).append( "Light Direction" ).c_str(), dir3, widgetSize, imguiGizmo::modeDirection );
+
+            auto guiCursorPosY = ImGui::GetCursorPosY();
+            auto guiCursorPosYOff = guiCursorPosY;
+            guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
+            ImGui::SetCursorPosY( guiCursorPosYOff );
+
+            static std::array<float,3> diffColor{.5f, 0.5f, 0.5f};
+            //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoPicker );
+            //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoInputs );
+            ImGui::ColorEdit3( "Ambient ", diffColor.data() );
+            ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
+            ImGui::ColorEdit3( "Specular", diffColor.data() );
+            
+            ImGui::TreePop();
+        }
+
+
         ImGui::SliderFloat( "Iso value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
         ImGui::SameLine();
         //ImGui::ColorEdit3( "", std::array<float, 3>{1.0f, 0.2f, 0.0f}.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
         ImGui::ColorEdit3( "", pGuiUserData->surfaceIsoColor.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
         //ImGui::ColorPicker3( "", std::array<float, 3>{0.0f, 0.2f, 1.0f}.data(), ImGuiColorEditFlags_NoPicker );
 
-        ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 50.0f / 4096.0f, "%.5f" );
+        ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 100.0f / 4096.0f, "%.5f" );
     }
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );

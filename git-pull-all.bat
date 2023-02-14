@@ -29,6 +29,8 @@ git submodule foreach --recursive git merge temp-merge
 @REM # delete the temp branch after the merge back to main as it is no longer needed
 git submodule foreach --recursive git branch --delete temp-merge
 
+git submodule foreach --recursive "git pull origin master 2>/dev/null || git pull origin main ; echo done"
+
 @echo.
 @echo #########  REPO UP-TO-DATE  ###########
 @echo.

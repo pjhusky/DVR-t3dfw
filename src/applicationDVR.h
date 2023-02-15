@@ -16,6 +16,7 @@
 namespace GfxAPI {
     struct ContextOpenGL;
     struct Texture;
+    struct Rbo;
     struct Fbo;
 }
 
@@ -67,6 +68,10 @@ struct ApplicationDVR : public iApplication {
 
     GfxAPI::Texture*                mpGuiTex;
     GfxAPI::Fbo*                    mpGuiFbo;
+
+    GfxAPI::Texture*                mpVol_RT_Tex;
+    GfxAPI::Rbo*                    mpVol_RT_Rbo;
+    GfxAPI::Fbo*                    mpVol_RT_Fbo;
 
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;

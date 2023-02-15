@@ -29,6 +29,7 @@
 #include "gfxAPI/contextOpenGL.h"
 #include "gfxAPI/shader.h"
 #include "gfxAPI/texture.h"
+#include "gfxAPI/rbo.h"
 #include "gfxAPI/fbo.h"
 #include "gfxAPI/checkErrorGL.h"
 
@@ -233,6 +234,9 @@ ApplicationDVR::ApplicationDVR(
     , mpDensityColorsTex2d( nullptr )
     , mpGuiTex( nullptr )
     , mpGuiFbo( nullptr )
+    , mpVol_RT_Tex( nullptr )
+    , mpVol_RT_Rbo( nullptr )
+    , mpVol_RT_Fbo( nullptr )
     , mpProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
     , mGrabCursor( true ) {
@@ -273,6 +277,15 @@ ApplicationDVR::~ApplicationDVR() {
 
     delete mpGuiFbo;
     mpGuiFbo = nullptr;
+
+    delete mpVol_RT_Tex;
+    mpVol_RT_Tex = nullptr;
+
+    delete mpVol_RT_Rbo;
+    mpVol_RT_Rbo = nullptr;
+
+    delete mpVol_RT_Fbo;
+    mpVol_RT_Fbo = nullptr;
 
     gfxUtils::freeMeshGfxBuffers( mScreenQuadHandle );
     gfxUtils::freeMeshGfxBuffers( mScreenTriHandle );
@@ -514,8 +527,6 @@ Status_t ApplicationDVR::run() {
     linAlg::vec3_t axis_mx{ 0.0f, 1.0f, 0.0f }; // initial model rotation
     linAlg::vec3_t axis_my{ 1.0f, 0.0f, 0.0f }; // initial model rotation
 
-    //float camZoomDist = 3.0f;
-    //float targetCamZoomDist = camZoomDist;
     float camTiltRadAngle = 0.0f;
     float targetCamTiltRadAngle = camTiltRadAngle;
 
@@ -623,7 +634,10 @@ Status_t ApplicationDVR::run() {
 
 
         bool didMove = false;
-        if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON*1000.0f) { didMove = true; }
+        if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        if (fabsf( targetCamTiltRadAngle - camTiltRadAngle ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        if (fabsf( targetPanDeltaVector[0] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        if (fabsf( targetPanDeltaVector[1] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
         if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
 
 
@@ -810,9 +824,14 @@ Status_t ApplicationDVR::run() {
 
         glEnable( GL_DEPTH_TEST );
         glDepthFunc( GL_LESS );
+        
+        mpVol_RT_Fbo->bind( true );
+        //glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
         glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
         { // clear screen
-            glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+            
+            
 
             constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
 
@@ -935,6 +954,32 @@ Status_t ApplicationDVR::run() {
 
         }
 
+
+        mpVol_RT_Fbo->bind( false );
+
+        glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+        glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
+        { // clear screen
+            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
+            glClearBufferfv( GL_COLOR, 0, clearColorValue );
+            constexpr float clearDepthValue = 1.0f;
+            glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
+        }
+
+        glDisable( GL_DEPTH_TEST );
+        glDepthMask( GL_FALSE );
+        glDisable( GL_BLEND );
+        fullscreenTriShader.use( true );
+        mpVol_RT_Tex->bindToTexUnit( 0 );
+        glBindVertexArray( mScreenTriHandle.vaoHandle );
+        glDrawArrays( GL_TRIANGLES, 0, 3 );
+        mpVol_RT_Tex->unbindFromTexUnit();
+        fullscreenTriShader.use( false );
+        glEnable( GL_DEPTH_TEST );
+        glDepthMask( GL_TRUE );
+
+
+
         glCheckError();
 
         if (setNewRotationPivot > 0) {
@@ -984,6 +1029,9 @@ Status_t ApplicationDVR::run() {
             
             std::vector<bool> collapsedState;
             
+        #if 1
+            DVR_GUI::DisplayGui( &guiUserData, collapsedState );
+        #else
             mpGuiFbo->bind( true );
             {
                 constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
@@ -993,11 +1041,8 @@ Status_t ApplicationDVR::run() {
             DVR_GUI::DisplayGui( &guiUserData, collapsedState );
 
             mpGuiFbo->bind( false );
-            // glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
             glEnable( GL_BLEND );
-            //glBlendEquation( GL_FUNC_ADD );
-            //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
             glBlendEquation( GL_MAX );
             glBlendFunc( GL_SRC_ALPHA, GL_SRC_ALPHA );
             glDisable( GL_DEPTH_TEST );
@@ -1010,6 +1055,7 @@ Status_t ApplicationDVR::run() {
             fullscreenTriShader.use( false );
             glEnable( GL_DEPTH_TEST );
             glDepthMask( GL_TRUE );
+        #endif
 
             wasCollapsedToggled = false;
             if (frameNum > 0) {
@@ -1033,6 +1079,7 @@ Status_t ApplicationDVR::run() {
                 rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(*pRayMarchAlgoIdx);
 
                 printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", *pRayMarchAlgoIdx, (int)rayMarchAlgo );
+                didMove = true;
             }
 
             if (loadFileTrigger) {
@@ -1065,18 +1112,21 @@ Status_t ApplicationDVR::run() {
                 resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
 
                 loadFileTrigger = false;
+                didMove = true;
             }
 
             if ( mpData != nullptr && gradientCalculationAlgoIdx >= 0 &&  gradientCalculationAlgoIdx != static_cast<int>(mpData->getGradientMode()) ) {
                 const uint32_t mipLvl = 0;
                 mpData->calculateNormals( static_cast<FileLoader::VolumeData::gradientMode_t>( gradientCalculationAlgoIdx ) );
                 mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RGB, GL_FLOAT, mipLvl );
+                didMove = true;
             }
 
             if (resetTrafos) {
                 printf( "reset Trafos!\n" );
                 resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
                 resetTrafos = false;
+                didMove = true;
             }
             
             mSharedMem.put( "surfaceIsoAndThickness", 
@@ -1211,11 +1261,44 @@ void ApplicationDVR::handleScreenResize(
 
             GfxAPI::Fbo::Desc guiFboDesc;
             guiFboDesc.colorAttachments.push_back( mpGuiTex );
-            
 
             delete mpGuiFbo;
             mpGuiFbo = nullptr;
             mpGuiFbo = new GfxAPI::Fbo( guiFboDesc );
+
+
+
+            GfxAPI::Texture::Desc_t volRT_TexDesc{
+                .texDim = {fbWidth, fbHeight, 0},
+                .numChannels = 4,
+                .channelType = GfxAPI::eChannelType::u8,
+                .semantics = GfxAPI::eSemantics::color,
+                .isMipMapped = false,
+            };
+            delete mpVol_RT_Tex;
+            mpVol_RT_Tex = nullptr;
+            mpVol_RT_Tex = new GfxAPI::Texture( volRT_TexDesc );
+
+            GfxAPI::Rbo::Desc volRT_RboDesc;
+            volRT_RboDesc.w = fbWidth;
+            volRT_RboDesc.h = fbHeight;
+            volRT_RboDesc.numChannels = 1;
+            volRT_RboDesc.channelType = GfxAPI::eChannelType::f32depth;
+            volRT_RboDesc.semantics = GfxAPI::eSemantics::depth;
+
+            delete mpVol_RT_Rbo;
+            mpVol_RT_Rbo = nullptr;
+            mpVol_RT_Rbo = new GfxAPI::Rbo( volRT_RboDesc );
+
+            GfxAPI::Fbo::Desc volRT_FboDesc;
+            volRT_FboDesc.colorAttachments.push_back( mpVol_RT_Tex );
+            volRT_FboDesc.depthStencilAttachment = nullptr;
+
+            delete mpVol_RT_Fbo;
+            mpVol_RT_Fbo = nullptr;
+            mpVol_RT_Fbo = new GfxAPI::Fbo( volRT_FboDesc );
+            mpVol_RT_Rbo->attachToFbo( *mpVol_RT_Fbo, 0 );
+
 
             prevFbWidth = fbWidth;
             prevFbHeight = fbHeight;

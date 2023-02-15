@@ -1,6 +1,8 @@
 // ### TODO ###
 
 // more than 1 Levoy iso surface?
+// per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
+
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
 
 // control light + GUI 3D widget for light dir and color picker for light color
@@ -27,6 +29,7 @@
 #include "gfxAPI/contextOpenGL.h"
 #include "gfxAPI/shader.h"
 #include "gfxAPI/texture.h"
+#include "gfxAPI/fbo.h"
 #include "gfxAPI/checkErrorGL.h"
 
 #include <math.h>
@@ -210,45 +213,6 @@ namespace {
         linAlg::loadPerspectiveFovYMatrix( projMatrix, fovY_deg, ratio, n, f );
     }
 
-    static void handleScreenResize( 
-        GLFWwindow *const pWindow,
-        linAlg::mat4_t& projMatrix, 
-        int32_t& prevFbWidth,
-        int32_t& prevFbHeight,
-        int32_t& fbWidth,
-        int32_t& fbHeight ) {
-
-        {
-            int32_t windowW, windowH;
-            glfwGetWindowSize( reinterpret_cast<GLFWwindow*>(pWindow), &windowW, &windowH );
-            //printf( "glfwGetWindowSize(): window created: %d x %d\n", windowW, windowH ); fflush( stdout );
-
-            float sx, sy;
-            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(pWindow), &sx, &sy );
-            //printf( "glfwGetWindowContentScale(): window scale: %f x %f\n", sx, sy ); fflush( stdout );
-
-            //printf( "scaled window dimensions %f x %f\n", windowW * sx, windowH * sy );
-
-            int32_t fbWidth, fbHeight;
-            glfwGetFramebufferSize( reinterpret_cast<GLFWwindow*>(pWindow), &fbWidth, &fbHeight );
-            //printf( "glfwGetFramebufferSize(): %d x %d\n", fbWidth, fbHeight );
-
-            glViewport( 0, 0, windowW, windowH );
-        }
-
-        glfwGetFramebufferSize( pWindow, &fbWidth, &fbHeight);
-
-        if ( prevFbWidth != fbWidth || prevFbHeight != fbHeight ) {
-            
-            printf( "polled new window size %d x %d\n", fbWidth, fbHeight );
-
-            //calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
-            calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, projMatrix );
-
-            prevFbWidth = fbWidth;
-            prevFbHeight = fbHeight;
-        }
-    }
     
 } // namespace
 
@@ -267,6 +231,8 @@ ApplicationDVR::ApplicationDVR(
     , mpDensityTex3d( nullptr )
     , mpGradientTex3d( nullptr )
     , mpDensityColorsTex2d( nullptr )
+    , mpGuiTex( nullptr )
+    , mpGuiFbo( nullptr )
     , mpProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
     , mGrabCursor( true ) {
@@ -275,6 +241,8 @@ ApplicationDVR::ApplicationDVR(
 
     mSharedMem.put( "histoBucketEntries", std::to_string( VolumeData::mNumHistogramBuckets ) );
     DVR_GUI::InitGui( contextOpenGL );
+
+    mScreenTriHandle = gfxUtils::createScreenTriGfxBuffers();
 
     mSharedMem.put( "DVR_WatchdogTime_shouldRun", "true" );
     mpWatchdogThread = new std::thread( [=, this]() {
@@ -299,6 +267,15 @@ ApplicationDVR::~ApplicationDVR() {
     
     delete mpDensityColorsTex2d;
     mpDensityColorsTex2d = nullptr;
+
+    delete mpGuiTex;
+    mpGuiTex = nullptr;
+
+    delete mpGuiFbo;
+    mpGuiFbo = nullptr;
+
+    gfxUtils::freeMeshGfxBuffers( mScreenQuadHandle );
+    gfxUtils::freeMeshGfxBuffers( mScreenTriHandle );
 
     mSharedMem.put( "DVR_WatchdogTime_shouldRun", "false" );
     mpWatchdogThread->join();
@@ -353,16 +330,6 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
     mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
     mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RGB, GL_FLOAT, mipLvl );
-    //{
-    //    std::vector< linAlg::vec2_t > gradients2;
-    //    const uint32_t numElements = texDim[0] * texDim[1] * texDim[2];
-    //    gradients2.resize( numElements );
-    //    for (uint32_t i = 0u; i < numElements; i++) {
-    //        gradients2[i][0] = mpData->getNormals()[i][0];
-    //        gradients2[i][1] = mpData->getNormals()[i][1];
-    //    }
-    //    mpGradientTex3d->uploadData( gradients2.data(), GL_RG, GL_FLOAT, mipLvl );
-    //}
 
     mpData->calculateHistogramBuckets();
     const auto& histoBuckets = mpData->getHistoBuckets();
@@ -507,7 +474,19 @@ Status_t ApplicationDVR::run() {
     volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.setVec2(  "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     volShader.use( false );
-    
+
+    printf( "creating triangle-fullscreen shader\n" ); fflush( stdout );
+    GfxAPI::Shader fullscreenTriShader;
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > fullscreenTriShaderDesc{
+        std::make_pair( "./src/shaders/fullscreenTri.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/fullscreenTri.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
+    };
+    gfxUtils::createShader( fullscreenTriShader, fullscreenTriShaderDesc );
+    fullscreenTriShader.use( true );
+    fullscreenTriShader.setInt(   "u_Tex", 0 );
+    fullscreenTriShader.use( false );
+
+
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL ); // not necessary
@@ -818,6 +797,8 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
+        didMove = didMove || wasCollapsedToggled;
+
         if (didMove || prevDidMove) {
             glDisable( GL_BLEND );
         }
@@ -833,13 +814,10 @@ Status_t ApplicationDVR::run() {
         { // clear screen
             glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-            //constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.0f, 0.0f };
-            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
+            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
 
-            if (didMove || prevDidMove || wasCollapsedToggled) {
+            if (didMove || prevDidMove ) {
                 glClearBufferfv( GL_COLOR, 0, clearColorValue );
-
-                didMove = didMove || wasCollapsedToggled;
             }
 
             constexpr float clearDepthValue = 1.0f;
@@ -909,6 +887,7 @@ Status_t ApplicationDVR::run() {
 
                 meshShader.use( false );
                 glBindVertexArray( 0 );
+                glDisable( GL_CULL_FACE );
             }
         #endif
 
@@ -1004,7 +983,34 @@ Status_t ApplicationDVR::run() {
             };
             
             std::vector<bool> collapsedState;
+            
+            mpGuiFbo->bind( true );
+            {
+                constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
+                glClearBufferfv( GL_COLOR, 0, clearColorValue );
+            }
+
             DVR_GUI::DisplayGui( &guiUserData, collapsedState );
+
+            mpGuiFbo->bind( false );
+            // glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+            glEnable( GL_BLEND );
+            //glBlendEquation( GL_FUNC_ADD );
+            //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+            glBlendEquation( GL_MAX );
+            glBlendFunc( GL_SRC_ALPHA, GL_SRC_ALPHA );
+            glDisable( GL_DEPTH_TEST );
+            glDepthMask( GL_FALSE );
+            fullscreenTriShader.use( true );
+            mpGuiTex->bindToTexUnit( 0 );
+            glBindVertexArray( mScreenTriHandle.vaoHandle );
+            glDrawArrays( GL_TRIANGLES, 0, 3 );
+            mpGuiTex->unbindFromTexUnit();
+            fullscreenTriShader.use( false );
+            glEnable( GL_DEPTH_TEST );
+            glDepthMask( GL_TRUE );
+
             wasCollapsedToggled = false;
             if (frameNum > 0) {
                 const size_t prevSize = prevCollapsedState.size();
@@ -1144,8 +1150,7 @@ void ApplicationDVR::tryStartTransferFunctionApp() {
     }
 }
 
-void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle )
-{
+void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
     arcBallControl.resetTrafos();
     camTiltRadAngle = 0.0f;
     targetCamTiltRadAngle = 0.0f;
@@ -1156,4 +1161,63 @@ void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, floa
     rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
     camZoomDist = 0.0f;
     targetCamZoomDist = initialCamZoomDist;
+}
+
+void ApplicationDVR::handleScreenResize( 
+    GLFWwindow *const pWindow,
+    linAlg::mat4_t& projMatrix, 
+    int32_t& prevFbWidth,
+    int32_t& prevFbHeight,
+    int32_t& fbWidth,
+    int32_t& fbHeight ) {
+
+        {
+            int32_t windowW, windowH;
+            glfwGetWindowSize( reinterpret_cast<GLFWwindow*>(pWindow), &windowW, &windowH );
+            //printf( "glfwGetWindowSize(): window created: %d x %d\n", windowW, windowH ); fflush( stdout );
+
+            float sx, sy;
+            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(pWindow), &sx, &sy );
+            //printf( "glfwGetWindowContentScale(): window scale: %f x %f\n", sx, sy ); fflush( stdout );
+
+            //printf( "scaled window dimensions %f x %f\n", windowW * sx, windowH * sy );
+
+            int32_t fbWidth, fbHeight;
+            glfwGetFramebufferSize( reinterpret_cast<GLFWwindow*>(pWindow), &fbWidth, &fbHeight );
+            //printf( "glfwGetFramebufferSize(): %d x %d\n", fbWidth, fbHeight );
+
+            glViewport( 0, 0, windowW, windowH );
+        }
+
+        glfwGetFramebufferSize( pWindow, &fbWidth, &fbHeight);
+
+        if ( prevFbWidth != fbWidth || prevFbHeight != fbHeight ) {
+
+            printf( "polled new window size %d x %d\n", fbWidth, fbHeight );
+
+            //calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
+            calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, projMatrix );
+
+            GfxAPI::Texture::Desc_t guiTexDesc{
+                .texDim = {fbWidth, fbHeight, 0},
+                .numChannels = 4,
+                .channelType = GfxAPI::eChannelType::u8,
+                .semantics = GfxAPI::eSemantics::color,
+                .isMipMapped = false,
+            };
+            delete mpGuiTex;
+            mpGuiTex = nullptr;
+            mpGuiTex = new GfxAPI::Texture( guiTexDesc );
+
+            GfxAPI::Fbo::Desc guiFboDesc;
+            guiFboDesc.colorAttachments.push_back( mpGuiTex );
+            
+
+            delete mpGuiFbo;
+            mpGuiFbo = nullptr;
+            mpGuiFbo = new GfxAPI::Fbo( guiFboDesc );
+
+            prevFbWidth = fbWidth;
+            prevFbHeight = fbHeight;
+        }
 }

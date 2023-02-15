@@ -16,6 +16,7 @@
 namespace GfxAPI {
     struct ContextOpenGL;
     struct Texture;
+    struct Fbo;
 }
 
 namespace ArcBall {
@@ -25,6 +26,8 @@ namespace ArcBall {
 namespace FileLoader {
     struct VolumeData;
 }
+
+struct GLFWwindow;
 
 struct ApplicationDVR : public iApplication {
     ApplicationDVR( 
@@ -39,6 +42,14 @@ struct ApplicationDVR : public iApplication {
                                 const float currMouseX, const float currMouseY );
 
     virtual Status_t run() override;
+    
+    void handleScreenResize( 
+        GLFWwindow* const pWindow,
+        linAlg::mat4_t& projMatrix,
+        int32_t& prevFbWidth,
+        int32_t& prevFbHeight,
+        int32_t& fbWidth,
+        int32_t& fbHeight );
 
     void tryStartTransferFunctionApp();
 
@@ -52,8 +63,10 @@ struct ApplicationDVR : public iApplication {
     FileLoader::VolumeData*         mpData;
     GfxAPI::Texture*                mpDensityTex3d;
     GfxAPI::Texture*                mpGradientTex3d;
-
     GfxAPI::Texture*                mpDensityColorsTex2d;
+
+    GfxAPI::Texture*                mpGuiTex;
+    GfxAPI::Fbo*                    mpGuiFbo;
 
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;
@@ -65,6 +78,7 @@ struct ApplicationDVR : public iApplication {
     // VAOs
     gfxUtils::bufferHandles_t mStlModelHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
+    gfxUtils::bufferHandles_t mScreenTriHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
     std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
     TinyProcessLib::Process* mpProcess;

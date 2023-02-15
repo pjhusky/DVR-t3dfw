@@ -24,8 +24,8 @@ namespace {
     static float guiScale = 1.0f;
     static auto guiButtonSize() { return ImVec2{ 360, 40 }; }
 
-    static const char *const lightingWindowName = "Lighting";
-    static const char* const controlsWindowName = "Controls";
+    static const char *const lightingWindowName = "Lighting Menu";
+    static const char* const controlsWindowName = "Main Menu";
 
     static std::vector< const char* > rayMarchAlgoNames{
         "Raster Cube Backfaces",
@@ -86,6 +86,13 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     { // finer tessellation for light-dir arrow
         imguiGizmo::coneSlices = 12;
     }
+
+    ImGui::GetStyle().WindowRounding = 0.0f;
+    ImVec4* colors = ImGui::GetStyle().Colors;
+    //colors[ImGuiCol_WindowBg] = {134.0f/255.0f, 240.0f/255.0f, 238.0f/255.0f, 1.0f};
+    //colors[ImGuiCol_WindowBg] = {10.0f/255.0f, 40.0f/255.0f, 50.0f/255.0f, 0.5f};
+    colors[ImGuiCol_WindowBg] = {10.0f/255.0f, 40.0f/255.0f, 50.0f/255.0f, 0.75f};
+    //colors[ImGuiCol_WindowBg] = {0.0f, 0.0f, 0.0f, 0.0f};
 }
 
 void DVR_GUI::LightControls( DVR_GUI::GuiUserData_t* const pGuiUserData ) {
@@ -252,10 +259,6 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
             pGuiUserData->resetTrafos = true;
         }
 
-        //if (ImGui::ListBox( "RenderMethod", pGuiUserData->pRayMarchAlgoIdx, &rayMarchAlgoNames[0], rayMarchAlgoNames.size() )) {
-        //    printf( "RenderMethod selection - nr. %d, '%s'\n", *(pGuiUserData->pRayMarchAlgoIdx), rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)] );
-        //}
-
         if (*(pGuiUserData->pGradientModeIdx) >= 0) {
             separatorWithVpadding();
 
@@ -273,7 +276,6 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
             ImGui::Text( "Volume Intersection:" );
 
-            //const char* items[] = { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO", "PPPP", "QQQQQQQQQQ", "RRR", "SSSS" };
             static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
 
         #if 0

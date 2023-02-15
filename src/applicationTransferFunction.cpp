@@ -672,7 +672,7 @@ Status_t ApplicationTransferFunction::run() {
                                                     : linAlg::clamp( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
 
                 if (inColorInteractionMode) {
-                    distMouseMovementWhileInColorInteractionMode += fabs( mouse_dx );
+                    distMouseMovementWhileInColorInteractionMode += fabsf( mouse_dx );
 
                     const auto allowedDragBucketIdx = linAlg::clamp( 
                         densityBucketIdx, 

@@ -13,6 +13,18 @@ struct SharedMemIPC;
 
 struct DVR_GUI {
 
+#if 1
+    #include "src/shaders/dvrCommonDefines.h.glsl"
+#else
+    struct LightParameters {
+        std::array<float, 4> lightDir;
+        std::array<float, 4> lightColor;
+        float ambient;
+        float diffuse;
+        float specular;
+    };
+#endif
+
     struct GuiUserData_t {
         std::string& volumeDataUrl;
         int* pGradientModeIdx;
@@ -25,6 +37,8 @@ struct DVR_GUI {
         std::array<int, 3>& dim;
         std::array<float, 2>& surfaceIsoAndThickness;
         std::array<float, 3>   surfaceIsoColor;
+        LightParameters& lightParams;
+        bool& lightParamsChanged;
     };
 
     enum class eRayMarchAlgo: int {

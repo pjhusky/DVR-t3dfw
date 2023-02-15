@@ -11,10 +11,11 @@
 // # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
 
 // schaff ich jetzt NICHT!!!
-// empty space skipping
-// set up additive blending in the framebuffer
-// render small boxes front2back - immer alle small boxes, ABER jede dieser boxen repräsentiert ein texel einer groben 3D texture die das max der transparency-mapped densities ist
-// kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
+// - empty space skipping
+//      set up additive blending in the framebuffer
+//      render small boxes front2back - immer alle small boxes, ABER jede dieser boxen repräsentiert ein texel einer groben 3D texture die das max der transparency-mapped densities ist
+//      kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
+// - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
 
 // * Documentation:
 // early-ray termination, weil front-2-back compositing
@@ -31,6 +32,7 @@
 #include "gfxAPI/texture.h"
 #include "gfxAPI/rbo.h"
 #include "gfxAPI/fbo.h"
+#include "gfxAPI/ubo.h"
 #include "gfxAPI/checkErrorGL.h"
 
 #include <math.h>
@@ -239,6 +241,7 @@ ApplicationDVR::ApplicationDVR(
     , mpVol_RT_Tex( nullptr )
     , mpVol_RT_Rbo( nullptr )
     , mpVol_RT_Fbo( nullptr )
+    , mpLight_Ubo( nullptr )
     , mpProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
     , mGrabCursor( true ) {
@@ -249,6 +252,11 @@ ApplicationDVR::ApplicationDVR(
     DVR_GUI::InitGui( contextOpenGL );
 
     mScreenTriHandle = gfxUtils::createScreenTriGfxBuffers();
+    
+    const GfxAPI::Ubo::Desc lightUboDesc{
+        .numBytes = sizeof(DVR_GUI::LightParameters),
+    };
+    mpLight_Ubo = new GfxAPI::Ubo( lightUboDesc );
 
     mSharedMem.put( "DVR_WatchdogTime_shouldRun", "true" );
     mpWatchdogThread = new std::thread( [=, this]() {
@@ -290,6 +298,9 @@ ApplicationDVR::~ApplicationDVR() {
 
     delete mpVol_RT_Fbo;
     mpVol_RT_Fbo = nullptr;
+
+    delete mpLight_Ubo;
+    mpLight_Ubo = nullptr;
 
     gfxUtils::freeMeshGfxBuffers( mScreenQuadHandle );
     gfxUtils::freeMeshGfxBuffers( mScreenTriHandle );
@@ -577,6 +588,21 @@ Status_t ApplicationDVR::run() {
     meshShader.setFloat( "u_recipTexDim", 1.0f );
     meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
     meshShader.use( false );
+    
+    const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
+
+    const auto meshShaderIdx = static_cast<uint32_t>(meshShader.programHandle());
+    uint32_t meshShaderLightParamsUboIdx = glGetUniformBlockIndex( meshShaderIdx, "LightParameters" );
+    glUniformBlockBinding( meshShaderIdx, meshShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
+        
+    const auto volShaderIdx = static_cast<uint32_t>(volShader.programHandle());
+    uint32_t volShaderLightParamsUboIdx = glGetUniformBlockIndex( volShaderIdx, "LightParameters" );
+    glUniformBlockBinding( meshShaderIdx, volShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
+
+    //glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboExampleBlock);
+    //glBindBufferRange(GL_UNIFORM_BUFFER, 2, uboExampleBlock, 0, 152);
+    glBindBufferRange(GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>( mpLight_Ubo->handle() ), 0, mpLight_Ubo->desc().numBytes );
+
 
     tryStartTransferFunctionApp(); // start TF process
 
@@ -598,8 +624,17 @@ Status_t ApplicationDVR::run() {
     int gradientCalculationAlgoIdx = (mpData == nullptr) ? static_cast<int>(FileLoader::VolumeData::gradientMode_t::SOBEL_3D ) : static_cast<int>(mpData->getGradientMode());
     
     std::vector<bool> prevCollapsedState;
-
     bool wasCollapsedToggled = false;
+
+    bool lightParamsChanged = true; // force first update
+    DVR_GUI::LightParameters lightParams{
+        .lightDir = linAlg::normalizeRet( linAlg::vec4_t{ 0.2f, 0.7f, -0.1f, 0.0f } ),
+        .lightColor = linAlg::vec4_t{0.95f, 0.8f, 0.8f, 0.0f},
+        .ambient = 0.01f,
+        .diffuse = 0.8f,
+        .specular = 0.95f,
+    };
+
 
     bool prevDidMove = false;
     uint64_t frameNum = 0;
@@ -1029,8 +1064,11 @@ Status_t ApplicationDVR::run() {
                 .dim = dimArray,
                 .surfaceIsoAndThickness = surfaceIsoAndThickness,
                 .surfaceIsoColor = isoColor,
+                .lightParams = lightParams,
+                .lightParamsChanged = lightParamsChanged,
             };
             
+
             std::vector<bool> collapsedState;
             
         #if 1
@@ -1060,6 +1098,15 @@ Status_t ApplicationDVR::run() {
             glEnable( GL_DEPTH_TEST );
             glDepthMask( GL_TRUE );
         #endif
+
+            if (guiUserData.lightParamsChanged) {
+                void *pLightUbo = mpLight_Ubo->map( GfxAPI::eMapMode::writeOnly );
+                //memcpy( pLightUbo, &lightParams, sizeof( lightParams ) );
+                memcpy( pLightUbo, &lightParams, mpLight_Ubo->desc().numBytes );
+                mpLight_Ubo->unmap();
+                lightParamsChanged = false;
+            }
+
 
             wasCollapsedToggled = false;
             if (frameNum > 0) {
@@ -1303,7 +1350,6 @@ void ApplicationDVR::handleScreenResize(
             mpVol_RT_Fbo = nullptr;
             mpVol_RT_Fbo = new GfxAPI::Fbo( volRT_FboDesc );
             mpVol_RT_Rbo->attachToFbo( *mpVol_RT_Fbo, 0 );
-
 
             prevFbWidth = fbWidth;
             prevFbHeight = fbHeight;

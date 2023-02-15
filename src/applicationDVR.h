@@ -18,6 +18,7 @@ namespace GfxAPI {
     struct Texture;
     struct Rbo;
     struct Fbo;
+    struct Ubo;
 }
 
 namespace ArcBall {
@@ -74,6 +75,8 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Texture*                mpVol_RT_Tex;
     GfxAPI::Rbo*                    mpVol_RT_Rbo;
     GfxAPI::Fbo*                    mpVol_RT_Fbo;
+
+    GfxAPI::Ubo*                    mpLight_Ubo;
 
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;

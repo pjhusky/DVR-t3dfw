@@ -8,3 +8,18 @@
 #define MRI                     4
 
 #define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )
+
+#ifdef __cplusplus
+using vec4 = std::array<float, 4>;
+struct
+#else
+layout (std140) uniform 
+#endif
+LightParameters {
+    vec4 lightDir;
+    vec4 lightColor;
+    float ambient;
+    float diffuse;
+    float specular;
+    float dummy;
+};

@@ -87,12 +87,6 @@ void main() {
     
     vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
 
-    /* const */ float ambientIntensity = 0.01;
-    /* const */ vec3 lightColor = vec3( 0.95, 0.8, 0.8 );
-    /* const */ vec3 lightDir = normalize( vec3( 0.2, 0.7, -0.1 ) );
-    float materialDiffuse = 0.8;
-    float materialSpecular = 0.95;
-
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
 
@@ -124,11 +118,11 @@ void main() {
         }
         currAlpha *= colorAndAlpha.a;
 
-        float n_dot_l_raw = dot( lightDir, gradient_unit );
-        float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
-        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir ) ) ) );
-        float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
-        currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
+        float n_dot_l_raw = dot( lightDir.xyz, gradient_unit );
+        float diffuseIntensity = diffuse * max( 0.0, n_dot_l_raw );
+        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir.xyz ) ) ) );
+        float specularIntensity = specular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
+        currColor = (ambient + diffuseIntensity + specularIntensity) * lightColor.rgb;
 
         float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
         color.rgb = color.rgb + currBlendFactor * currColor;
@@ -170,7 +164,7 @@ void main() {
         color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
         o_fragColor.rgb = color.rgb / numPosDensities;
     #else
-        o_fragColor.rgb = color.rgb * lightColor;
+        o_fragColor.rgb = color.rgb * lightColor.rgb;
     #endif
 
     o_fragColor.a = 0.25;

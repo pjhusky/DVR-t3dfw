@@ -34,11 +34,11 @@ namespace {
 #endif
 
     static float guiScale = 1.0f;
-    static auto guiButtonSize() { return ImVec2{ 430, 40 }; }
+    static auto guiButtonSize() { return ImVec2{ 360, 40 }; }
 
     static std::vector< const char* > rayMarchAlgoNames{
-        "eRayMarchAlgo::backfaceCubeRaster",
-        "eRayMarchAlgo::fullscreenBoxIsect",
+        "Raster Cube Backfaces",
+        "Intersect Ray",
     };
 
     static std::vector< const char* > gradientAlgoNames{
@@ -46,6 +46,28 @@ namespace {
         "Sobel 3D",
     };
 
+    // https://github.com/libigl/libigl/issues/1300
+    static std::string labelPrefix(const char* const label)
+    {
+        float width = ImGui::CalcItemWidth();
+
+        float x = ImGui::GetCursorPosX();
+        ImGui::Text(label); 
+        ImGui::SameLine(); 
+        ImGui::SetCursorPosX(x + width * 0.5f + ImGui::GetStyle().ItemInnerSpacing.x);
+        ImGui::SetNextItemWidth(-1);
+
+        std::string labelID = "##";
+        labelID += label;
+
+        return labelID;
+    }
+
+    static void separatorWithVpadding( float vPadding = 0.125f ) {
+        ImGui::Dummy(ImVec2(0.0f, ImGui::GetTextLineHeight() * vPadding));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0.0f, ImGui::GetTextLineHeight() * vPadding));
+    }
 }
 
 
@@ -70,6 +92,9 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     gradientState.AddAlphaMarker( 1.0f, 1.0f );
 #endif
 
+    { // finer tessellation for light-dir arrow
+        imguiGizmo::coneSlices = 12;
+    }
 }
 
 void DVR_GUI::CreateGuiLayout( void* const pUserData )
@@ -108,7 +133,12 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
     ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
 
+    //auto capturedWidth = 10;// ImGui::GetItemRectSize().x;
+    //float capturedWidth = ImGui::CalcItemWidth();
+    float capturedWidth;
+    capturedWidth = ImGui::GetItemRectSize().x;
     if ( ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger ) {
+        
         printf( "Open DAT File Dialog\n" );
 
         nfdchar_t* outPath = NULL;
@@ -135,6 +165,8 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     ImGui::SameLine();
     ImGui::Text( "%d", (pGuiUserData->dim)[2] );
 
+    separatorWithVpadding();
+
     if (ImGui::Button( "Reset Transformations", guiButtonSize() ) && !pGuiUserData->resetTrafos ) {
         printf( "reset trafos button clicked\n" );
         pGuiUserData->resetTrafos = true;
@@ -145,6 +177,8 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     //}
 
     if (*(pGuiUserData->pGradientModeIdx) >= 0) {
+        separatorWithVpadding();
+
         ImGui::Text( "Gradient Calculation Method:" );
         static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
 
@@ -155,7 +189,9 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
 
     { // combo box
-        ImGui::Text( "Raymarch Method:" );
+        separatorWithVpadding();
+
+        ImGui::Text( "Volume Intersection:" );
 
         //const char* items[] = { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO", "PPPP", "QQQQQQQQQQ", "RRR", "SSSS" };
         static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
@@ -181,6 +217,7 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
         }
     #endif
 
+        separatorWithVpadding();
 
         static bool firstRunDofGuiParams = true;
         if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
@@ -191,48 +228,99 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
             dir3 = vgm::normalize( dir3 );
             //vgm::Vec3 tmpDir3 = dir3;
             //const float widgetSize = 180;
-            const float widgetSize = ImGui::GetTextLineHeight() * 5.5f;
+            //const float widget3dSize = ImGui::GetTextLineHeight() * 5.5f;
+            const float widget3dSize = ImGui::GetTextLineHeight() * 7.0f;
 
             //ImGui::GetTextLineHeightWithSpacing();
             //ImGui::SetNextItemWidth( 420 );
 
-            const float step = 0.001f;
+            const float step = 0.01f;
             //ImGui::DragFloat3( "Light Dir", &tmpDir3.x, step, ImGuiSliderFlags_NoInput );
-            ImGui::DragFloat3( "Light Dir", &dir3.x, step, ImGuiSliderFlags_NoInput );
+            //ImGui::DragFloat3( labelPrefix( "Light Dir" ).c_str(), &dir3.x, step, ImGuiSliderFlags_NoInput );
+            ImGui::DragFloat3( "Direction", &dir3.x, step, -1.0f, 1.0f, "%.2f", ImGuiSliderFlags_NoInput );
+            //const auto capturedWidth = ImGui::GetItemRectSize().x;
             
             ImGui::SameLine();
+            //const auto capturedWidth = ImGui::GetWindowContentRegionWidth();
+            
+            //ImFont::DisplayOffset.y = 0;
 
             // ImGui::gizmo3D( std::string( "##" ).append( "light Direction" ).c_str(), tmpDir3, widgetSize, imguiGizmo::modeDirection );
             // if (!std::isinf(tmpDir3.x) && !std::isnan(tmpDir3.x) &&
             //     !std::isinf(tmpDir3.y) && !std::isnan(tmpDir3.y) &&
             //     !std::isinf(tmpDir3.z) && !std::isnan(tmpDir3.z) ) { dir3 = tmpDir3; }
             // else { printf("ouch!!!\n"); }
-            ImGui::gizmo3D( std::string( "##" ).append( "Light Direction" ).c_str(), dir3, widgetSize, imguiGizmo::modeDirection );
+            //const auto capturedWidth2 = ImGui::CalcItemWidth();
+            ImGui::gizmo3D( std::string( "##" ).append( "Direction" ).c_str(), dir3, widget3dSize, imguiGizmo::modeDirection );
+            //const auto capturedWidth2 = ImGui::GetItemRectSize().x;
+            
 
             auto guiCursorPosY = ImGui::GetCursorPosY();
             auto guiCursorPosYOff = guiCursorPosY;
-            guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
+            //guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
+            guiCursorPosYOff -= ImGui::GetTextLineHeight()*5.7f;
             ImGui::SetCursorPosY( guiCursorPosYOff );
 
-            static std::array<float,3> diffColor{.5f, 0.5f, 0.5f};
+            static std::array<float,3> lightColor{.5f, 0.5f, 0.5f};
             //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoPicker );
             //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoInputs );
-            ImGui::ColorEdit3( "Ambient ", diffColor.data() );
-            ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
-            ImGui::ColorEdit3( "Specular", diffColor.data() );
+            //ImGui::ColorEdit3( "Ambient ", diffColor.data() );
+            //ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
+            //ImGui::ColorEdit3( "Specular", diffColor.data() );
             
+            ImGui::ColorEdit3( "Color", lightColor.data() );
+
+            guiCursorPosY = ImGui::GetCursorPosY();
+            guiCursorPosYOff = guiCursorPosY;
+            guiCursorPosYOff += ImGui::GetTextLineHeight()*0.2f;
+            ImGui::SetCursorPosY( guiCursorPosYOff );
+
+            //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
+            //ImGui::SetNextItemWidth( capturedWidth );
+            //static bool firstRunDofGuiParams = true;
+            //if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
+            //if (ImGui::TreeNode( "Intensities" )) {
+
+            
+            capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Ambient ", NULL, true ).x - ImGui::GetCursorPosX();
+            //ImGui::BeginGroup();
+                //ImGui::Text( "Intensities" );
+                static float ambientIntensity = 0.01f;
+                //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
+                ImGui::SetNextItemWidth( capturedWidth );
+                //ImGui::SliderFloat( labelPrefix( "Ambient" ).c_str(), &ambientIntensity, 0.0f, 1.0f, "%.2f" );
+                ImGui::SliderFloat( "Ambient ", &ambientIntensity, 0.0f, 1.0f, "%.2f" );
+                
+                static float diffuseIntensity = 0.01f;
+                ImGui::SetNextItemWidth( capturedWidth );
+                ImGui::SliderFloat( "Diffuse ", &diffuseIntensity, 0.0f, 1.0f, "%.2f" );
+
+                static float specularIntensity = 0.01f;
+                ImGui::SetNextItemWidth( capturedWidth );
+                ImGui::SliderFloat( "Specular", &specularIntensity, 0.0f, 1.0f, "%.2f" );
+            //ImGui::EndGroup();
+                //ImGui::TreePop();
+            //}
+
             ImGui::TreePop();
         }
 
+        separatorWithVpadding();
 
-        ImGui::SliderFloat( "Iso value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
+        //capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Iso value", NULL, true ).x - ImGui::GetCursorPosX();
+        //ImGui::SetNextItemWidth( capturedWidth );
+        ImGui::BeginGroup();
+        ImGui::SliderFloat( "Iso Value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
         ImGui::SameLine();
         //ImGui::ColorEdit3( "", std::array<float, 3>{1.0f, 0.2f, 0.0f}.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
         ImGui::ColorEdit3( "", pGuiUserData->surfaceIsoColor.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
         //ImGui::ColorPicker3( "", std::array<float, 3>{0.0f, 0.2f, 1.0f}.data(), ImGuiColorEditFlags_NoPicker );
+        ImGui::EndGroup();
 
         ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 100.0f / 4096.0f, "%.5f" );
     }
+
+    separatorWithVpadding();
 
     pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
 

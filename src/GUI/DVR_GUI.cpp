@@ -1,22 +1,14 @@
 #include "DVR_GUI.h"
 
-#if 0
-    #include "ImGradientiHDR/ImGradientHDR.h"
-#endif
-
 #include "gfxAPI/contextOpenGL.h"
 
 #include "../sharedMemIPC.h"
-
-//#include "volumeData.h"
-//#include "texture.h"
-//#include "gfxUtils.h"
-
 
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_win32.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
+#include <imgui/imgui_internal.h>
 
 #include "imGuIZMO.quat/imGuIZMO.quat/imGuIZMOquat.h"
 
@@ -28,13 +20,12 @@
 #include <filesystem>
 
 namespace {
-#if 0
-    ImGradientHDRState gradientState;
-    ImGradientHDRTemporaryState temporaryGradientState;
-#endif
 
     static float guiScale = 1.0f;
     static auto guiButtonSize() { return ImVec2{ 360, 40 }; }
+
+    static const char *const lightingWindowName = "Lighting";
+    static const char* const controlsWindowName = "Controls";
 
     static std::vector< const char* > rayMarchAlgoNames{
         "Raster Cube Backfaces",
@@ -97,11 +88,102 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     }
 }
 
+void DVR_GUI::LightControls( DVR_GUI::GuiUserData_t* const pGuiUserData ) {
+    //separatorWithVpadding();
+    ImGui::SetNextWindowPos( ImVec2{ 10,730 }, ImGuiCond_FirstUseEver );
+    if (ImGui::Begin( lightingWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
+
+        //    static bool firstRunDofGuiParams = true;
+        //    if (firstRunDofGuiParams) { ImGui::SetNextItemOpen( true ); firstRunDofGuiParams = false; }
+        //    if (ImGui::TreeNode( "Light Parameters" )) {
+
+        //const std::array<float, 4> dir3{1.0f,0.0f,0.0f,0.0f};
+        static vgm::Vec3 dir3{ 1.0f,0.0f,0.0f };
+        dir3 = vgm::normalize( dir3 );
+        //vgm::Vec3 tmpDir3 = dir3;
+        //const float widgetSize = 180;
+        //const float widget3dSize = ImGui::GetTextLineHeight() * 5.5f;
+        const float widget3dSize = ImGui::GetTextLineHeight() * 7.0f;
+
+        //ImGui::GetTextLineHeightWithSpacing();
+        //ImGui::SetNextItemWidth( 420 );
+
+        const float step = 0.01f;
+        //ImGui::DragFloat3( "Light Dir", &tmpDir3.x, step, ImGuiSliderFlags_NoInput );
+        //ImGui::DragFloat3( labelPrefix( "Light Dir" ).c_str(), &dir3.x, step, ImGuiSliderFlags_NoInput );
+        ImGui::DragFloat3( "Direction", &dir3.x, step, -1.0f, 1.0f, "%.2f", ImGuiSliderFlags_NoInput );
+        //const auto capturedWidth = ImGui::GetItemRectSize().x;
+
+        ImGui::SameLine();
+        //const auto capturedWidth = ImGui::GetWindowContentRegionWidth();
+
+        //ImFont::DisplayOffset.y = 0;
+
+        // ImGui::gizmo3D( std::string( "##" ).append( "light Direction" ).c_str(), tmpDir3, widgetSize, imguiGizmo::modeDirection );
+        // if (!std::isinf(tmpDir3.x) && !std::isnan(tmpDir3.x) &&
+        //     !std::isinf(tmpDir3.y) && !std::isnan(tmpDir3.y) &&
+        //     !std::isinf(tmpDir3.z) && !std::isnan(tmpDir3.z) ) { dir3 = tmpDir3; }
+        // else { printf("ouch!!!\n"); }
+        //const auto capturedWidth2 = ImGui::CalcItemWidth();
+        ImGui::gizmo3D( std::string( "##" ).append( "Direction" ).c_str(), dir3, widget3dSize, imguiGizmo::modeDirection );
+        //const auto capturedWidth2 = ImGui::GetItemRectSize().x;
+
+
+        auto guiCursorPosY = ImGui::GetCursorPosY();
+        auto guiCursorPosYOff = guiCursorPosY;
+        //guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
+        guiCursorPosYOff -= ImGui::GetTextLineHeight() * 5.7f;
+        ImGui::SetCursorPosY( guiCursorPosYOff );
+
+        static std::array<float, 3> lightColor{ .5f, 0.5f, 0.5f };
+        //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoPicker );
+        //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoInputs );
+        //ImGui::ColorEdit3( "Ambient ", diffColor.data() );
+        //ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
+        //ImGui::ColorEdit3( "Specular", diffColor.data() );
+
+        ImGui::ColorEdit3( "Color", lightColor.data() );
+
+        guiCursorPosY = ImGui::GetCursorPosY();
+        guiCursorPosYOff = guiCursorPosY;
+        guiCursorPosYOff += ImGui::GetTextLineHeight() * 0.2f;
+        ImGui::SetCursorPosY( guiCursorPosYOff );
+
+        //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
+        //ImGui::SetNextItemWidth( capturedWidth );
+        //static bool firstRunDofGuiParams = true;
+        //if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
+        //if (ImGui::TreeNode( "Intensities" )) {
+
+
+        const float capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Ambient ", NULL, true ).x - ImGui::GetCursorPosX();
+        //ImGui::BeginGroup();
+        //ImGui::Text( "Intensities" );
+        static float ambientIntensity = 0.01f;
+        //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
+        ImGui::SetNextItemWidth( capturedWidth );
+        //ImGui::SliderFloat( labelPrefix( "Ambient" ).c_str(), &ambientIntensity, 0.0f, 1.0f, "%.2f" );
+        ImGui::SliderFloat( "Ambient ", &ambientIntensity, 0.0f, 1.0f, "%.2f" );
+
+        static float diffuseIntensity = 0.01f;
+        ImGui::SetNextItemWidth( capturedWidth );
+        ImGui::SliderFloat( "Diffuse ", &diffuseIntensity, 0.0f, 1.0f, "%.2f" );
+
+        static float specularIntensity = 0.01f;
+        ImGui::SetNextItemWidth( capturedWidth );
+        ImGui::SliderFloat( "Specular", &specularIntensity, 0.0f, 1.0f, "%.2f" );
+        //ImGui::EndGroup();
+        //ImGui::TreePop();
+        //}
+
+        //ImGui::TreePop();
+    //}
+    }
+    ImGui::End();
+}
+
 void DVR_GUI::CreateGuiLayout( void* const pUserData )
 {
-    //ImGui::Begin( "Controls" );
-    ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
     GuiUserData_t* const pGuiUserData = reinterpret_cast<GuiUserData_t* const>(pUserData);
 
     auto& io = ImGui::GetIO();
@@ -122,281 +204,169 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
 
     // printf( "   io.FontGlobalScale = %f\n", io.FontGlobalScale );
     
-
+    //ImGui::Bg
 
     const ImVec2 imGuiWindowSize = ImGui::GetWindowSize();
     //printf( "   imGuiWindowSize = %f %f\n", imGuiWindowSize.x, imGuiWindowSize.y );
     
     const float imguiWindowDpiScale = ImGui::GetWindowDpiScale();
     //printf( "   imguiWindowDpiScale = %f\n", imguiWindowDpiScale );
- 
 
-    ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
+    ImGui::SetNextWindowPos( ImVec2{ 10, 20 }, ImGuiCond_FirstUseEver );
 
-    //auto capturedWidth = 10;// ImGui::GetItemRectSize().x;
-    //float capturedWidth = ImGui::CalcItemWidth();
-    float capturedWidth;
-    capturedWidth = ImGui::GetItemRectSize().x;
-    if ( ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger ) {
-        
-        printf( "Open DAT File Dialog\n" );
+    if (ImGui::Begin( controlsWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
+        ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
 
-        nfdchar_t* outPath = NULL;
-        nfdresult_t result = NFD_OpenDialog( "dat", NULL, &outPath );
+        if (ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger) {
 
-        if (result == NFD_OKAY) {
-            puts( "Success!" );
-            puts( outPath );
-            pGuiUserData->loadFileTrigger = true;
-            pGuiUserData->volumeDataUrl = std::string( outPath );
-            free( outPath );
-        }
-        else if (result == NFD_CANCEL) {
-            puts( "User pressed cancel." );
-        }
-        else {
-            printf( "Error: %s\n", NFD_GetError() );
-        }
-    }
+            printf( "Open DAT File Dialog\n" );
 
-    ImGui::Text( "%d", (pGuiUserData->dim)[0] );
-    ImGui::SameLine();
-    ImGui::Text( "x %d x", (pGuiUserData->dim)[1] );
-    ImGui::SameLine();
-    ImGui::Text( "%d", (pGuiUserData->dim)[2] );
+            nfdchar_t* outPath = NULL;
+            nfdresult_t result = NFD_OpenDialog( "dat", NULL, &outPath );
 
-    separatorWithVpadding();
-
-    if (ImGui::Button( "Reset Transformations", guiButtonSize() ) && !pGuiUserData->resetTrafos ) {
-        printf( "reset trafos button clicked\n" );
-        pGuiUserData->resetTrafos = true;
-    }
-
-    //if (ImGui::ListBox( "RenderMethod", pGuiUserData->pRayMarchAlgoIdx, &rayMarchAlgoNames[0], rayMarchAlgoNames.size() )) {
-    //    printf( "RenderMethod selection - nr. %d, '%s'\n", *(pGuiUserData->pRayMarchAlgoIdx), rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)] );
-    //}
-
-    if (*(pGuiUserData->pGradientModeIdx) >= 0) {
-        separatorWithVpadding();
-
-        ImGui::Text( "Gradient Calculation Method:" );
-        static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
-
-        for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
-            ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
-        }
-    }
-
-
-    { // combo box
-        separatorWithVpadding();
-
-        ImGui::Text( "Volume Intersection:" );
-
-        //const char* items[] = { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO", "PPPP", "QQQQQQQQQQ", "RRR", "SSSS" };
-        static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
-
-    #if 0
-        if (ImGui::BeginCombo( "##combo", current_item )) { // The second parameter is the label previewed before opening the combo.
-            //for (int n = 0; n < IM_ARRAYSIZE( &rayMarchAlgoNames[0] ); n++) {
-            for (int n = 0; n < rayMarchAlgoNames.size(); n++) {
-                bool is_selected = (current_item == rayMarchAlgoNames[n]); // You can store your selection however you want, outside or inside your objects
-                if (ImGui::Selectable( rayMarchAlgoNames[n], is_selected )) {
-                    current_item = rayMarchAlgoNames[n];
-                    *(pGuiUserData->pRayMarchAlgoIdx) = n;
-                }
-                if (is_selected) {
-                    ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
-                }
+            if (result == NFD_OKAY) {
+                puts( "Success!" );
+                puts( outPath );
+                pGuiUserData->loadFileTrigger = true;
+                pGuiUserData->volumeDataUrl = std::string( outPath );
+                free( outPath );
             }
-            ImGui::EndCombo();
-        }
-    #else
-        for (int32_t i = 0; i < rayMarchAlgoNames.size(); i++) {
-            ImGui::RadioButton( rayMarchAlgoNames[i], pGuiUserData->pRayMarchAlgoIdx, i );
-        }
-    #endif
-
-        separatorWithVpadding();
-
-        static bool firstRunDofGuiParams = true;
-        if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
-        if (ImGui::TreeNode( "Light Parameters" )) {
-
-            //const std::array<float, 4> dir3{1.0f,0.0f,0.0f,0.0f};
-            static vgm::Vec3 dir3{1.0f,0.0f,0.0f};
-            dir3 = vgm::normalize( dir3 );
-            //vgm::Vec3 tmpDir3 = dir3;
-            //const float widgetSize = 180;
-            //const float widget3dSize = ImGui::GetTextLineHeight() * 5.5f;
-            const float widget3dSize = ImGui::GetTextLineHeight() * 7.0f;
-
-            //ImGui::GetTextLineHeightWithSpacing();
-            //ImGui::SetNextItemWidth( 420 );
-
-            const float step = 0.01f;
-            //ImGui::DragFloat3( "Light Dir", &tmpDir3.x, step, ImGuiSliderFlags_NoInput );
-            //ImGui::DragFloat3( labelPrefix( "Light Dir" ).c_str(), &dir3.x, step, ImGuiSliderFlags_NoInput );
-            ImGui::DragFloat3( "Direction", &dir3.x, step, -1.0f, 1.0f, "%.2f", ImGuiSliderFlags_NoInput );
-            //const auto capturedWidth = ImGui::GetItemRectSize().x;
-            
-            ImGui::SameLine();
-            //const auto capturedWidth = ImGui::GetWindowContentRegionWidth();
-            
-            //ImFont::DisplayOffset.y = 0;
-
-            // ImGui::gizmo3D( std::string( "##" ).append( "light Direction" ).c_str(), tmpDir3, widgetSize, imguiGizmo::modeDirection );
-            // if (!std::isinf(tmpDir3.x) && !std::isnan(tmpDir3.x) &&
-            //     !std::isinf(tmpDir3.y) && !std::isnan(tmpDir3.y) &&
-            //     !std::isinf(tmpDir3.z) && !std::isnan(tmpDir3.z) ) { dir3 = tmpDir3; }
-            // else { printf("ouch!!!\n"); }
-            //const auto capturedWidth2 = ImGui::CalcItemWidth();
-            ImGui::gizmo3D( std::string( "##" ).append( "Direction" ).c_str(), dir3, widget3dSize, imguiGizmo::modeDirection );
-            //const auto capturedWidth2 = ImGui::GetItemRectSize().x;
-            
-
-            auto guiCursorPosY = ImGui::GetCursorPosY();
-            auto guiCursorPosYOff = guiCursorPosY;
-            //guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
-            guiCursorPosYOff -= ImGui::GetTextLineHeight()*5.7f;
-            ImGui::SetCursorPosY( guiCursorPosYOff );
-
-            static std::array<float,3> lightColor{.5f, 0.5f, 0.5f};
-            //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoPicker );
-            //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoInputs );
-            //ImGui::ColorEdit3( "Ambient ", diffColor.data() );
-            //ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
-            //ImGui::ColorEdit3( "Specular", diffColor.data() );
-            
-            ImGui::ColorEdit3( "Color", lightColor.data() );
-
-            guiCursorPosY = ImGui::GetCursorPosY();
-            guiCursorPosYOff = guiCursorPosY;
-            guiCursorPosYOff += ImGui::GetTextLineHeight()*0.2f;
-            ImGui::SetCursorPosY( guiCursorPosYOff );
-
-            //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
-            //ImGui::SetNextItemWidth( capturedWidth );
-            //static bool firstRunDofGuiParams = true;
-            //if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
-            //if (ImGui::TreeNode( "Intensities" )) {
-
-            
-            capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Ambient ", NULL, true ).x - ImGui::GetCursorPosX();
-            //ImGui::BeginGroup();
-                //ImGui::Text( "Intensities" );
-                static float ambientIntensity = 0.01f;
-                //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
-                ImGui::SetNextItemWidth( capturedWidth );
-                //ImGui::SliderFloat( labelPrefix( "Ambient" ).c_str(), &ambientIntensity, 0.0f, 1.0f, "%.2f" );
-                ImGui::SliderFloat( "Ambient ", &ambientIntensity, 0.0f, 1.0f, "%.2f" );
-                
-                static float diffuseIntensity = 0.01f;
-                ImGui::SetNextItemWidth( capturedWidth );
-                ImGui::SliderFloat( "Diffuse ", &diffuseIntensity, 0.0f, 1.0f, "%.2f" );
-
-                static float specularIntensity = 0.01f;
-                ImGui::SetNextItemWidth( capturedWidth );
-                ImGui::SliderFloat( "Specular", &specularIntensity, 0.0f, 1.0f, "%.2f" );
-            //ImGui::EndGroup();
-                //ImGui::TreePop();
-            //}
-
-            ImGui::TreePop();
+            else if (result == NFD_CANCEL) {
+                puts( "User pressed cancel." );
+            }
+            else {
+                printf( "Error: %s\n", NFD_GetError() );
+            }
         }
 
-        separatorWithVpadding();
-
-        //capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Iso value", NULL, true ).x - ImGui::GetCursorPosX();
-        //ImGui::SetNextItemWidth( capturedWidth );
-        ImGui::BeginGroup();
-        ImGui::SliderFloat( "Iso Value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
+        ImGui::Text( "%d", (pGuiUserData->dim)[0] );
         ImGui::SameLine();
-        //ImGui::ColorEdit3( "", std::array<float, 3>{1.0f, 0.2f, 0.0f}.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
-        ImGui::ColorEdit3( "", pGuiUserData->surfaceIsoColor.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
-        //ImGui::ColorPicker3( "", std::array<float, 3>{0.0f, 0.2f, 1.0f}.data(), ImGuiColorEditFlags_NoPicker );
-        ImGui::EndGroup();
+        ImGui::Text( "x %d x", (pGuiUserData->dim)[1] );
+        ImGui::SameLine();
+        ImGui::Text( "%d", (pGuiUserData->dim)[2] );
 
-        ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 100.0f / 4096.0f, "%.5f" );
-    }
+        separatorWithVpadding();
 
-    separatorWithVpadding();
-
-    pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
-
-    // load TF
-    
-    if ( ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/ ) {
-        printf( "Open TF File Dialog\n" );
-
-        
-        std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
-        std::filesystem::path volumeDataUrlTfExtenstion = ( volumeDataUrl.empty() ) ? "" : volumeDataUrl.replace_extension( "tf" );
-        const char* filter{ "*.tf" };
-        const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
-        const char* pTfFileUrl = tinyfd_openFileDialog( "Load TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc, 0 );
-
-        if (pTfFileUrl == nullptr) {
-            printf( "Load TF canceled or there was an error\n" );
+        if (ImGui::Button( "Reset Transformations", guiButtonSize() ) && !pGuiUserData->resetTrafos) {
+            printf( "reset trafos button clicked\n" );
+            pGuiUserData->resetTrafos = true;
         }
-        else {
-            std::string tfFileUrl = pTfFileUrl;
-            pGuiUserData->pSharedMem->put( "loadTF", tfFileUrl );
-            //pGuiUserData->editTransferFunction = true;
+
+        //if (ImGui::ListBox( "RenderMethod", pGuiUserData->pRayMarchAlgoIdx, &rayMarchAlgoNames[0], rayMarchAlgoNames.size() )) {
+        //    printf( "RenderMethod selection - nr. %d, '%s'\n", *(pGuiUserData->pRayMarchAlgoIdx), rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)] );
+        //}
+
+        if (*(pGuiUserData->pGradientModeIdx) >= 0) {
+            separatorWithVpadding();
+
+            ImGui::Text( "Gradient Calculation Method:" );
+            static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
+
+            for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
+                ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
+            }
         }
-    }
 
-    // save TF
-    if ( ImGui::Button( "Save .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "saveTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/ ) {
-        printf( "Save TF File Dialog\n" );
 
-        std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
-        std::filesystem::path volumeDataUrlTfExtenstion = ( volumeDataUrl.empty() ) ? "" : volumeDataUrl.replace_extension( "tf" );
-        const char* filter{ "*.tf" };
-        const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
-        const char* pTfFileUrl = tinyfd_saveFileDialog( "Save TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc );
+        { // combo box
+            separatorWithVpadding();
 
-        if (pTfFileUrl == nullptr) {
-            printf( "Save TF canceled or there was an error\n" );
-        } else {
-            std::string tfFileUrl = pTfFileUrl;
-            pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
+            ImGui::Text( "Volume Intersection:" );
+
+            //const char* items[] = { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIII", "JJJJ", "KKKK", "LLLLLLL", "MMMM", "OOOOOOO", "PPPP", "QQQQQQQQQQ", "RRR", "SSSS" };
+            static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
+
+        #if 0
+            if (ImGui::BeginCombo( "##combo", current_item )) { // The second parameter is the label previewed before opening the combo.
+                //for (int n = 0; n < IM_ARRAYSIZE( &rayMarchAlgoNames[0] ); n++) {
+                for (int n = 0; n < rayMarchAlgoNames.size(); n++) {
+                    bool is_selected = (current_item == rayMarchAlgoNames[n]); // You can store your selection however you want, outside or inside your objects
+                    if (ImGui::Selectable( rayMarchAlgoNames[n], is_selected )) {
+                        current_item = rayMarchAlgoNames[n];
+                        *(pGuiUserData->pRayMarchAlgoIdx) = n;
+                    }
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        #else
+            for (int32_t i = 0; i < rayMarchAlgoNames.size(); i++) {
+                ImGui::RadioButton( rayMarchAlgoNames[i], pGuiUserData->pRayMarchAlgoIdx, i );
+            }
+        #endif
+
+            //LightControls( pGuiUserData );
+
+            separatorWithVpadding();
+
+            //capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Iso value", NULL, true ).x - ImGui::GetCursorPosX();
+            //ImGui::SetNextItemWidth( capturedWidth );
+            ImGui::BeginGroup();
+            ImGui::SliderFloat( "Iso Value", &pGuiUserData->surfaceIsoAndThickness[0], 0.0f, 1.0f );
+            ImGui::SameLine();
+            //ImGui::ColorEdit3( "", std::array<float, 3>{1.0f, 0.2f, 0.0f}.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
+            ImGui::ColorEdit3( "", pGuiUserData->surfaceIsoColor.data(), ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoInputs );
+            //ImGui::ColorPicker3( "", std::array<float, 3>{0.0f, 0.2f, 1.0f}.data(), ImGuiColorEditFlags_NoPicker );
+            ImGui::EndGroup();
+
+            ImGui::SliderFloat( "Thickness", &pGuiUserData->surfaceIsoAndThickness[1], 0.0f, 100.0f / 4096.0f, "%.5f" );
         }
+
+        separatorWithVpadding();
+
+        pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
+
+        // load TF
+
+        if (ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
+            printf( "Open TF File Dialog\n" );
+
+
+            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
+            const char* filter{ "*.tf" };
+            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+            const char* pTfFileUrl = tinyfd_openFileDialog( "Load TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc, 0 );
+
+            if (pTfFileUrl == nullptr) {
+                printf( "Load TF canceled or there was an error\n" );
+            }
+            else {
+                std::string tfFileUrl = pTfFileUrl;
+                pGuiUserData->pSharedMem->put( "loadTF", tfFileUrl );
+                //pGuiUserData->editTransferFunction = true;
+            }
+        }
+
+        // save TF
+        if (ImGui::Button( "Save .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "saveTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
+            printf( "Save TF File Dialog\n" );
+
+            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
+            const char* filter{ "*.tf" };
+            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+            const char* pTfFileUrl = tinyfd_saveFileDialog( "Save TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc );
+
+            if (pTfFileUrl == nullptr) {
+                printf( "Save TF canceled or there was an error\n" );
+            }
+            else {
+                std::string tfFileUrl = pTfFileUrl;
+                pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
+            }
+        }
+
     }
-
-#if 0
-    int32_t gradientID = 0;
-    
-    const bool isMarkerShown = true;
-    ImGradientHDR( gradientID, gradientState, temporaryGradientState, isMarkerShown );
-
-    //static float col1[3] = { 1.0f, 0.0f, 0.2f };
-    //ImGui::ColorEdit3( "color 1", col1, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions /*| ImGuiColorEditFlags_NoSmallPreview*/ );
-
-    if (temporaryGradientState.selectedIndex >= 0) {
-        
-        ImGui::ColorEdit3( "color", 
-            gradientState.GetColorMarker( temporaryGradientState.selectedIndex )->Color.data(), 
-            ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions /*| ImGuiColorEditFlags_NoSmallPreview*/ );
-    }
-#endif
-    //ImGui::PlotHistogram
-    //static float col2[4] = { 0.4f, 0.7f, 0.0f, 0.5f };
-    ////ImGui::SameLine(); 
-    //ImGui::ColorEdit4( "color 2", col2 );
-
-    //static float colRGBA[3] = { 1.0f, 0.0f, 0.2f };
-    //ImGui::ColorPicker4( "Color Picker RGBA", colRGBA );
-
     ImGui::End();
+
+    LightControls( pGuiUserData );
+
 }
 
-void DVR_GUI::Resize() {
-    ImVec2 imguiWindowSize = ImGui::GetWindowSize();
-    printf( "ImGui::GetWindowSize(): %f %f\n", imguiWindowSize.x, imguiWindowSize.y );
-}
-
-void DVR_GUI::DisplayGui( void* const pUserData ) {
+void DVR_GUI::DisplayGui( void* const pUserData, std::vector<bool>& collapsedState ) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -404,7 +374,16 @@ void DVR_GUI::DisplayGui( void* const pUserData ) {
     GuiUserData_t* const pGuiUserData = reinterpret_cast<GuiUserData_t* const>(pUserData);
     pGuiUserData->wantsToCaptureMouse = ImGui::GetIO().WantCaptureMouse;
 
+    //ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1,0,0,0));
+
     CreateGuiLayout( pUserData );
+
+    //ImGui::PopStyleColor(1);
+
+    const auto afterCollapsedControls = ImGui::FindWindowByName( controlsWindowName )->Collapsed;
+    collapsedState.push_back(afterCollapsedControls);
+    const auto afterCollapsedLighting = ImGui::FindWindowByName( lightingWindowName )->Collapsed;
+    collapsedState.push_back(afterCollapsedLighting);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData( ImGui::GetDrawData() );

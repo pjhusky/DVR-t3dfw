@@ -4,16 +4,11 @@
 #include <array>
 #include <vector>
 #include <string>
-//#include <functional>
 
 namespace GfxAPI {
     struct ContextOpenGL;
 }
 
-//struct VolumeData;
-//struct Texture;
-//struct ApplicationDVR;
-//struct ApplicationTransferFunction;
 struct SharedMemIPC;
 
 struct DVR_GUI {
@@ -24,11 +19,6 @@ struct DVR_GUI {
         SharedMemIPC* pSharedMem;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
-        //VolumeData* pVolumeData;
-        //Texture& volumeTexture;
-        //ApplicationDVR* pAppDVR;
-        //ApplicationTransferFunction* pAppTF;
-        //std::function<Status_t( const std::string& )> callBack;
         bool& resetTrafos;
         bool& wantsToCaptureMouse;
         bool& editTransferFunction;
@@ -40,20 +30,14 @@ struct DVR_GUI {
     enum class eRayMarchAlgo: int {
         backfaceCubeRaster = 0,
         fullscreenBoxIsect = 1,
-        //numEnums,
     };
-    //std::vector < std::pair<eRayMarchAlgo, std::string> > rayMarchAlgoRefl{
-    //    std::make_pair( eRayMarchAlgo::backfaceCubeRaster , "eRayMarchAlgo::backfaceCubeRaster" ),
-    //    std::make_pair( eRayMarchAlgo::fullscreenBoxIsect , "eRayMarchAlgo::fullscreenBoxIsect" ),
-    //};
 
     static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );
 
     static void CreateGuiLayout( void* const pUserData );
+    static void LightControls( DVR_GUI::GuiUserData_t* const pGuiUserData );
 
-    static void DisplayGui( void* const pUserData );
-
-    static void Resize();
+    static void DisplayGui( void* const pUserData, std::vector<bool>& collapsedState );
 
     static void DestroyGui();
 

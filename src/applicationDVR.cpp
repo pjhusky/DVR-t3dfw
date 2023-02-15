@@ -155,10 +155,6 @@ namespace {
         // if (pressedOrRepeat( pWindow, GLFW_KEY_P )) { testTiltRadAngle -= camSpeed * frameDelta * pivotSpeed; }
     }
 
-    static void keyboardCallback( GLFWwindow *const pWindow, int32_t key, int32_t scancode, int32_t action, int32_t mods ) {
-        //if ( key == GLFW_KEY_E && action == GLFW_RELEASE ) {
-        //}
-    }
 
     static float mouseWheelOffset = 0.0f;
     static void mouseWheelCallback( GLFWwindow* window, double xoffset, double yoffset ) {
@@ -529,7 +525,7 @@ Status_t ApplicationDVR::run() {
 
     glfwSwapInterval( 1 );    // should sync to display framerate
 
-    glfwSetKeyCallback( pWindow, keyboardCallback );
+    //glfwSetKeyCallback( pWindow, keyboardCallback ); // // don't set this, since otherwise ImGui text fields will no longer recognize BACKSPACE, DEL, ARROW-KEYS and manybe a couple others..
     glfwSetScrollCallback( pWindow, mouseWheelCallback );
     
     glfwSetFramebufferSizeCallback( pWindow, framebufferSizeCallback );
@@ -607,6 +603,10 @@ Status_t ApplicationDVR::run() {
 
     int gradientCalculationAlgoIdx = (mpData == nullptr) ? static_cast<int>(FileLoader::VolumeData::gradientMode_t::SOBEL_3D ) : static_cast<int>(mpData->getGradientMode());
     
+    std::vector<bool> prevCollapsedState;
+
+    bool wasCollapsedToggled = false;
+
     bool prevDidMove = false;
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
@@ -644,7 +644,7 @@ Status_t ApplicationDVR::run() {
 
 
         bool didMove = false;
-        if (fabs( camZoomDist - targetCamZoomDist ) > FLT_EPSILON*1000.0f) { didMove = true; }
+        if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON*1000.0f) { didMove = true; }
         if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
 
 
@@ -836,8 +836,10 @@ Status_t ApplicationDVR::run() {
             //constexpr float clearColorValue[]{ 0.0f, 0.5f, 0.0f, 0.0f };
             constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
 
-            if (didMove || prevDidMove) {
+            if (didMove || prevDidMove || wasCollapsedToggled) {
                 glClearBufferfv( GL_COLOR, 0, clearColorValue );
+
+                didMove = didMove || wasCollapsedToggled;
             }
 
             constexpr float clearDepthValue = 1.0f;
@@ -1001,8 +1003,24 @@ Status_t ApplicationDVR::run() {
                 .surfaceIsoColor = isoColor,
             };
             
-
-            DVR_GUI::DisplayGui( &guiUserData );
+            std::vector<bool> collapsedState;
+            DVR_GUI::DisplayGui( &guiUserData, collapsedState );
+            wasCollapsedToggled = false;
+            if (frameNum > 0) {
+                const size_t prevSize = prevCollapsedState.size();
+                const size_t currSize = collapsedState.size();
+                if (prevSize == currSize) {
+                    for (size_t i = 0; i < currSize; i++) {
+                        if (prevCollapsedState[i] != collapsedState[i]) {
+                            wasCollapsedToggled = true;
+                            break;
+                        }
+                    }
+                } else {
+                    wasCollapsedToggled = true;
+                }
+            }
+            prevCollapsedState = collapsedState;
 
             if (*pRayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
                 
@@ -1076,8 +1094,6 @@ Status_t ApplicationDVR::run() {
         //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
-
-        
 
         camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
 

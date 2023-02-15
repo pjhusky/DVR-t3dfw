@@ -232,8 +232,10 @@ ApplicationDVR::ApplicationDVR(
     , mpDensityTex3d( nullptr )
     , mpGradientTex3d( nullptr )
     , mpDensityColorsTex2d( nullptr )
+#if 0
     , mpGuiTex( nullptr )
     , mpGuiFbo( nullptr )
+#endif
     , mpVol_RT_Tex( nullptr )
     , mpVol_RT_Rbo( nullptr )
     , mpVol_RT_Fbo( nullptr )
@@ -272,11 +274,13 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpDensityColorsTex2d;
     mpDensityColorsTex2d = nullptr;
 
+#if 0
     delete mpGuiTex;
     mpGuiTex = nullptr;
 
     delete mpGuiFbo;
     mpGuiFbo = nullptr;
+#endif
 
     delete mpVol_RT_Tex;
     mpVol_RT_Tex = nullptr;
@@ -1255,6 +1259,7 @@ void ApplicationDVR::handleScreenResize(
                 .semantics = GfxAPI::eSemantics::color,
                 .isMipMapped = false,
             };
+        #if 0
             delete mpGuiTex;
             mpGuiTex = nullptr;
             mpGuiTex = new GfxAPI::Texture( guiTexDesc );
@@ -1265,7 +1270,7 @@ void ApplicationDVR::handleScreenResize(
             delete mpGuiFbo;
             mpGuiFbo = nullptr;
             mpGuiFbo = new GfxAPI::Fbo( guiFboDesc );
-
+        #endif
 
 
             GfxAPI::Texture::Desc_t volRT_TexDesc{

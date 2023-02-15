@@ -66,8 +66,10 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Texture*                mpGradientTex3d;
     GfxAPI::Texture*                mpDensityColorsTex2d;
 
+#if 0
     GfxAPI::Texture*                mpGuiTex;
     GfxAPI::Fbo*                    mpGuiFbo;
+#endif
 
     GfxAPI::Texture*                mpVol_RT_Tex;
     GfxAPI::Rbo*                    mpVol_RT_Rbo;

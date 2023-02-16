@@ -29,6 +29,7 @@ struct DVR_GUI {
         std::string& volumeDataUrl;
         int* pGradientModeIdx;
         SharedMemIPC* pSharedMem;
+        int* pVisAlgoIdx;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
         bool& resetTrafos;
@@ -41,6 +42,13 @@ struct DVR_GUI {
         bool& lightParamsChanged;
     };
 
+    enum class eVisAlgo: int {
+        levoyIsosurface = 0,
+        f2bCompositing  = 1,
+        xray            = 2,
+        mri             = 3,
+    };
+
     enum class eRayMarchAlgo: int {
         backfaceCubeRaster = 0,
         fullscreenBoxIsect = 1,
@@ -48,8 +56,10 @@ struct DVR_GUI {
 
     static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );
 
+
     static void CreateGuiLayout( void* const pUserData );
-    static void LightControls( DVR_GUI::GuiUserData_t* const pGuiUserData );
+    static void MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData );
+    static void LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData );
 
     static void DisplayGui( void* const pUserData, std::vector<bool>& collapsedState );
 

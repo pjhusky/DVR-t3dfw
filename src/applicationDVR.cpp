@@ -71,6 +71,7 @@ using namespace ArcBall;
 
 namespace {
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
+    static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
 
     constexpr static float fovY_deg = 60.0f;
 
@@ -1030,8 +1031,13 @@ Status_t ApplicationDVR::run() {
         {
             static bool loadFileTrigger = false;
             static bool resetTrafos = false;
+            
+            int visAlgoIdx = static_cast<int>(visAlgo);
+            int* pVisAlgoIdx = &visAlgoIdx;
+
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
             int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
+
             bool editTransferFunction = false;
             
             std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
@@ -1051,7 +1057,7 @@ Status_t ApplicationDVR::run() {
                 .volumeDataUrl = mDataFileUrl,
                 .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
-                //.tfUrl = tfUrl,
+                .pVisAlgoIdx = pVisAlgoIdx,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
@@ -1121,10 +1127,14 @@ Status_t ApplicationDVR::run() {
             }
             prevCollapsedState = collapsedState;
 
-            if (*pRayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
-                
-                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(*pRayMarchAlgoIdx);
+            if (*pVisAlgoIdx != static_cast<int>(visAlgo)) {
+                visAlgo = (DVR_GUI::eVisAlgo)(*pVisAlgoIdx);
+                printf( "visAlgoIdx = %d, visAlgo = %d\n", *pVisAlgoIdx, (int)visAlgo );
+                didMove = true;
+            }
 
+            if (*pRayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
+                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(*pRayMarchAlgoIdx);
                 printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", *pRayMarchAlgoIdx, (int)rayMarchAlgo );
                 didMove = true;
             }

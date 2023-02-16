@@ -122,7 +122,7 @@ void main() {
         float diffuseIntensity = diffuse * max( 0.0, n_dot_l_raw );
         float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir.xyz ) ) ) );
         float specularIntensity = specular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
-        currColor = (ambient + diffuseIntensity + specularIntensity) * lightColor.rgb;
+        currColor = (ambient + diffuseIntensity + specularIntensity) * currColor;
 
         float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
         color.rgb = color.rgb + currBlendFactor * currColor;

@@ -3,15 +3,12 @@
 #include "applicationDVR.h"
 #include "applicationCreateVol.h"
 #include "applicationTransferFunction.h"
-#include "applicationColorPicker.h"
 
 
 #include "argparse/argparse.h"
 
 #include "stringUtils.h"
 
-//#include "external/tiny-process-library/process.hpp"
-//#include "external/simdb/simdb.hpp"
 #include "sharedMemIPC.h"
 
 #include <string>
@@ -24,7 +21,6 @@
 
 #include <thread>
 #include <process.h>
-//#include <namedpipeapi.h>
 
 #include <assert.h>
 
@@ -266,10 +262,6 @@ int main( int argc, const char* argv[] )
         assert( contextOpenGLStatus == Status_t::OK() );
     }
 
-    //std::shared_ptr< iApplication > pApp{ new ApplicationColorPicker( contextOpenGL ) };
-    //pApp->run();
-    //return 0;
-
 #if ( ONLY_TEST_TF_APP != 0 )
     const bool checkWatchdog = false;
     std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL, checkWatchdog ) };
@@ -282,10 +274,6 @@ int main( int argc, const char* argv[] )
         printf( "main: spin up transfer-function app!\n" );
         std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
         reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
-        pApp->run();
-    } else if (argParser.exists( "colorPicker" )) {
-        printf( "main: spin up colorPicker app!\n" );
-        std::shared_ptr< iApplication > pApp{ new ApplicationColorPicker( contextOpenGL ) };
         pApp->run();
     } else {
         //std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };

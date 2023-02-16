@@ -4,8 +4,10 @@
 // per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
 
 // runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
+// - need this for switching between Levoy, Composite, XRay, MRI!!!
+// - glslangValidator allows defining macros / preprocessor tokens ...
 
-// control light + GUI 3D widget for light dir and color picker for light color
+
 
 // printVec raus-refaktoren
 // # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
@@ -41,22 +43,16 @@
 #include <tchar.h>
 #include <filesystem>
 
-//#include <process.h> // for ::GetCommandLine
-//#include <namedpipeapi.h>
-//#include <Windows.h>
-
 #include "applicationDVR_common.h"
 
 #include "applicationDVR.h"
+
 #include "fileLoaders/volumeData.h"
-#include "fileLoaders/offLoader.h"
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
 #include "arcBall/arcBallControls.h"
 
 #include "GUI/DVR_GUI.h"
-
-//#include "external/tiny-process-library/process.hpp"
 
 
 #include <memory>

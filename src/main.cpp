@@ -3,7 +3,7 @@
 #include "applicationDVR.h"
 #include "applicationCreateVol.h"
 #include "applicationTransferFunction.h"
-
+#include "applicationShaderCompiler.h"
 
 #include "argparse/argparse.h"
 
@@ -151,6 +151,30 @@ namespace {
         return cmdLinePath;
     }
 
+    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ShaderCompiler( const char* const argv ) {
+        static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
+
+        if (cmdLinePath.empty()) {
+
+            //std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+        //#ifdef _MSC_VER
+        //    auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
+        //#else
+            //auto argv0Wide = std::codecvt_utf8( argv );
+            auto argv0Wide = utf8_decode( argv );
+            //auto argv0Wide = argv;
+        //#endif
+            cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
+                //cmdLine.c_str(),
+                argv0Wide,
+                TinyProcessLib::Process::string_type{ _TEXT( "--shaderCompiler" ) },
+                TinyProcessLib::Process::string_type{ _TEXT( "--onlyProcess" ) },
+            };
+        }
+
+        return cmdLinePath;
+    }
+
 }
 
 int main( int argc, const char* argv[] )
@@ -181,12 +205,17 @@ int main( int argc, const char* argv[] )
     
     argParser.add_argument()
         .names( { "-t", "--transferFunction" } )
-        .description( "transfer function mode" )
+        .description( "transfer-function mode" )
         .required( false );
     //Status_t cmdLineGrabRet = ApplicationProjectProxy::grabCmdLineArgs( argParser );    
     argParser.add_argument()
         .names( { "-c", "--colorPicker" } )
-        .description( "color picker mode" )
+        .description( "color-picker mode" )
+        .required( false );
+
+    argParser.add_argument()
+        .names( { "-s", "--shaderCompiler" } )
+        .description( "shader-compiler mode" )
         .required( false );
 
     argParser.enable_help();
@@ -274,6 +303,11 @@ int main( int argc, const char* argv[] )
         printf( "main: spin up transfer-function app!\n" );
         std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
         reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
+        pApp->run();
+    } else if (argParser.exists( "shaderCompiler" )) {
+        printf( "main: spin up shaderCompiler app!\n" );
+        std::shared_ptr< iApplication > pApp{ new ApplicationShaderCompiler() };
+        reinterpret_cast<ApplicationShaderCompiler*>(pApp.get())->setCommandLinePath( CommandLinePath_ShaderCompiler( argv[0] ) );
         pApp->run();
     } else {
         //std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };

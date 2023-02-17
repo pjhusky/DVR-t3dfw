@@ -10,6 +10,9 @@
 #include "tiny-process-library/process.hpp"
 #include "sharedMemIPC.h"
 
+#include "GUI/DVR_GUI.h"
+
+
 #include <string>
 #include <vector>
 
@@ -43,7 +46,7 @@ struct ApplicationDVR : public iApplication {
                                 const int32_t& fbWidth, const int32_t& fbHeight, 
                                 const float currMouseX, const float currMouseY );
 
-    void LoadDVR_Shaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader );
+    void LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader );
 
     virtual Status_t run() override;
     

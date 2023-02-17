@@ -3,14 +3,13 @@
 // more than 1 Levoy iso surface?
 // per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
 
-// runtime shader compilation through glslangvalidator (could change defines...) ... or just run it from the command line and re-load the translated file - would have to be platform specific
-// - need this for switching between Levoy, Composite, XRay, MRI!!!
-// - glslangValidator allows defining macros / preprocessor tokens ...
 
 
 
 // printVec raus-refaktoren
 // # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
+// SharedMemIPC sharedMem{ "DVR_shared_memory" }; ==> define the name "DVR_shared_memory" in one location, accessible to each file that needs to access the shared mem
+
 
 // schaff ich jetzt NICHT!!!
 // - empty space skipping
@@ -25,6 +24,8 @@
 // TF load-save als convenience feature
 // jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden auch smooth gradient-calc switch
 // UI renders in lock-step with renderer - not ideal but easier to manage with ImGui...
+// shader recompilation (with glslValidator preprocessing) working, but locked to Windows atm
+//      - NOTE-TO-SELF: launch glslValidator.exe with "cmd /C ..." so that '>' piping of stdout to file works 
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -52,8 +53,6 @@
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
 #include "arcBall/arcBallControls.h"
-
-#include "GUI/DVR_GUI.h"
 
 
 #include <memory>
@@ -470,10 +469,24 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     printf( "\n" );
 }
 
-void ApplicationDVR::LoadDVR_Shaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader )
+void ApplicationDVR::LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader )
 {
     meshShader.~Shader();
     volShader.~Shader();
+
+    std::string defineStr;
+    if (visAlgo == DVR_GUI::eVisAlgo::levoyIsosurface) {
+        defineStr = "-DDVR_MODE=LEVOY_ISO_SURFACE";
+    } else if (visAlgo == DVR_GUI::eVisAlgo::f2bCompositing) {
+        defineStr = "-DDVR_MODE=F2B_COMPOSITE";
+    } else if (visAlgo == DVR_GUI::eVisAlgo::xray) {
+        defineStr = "-DDVR_MODE=XRAY";
+    } else if (visAlgo == DVR_GUI::eVisAlgo::mri) {
+        defineStr = "-DDVR_MODE=MRI";
+    }
+    mSharedMem.put( "SHADER_DEFINES", defineStr );
+    tryStartShaderCompilerApp();
+
 
     std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
         std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
@@ -578,7 +591,7 @@ Status_t ApplicationDVR::run() {
         stlModel.indices().size(),
         stlModel.indices() );
     
-    LoadDVR_Shaders( meshShader, volShader );
+    LoadDVR_Shaders( visAlgo, meshShader, volShader );
 
 
 
@@ -1180,20 +1193,8 @@ Status_t ApplicationDVR::run() {
                 ////#define DVR_MODE                XRAY
                 ////#define DVR_MODE                MRI
 
-                std::string defineStr;
-                if (visAlgo == DVR_GUI::eVisAlgo::levoyIsosurface) {
-                    defineStr = "-DDVR_MODE=LEVOY_ISO_SURFACE";
-                } else if (visAlgo == DVR_GUI::eVisAlgo::f2bCompositing) {
-                    defineStr = "-DDVR_MODE=F2B_COMPOSITE";
-                } else if (visAlgo == DVR_GUI::eVisAlgo::xray) {
-                    defineStr = "-DDVR_MODE=XRAY";
-                } else if (visAlgo == DVR_GUI::eVisAlgo::mri) {
-                    defineStr = "-DDVR_MODE=MRI";
-                }
-                mSharedMem.put( "SHADER_DEFINES", defineStr );
-                tryStartShaderCompilerApp();
                 
-                LoadDVR_Shaders( meshShader, volShader );
+                LoadDVR_Shaders( visAlgo, meshShader, volShader );
 
                 didMove = true;
             }

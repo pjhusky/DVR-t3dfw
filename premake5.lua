@@ -256,7 +256,7 @@ workspace "T3DFW_DVR_Workspace"
 			  -- 'echo blah2.2',
 			  -- 'echo ' .. SHADER_DIR,
 			  -- 'echo blah3',
-			  '%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" -E %{file.relpath} > %{file.relpath}.preprocessed',
+			  '%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" -E -DVR_MODE=LEVOY_ISO_SURFACE %{file.relpath} > %{file.relpath}.preprocessed',
 			  --'%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" --target-env opengl --vn %{file.relpath}.c %{file.relpath}',
 		   }
 

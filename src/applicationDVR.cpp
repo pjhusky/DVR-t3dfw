@@ -24,6 +24,7 @@
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
 // TF load-save als convenience feature
 // jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden auch smooth gradient-calc switch
+// UI renders in lock-step with renderer - not ideal but easier to manage with ImGui...
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -56,7 +57,6 @@
 
 
 #include <memory>
-#include <fstream>
 #include <string>
 #include <chrono>
 #include <thread>
@@ -107,11 +107,6 @@ namespace {
 
     static constexpr linAlg::vec4_t greenScreenColor{ 0.0f, 1.0f, 1.0f, 1.0f };
 
-    static std::string readFile( const std::string &filePath ) { 
-        std::ifstream ifile{ filePath.c_str() };
-        return std::string( std::istreambuf_iterator< char >( ifile ), 
-                            std::istreambuf_iterator< char >() );
-    }
 
     static bool pressedOrRepeat( GLFWwindow *const pWindow, const int32_t key ) {
         const auto keyStatus = glfwGetKey( pWindow, key );
@@ -239,7 +234,8 @@ ApplicationDVR::ApplicationDVR(
     , mpVol_RT_Rbo( nullptr )
     , mpVol_RT_Fbo( nullptr )
     , mpLight_Ubo( nullptr )
-    , mpProcess( nullptr )
+    , mpTFProcess( nullptr )
+    , mpSCProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
     , mGrabCursor( true ) {
 
@@ -307,10 +303,12 @@ ApplicationDVR::~ApplicationDVR() {
     delete mpWatchdogThread;
     mpWatchdogThread = nullptr;
 
-    //if (mpProcess) { mpProcess->close_stdin(); mpProcess->kill(); int exitStatus = mpProcess->get_exit_status(); }
-    if (mpProcess) { mSharedMem.put( "stopTransferFunctionApp", "true" ); int exitStatus = mpProcess->get_exit_status(); }
-    delete mpProcess;
-    mpProcess = nullptr;
+    if (mpTFProcess) { mSharedMem.put( "stopTransferFunctionApp", "true" ); int exitStatus = mpTFProcess->get_exit_status(); }
+    delete mpTFProcess;
+    mpTFProcess = nullptr;
+
+    delete mpSCProcess;
+    mpSCProcess = nullptr;
 }
 
 Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradientMode ) {
@@ -472,6 +470,85 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     printf( "\n" );
 }
 
+void ApplicationDVR::LoadDVR_Shaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader )
+{
+    meshShader.~Shader();
+    volShader.~Shader();
+
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
+        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
+    };
+    gfxUtils::createShader( meshShader, meshShaderDesc );
+    meshShader.use( true );
+    meshShader.setInt( "u_densityTex", 0 );
+    meshShader.setInt( "u_gradientTex", 1 );
+    meshShader.setInt( "u_colorAndAlphaTex", 7 );
+    meshShader.setFloat( "u_recipTexDim", 1.0f );
+    meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
+    meshShader.use( false );
+
+    printf( "creating volume shader\n" ); fflush( stdout );
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
+        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), 
+    };
+    gfxUtils::createShader( volShader, volShaderDesc );
+    volShader.use( true );
+    volShader.setInt( "u_densityTex", 0 );
+    volShader.setInt( "u_gradientTex", 1 );
+    volShader.setInt( "u_colorAndAlphaTex", 7 );
+    volShader.setFloat( "u_recipTexDim", 1.0f );
+    volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
+    volShader.use( false );
+
+    const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
+
+    const auto meshShaderIdx = static_cast<uint32_t>(meshShader.programHandle());
+    uint32_t meshShaderLightParamsUboIdx = glGetUniformBlockIndex( meshShaderIdx, "LightParameters" );
+    glUniformBlockBinding( meshShaderIdx, meshShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
+
+    const auto volShaderIdx = static_cast<uint32_t>(volShader.programHandle());
+    uint32_t volShaderLightParamsUboIdx = glGetUniformBlockIndex( volShaderIdx, "LightParameters" );
+    glUniformBlockBinding( meshShaderIdx, volShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
+
+    //glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboExampleBlock);
+    //glBindBufferRange(GL_UNIFORM_BUFFER, 2, uboExampleBlock, 0, 152);
+    glBindBufferRange( GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>(mpLight_Ubo->handle()), 0, mpLight_Ubo->desc().numBytes );
+
+
+    if (mpData != nullptr) {
+        fixupShaders( meshShader, volShader );
+    }
+}
+
+void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader ) {
+    glCheckError();
+    const auto& minMaxDensity = mpData->getMinMaxDensity();
+
+    const auto minMaxScaleVal = linAlg::vec3_t{ 
+        static_cast<float>(minMaxDensity[0]) / 65535.0f, 
+        static_cast<float>(minMaxDensity[1]) / 65535.0f, 
+        1.0f / (static_cast<float>(minMaxDensity[1] - minMaxDensity[0]) / 65535.0f) };
+
+    const auto volDim = mpData->getDim();
+    const auto maxVolDim = linAlg::maximum( volDim[0], linAlg::maximum( volDim[1], volDim[2] ) );
+    const auto recipTexDim = 1.0f / linAlg::maximum( 1.0f, static_cast<float>(maxVolDim) );
+
+    volShader.use( true );
+    volShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
+    volShader.setFloat( "u_recipTexDim", recipTexDim );
+    volShader.use( false );
+
+    meshShader.use( true );
+    meshShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
+    meshShader.setFloat( "u_recipTexDim", recipTexDim );
+    meshShader.use( false );
+
+    printf( "min max densities %u %u\n", (uint32_t)minMaxDensity[0], (uint32_t)minMaxDensity[1] );
+    glCheckError();
+}
+
 Status_t ApplicationDVR::run() {
     ArcBallControls arcBallControl;
     const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
@@ -485,20 +562,25 @@ Status_t ApplicationDVR::run() {
     mScreenQuadHandle = gfxUtils::createScreenQuadGfxBuffers();
 
     // load shaders
-    printf( "creating volume shader\n" ); fflush( stdout );
+
+    StlModel stlModel;
+    stlModel.load( "./src/data/blender-cube-ascii.STL" );
+    //stlModel.load( "./data/blender-cube.STL" );
+
+    GfxAPI::Shader meshShader;
     GfxAPI::Shader volShader;
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
-        std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
-    };
-    gfxUtils::createShader( volShader, volShaderDesc );
-    volShader.use( true );
-    volShader.setInt(   "u_densityTex", 0 );
-    volShader.setInt(   "u_gradientTex", 1 );
-    volShader.setInt(   "u_colorAndAlphaTex", 7 );
-    volShader.setFloat( "u_recipTexDim", 1.0f );
-    volShader.setVec2(  "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
-    volShader.use( false );
+
+    mStlModelHandle = gfxUtils::createMeshGfxBuffers(
+        stlModel.coords().size() / 3,
+        stlModel.coords(),
+        stlModel.normals().size() / 3,
+        stlModel.normals(),
+        stlModel.indices().size(),
+        stlModel.indices() );
+    
+    LoadDVR_Shaders( meshShader, volShader );
+
+
 
     printf( "creating triangle-fullscreen shader\n" ); fflush( stdout );
     GfxAPI::Shader fullscreenTriShader;
@@ -559,46 +641,6 @@ Status_t ApplicationDVR::run() {
     linAlg::mat3x4_t tiltRotMat;
     linAlg::loadIdentityMatrix( tiltRotMat );
 
-
-    StlModel stlModel;
-    stlModel.load( "./src/data/blender-cube-ascii.STL" );
-    //stlModel.load( "./data/blender-cube.STL" );
-
-    
-    mStlModelHandle = gfxUtils::createMeshGfxBuffers(
-        stlModel.coords().size() / 3,
-        stlModel.coords(),
-        stlModel.normals().size() / 3,
-        stlModel.normals(),
-        stlModel.indices().size(),
-        stlModel.indices() );
-    GfxAPI::Shader meshShader;
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > meshShaderDesc{
-        std::make_pair( "./src/shaders/rayMarchUnitCube.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/rayMarchUnitCube.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
-    };
-    gfxUtils::createShader( meshShader, meshShaderDesc );
-    meshShader.use( true );
-    meshShader.setInt( "u_densityTex", 0 );
-    meshShader.setInt( "u_gradientTex", 1 );
-    meshShader.setInt( "u_colorAndAlphaTex", 7 );
-    meshShader.setFloat( "u_recipTexDim", 1.0f );
-    meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
-    meshShader.use( false );
-    
-    const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
-
-    const auto meshShaderIdx = static_cast<uint32_t>(meshShader.programHandle());
-    uint32_t meshShaderLightParamsUboIdx = glGetUniformBlockIndex( meshShaderIdx, "LightParameters" );
-    glUniformBlockBinding( meshShaderIdx, meshShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
-        
-    const auto volShaderIdx = static_cast<uint32_t>(volShader.programHandle());
-    uint32_t volShaderLightParamsUboIdx = glGetUniformBlockIndex( volShaderIdx, "LightParameters" );
-    glUniformBlockBinding( meshShaderIdx, volShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
-
-    //glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboExampleBlock);
-    //glBindBufferRange(GL_UNIFORM_BUFFER, 2, uboExampleBlock, 0, 152);
-    glBindBufferRange(GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>( mpLight_Ubo->handle() ), 0, mpLight_Ubo->desc().numBytes );
 
 
     tryStartTransferFunctionApp(); // start TF process
@@ -1130,6 +1172,29 @@ Status_t ApplicationDVR::run() {
             if (*pVisAlgoIdx != static_cast<int>(visAlgo)) {
                 visAlgo = (DVR_GUI::eVisAlgo)(*pVisAlgoIdx);
                 printf( "visAlgoIdx = %d, visAlgo = %d\n", *pVisAlgoIdx, (int)visAlgo );
+
+                // spawn shader compiler and re-load DVR shaders
+
+                //#define DVR_MODE                LEVOY_ISO_SURFACE
+                ////#define DVR_MODE                F2B_COMPOSITE
+                ////#define DVR_MODE                XRAY
+                ////#define DVR_MODE                MRI
+
+                std::string defineStr;
+                if (visAlgo == DVR_GUI::eVisAlgo::levoyIsosurface) {
+                    defineStr = "-DDVR_MODE=LEVOY_ISO_SURFACE";
+                } else if (visAlgo == DVR_GUI::eVisAlgo::f2bCompositing) {
+                    defineStr = "-DDVR_MODE=F2B_COMPOSITE";
+                } else if (visAlgo == DVR_GUI::eVisAlgo::xray) {
+                    defineStr = "-DDVR_MODE=XRAY";
+                } else if (visAlgo == DVR_GUI::eVisAlgo::mri) {
+                    defineStr = "-DDVR_MODE=MRI";
+                }
+                mSharedMem.put( "SHADER_DEFINES", defineStr );
+                tryStartShaderCompilerApp();
+                
+                LoadDVR_Shaders( meshShader, volShader );
+
                 didMove = true;
             }
 
@@ -1141,31 +1206,9 @@ Status_t ApplicationDVR::run() {
 
             if (loadFileTrigger) {
                 load( mDataFileUrl, gradientCalculationAlgoIdx );
-                glCheckError();
-                const auto& minMaxDensity = mpData->getMinMaxDensity();
-
-                const auto minMaxScaleVal = linAlg::vec3_t{ 
-                    static_cast<float>(minMaxDensity[0]) / 65535.0f, 
-                    static_cast<float>(minMaxDensity[1]) / 65535.0f, 
-                    1.0f / (static_cast<float>(minMaxDensity[1] - minMaxDensity[0]) / 65535.0f) };
-
-                const auto volDim = mpData->getDim();
-                const auto maxVolDim = linAlg::maximum( volDim[0], linAlg::maximum( volDim[1], volDim[2] ) );
-                const auto recipTexDim = 1.0f / linAlg::maximum( 1.0f, static_cast<float>(maxVolDim) );
-
-                volShader.use( true );
-                volShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
-                volShader.setFloat( "u_recipTexDim", recipTexDim );
-                volShader.use( false );
-
-                meshShader.use( true );
-                meshShader.setVec3( "u_minMaxScaleVal", minMaxScaleVal );
-                meshShader.setFloat( "u_recipTexDim", recipTexDim );
-                meshShader.use( false );
-
-                printf( "min max densities %u %u\n", (uint32_t)minMaxDensity[0], (uint32_t)minMaxDensity[1] );
-                glCheckError();
                 
+                fixupShaders( meshShader, volShader );
+
                 resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
 
                 loadFileTrigger = false;
@@ -1250,11 +1293,22 @@ void ApplicationDVR::tryStartTransferFunctionApp() {
     }
 
     int exitStatus;
-    if (mpProcess == nullptr || mpProcess->try_get_exit_status( exitStatus )) {
-        if (mpProcess) { mpProcess->kill(); }
-        delete mpProcess;
-        mpProcess = new TinyProcessLib::Process( mCmdLinePath );
+    if (mpTFProcess == nullptr || mpTFProcess->try_get_exit_status( exitStatus )) {
+        if (mpTFProcess) { mpTFProcess->kill(); }
+        delete mpTFProcess;
+        mpTFProcess = new TinyProcessLib::Process( mTFCmdLinePath );
     }
+}
+
+void ApplicationDVR::tryStartShaderCompilerApp() {
+
+    int exitStatus;
+    if (mpSCProcess == nullptr || mpSCProcess->try_get_exit_status( exitStatus )) {
+        if (mpSCProcess) { mpSCProcess->kill(); }
+        delete mpSCProcess;
+        mpSCProcess = new TinyProcessLib::Process( mSCCmdLinePath );
+    }
+    mpSCProcess->get_exit_status();
 }
 
 void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {

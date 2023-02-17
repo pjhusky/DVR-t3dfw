@@ -8,7 +8,7 @@
 #include "argparse/argparse.h"
 
 #include "stringUtils.h"
-
+#include "utf8Utils.h"
 #include "sharedMemIPC.h"
 
 #include <string>
@@ -29,9 +29,9 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
-#include "../utfcpp/source/utf8.h" // solve C++17 UTF deprecation
 
 #define ONLY_TEST_TF_APP    0
+#define ONLY_TEST_SC_APP    0
 
 namespace {
     static void threadFunc( void* pData ) {
@@ -39,45 +39,6 @@ namespace {
         pApp->run();
     }
 
-    // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
-    static inline std::string utf8_encode( const std::wstring& wStr )
-    {
-    #if 0
-        return std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes( wStr );
-    #else
-        std::string utf8line;
-
-        if (wStr.empty())
-            return utf8line;
-
-    #ifdef _MSC_VER
-        utf8::utf16to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
-    #else
-        utf8::utf32to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
-    #endif
-        return utf8line;
-    #endif
-    }
-
-    // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
-    static inline std::wstring utf8_decode( const std::string& sStr )
-    {
-    #if 0
-        return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes( sStr );
-    #else
-        std::wstring wide_line;
-
-        if (sStr.empty())
-            return wide_line;
-
-    #ifdef _MSC_VER
-        utf8::utf8to16( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
-    #else
-        utf8::utf8to32( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
-    #endif
-        return wide_line;
-    #endif
-    }
 
     static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_TransferFunction( GfxAPI::ContextOpenGL& contextOpenGl, const char *const argv ) {
         static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
@@ -98,7 +59,7 @@ namespace {
             auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
         #else
             // auto argv0Wide = std::codecvt_utf8( argv );
-            // auto argv0Wide = utf8_decode( argv );
+            // auto argv0Wide = utf8Utils::utf8_decode( argv );
             auto argv0Wide = argv;
         #endif
             
@@ -116,40 +77,40 @@ namespace {
         return cmdLinePath;
     }
 
-    static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ColorPicker( GfxAPI::ContextOpenGL& contextOpenGl, const char* const argv ) {
-        static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
+    //static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ColorPicker( GfxAPI::ContextOpenGL& contextOpenGl, const char* const argv ) {
+    //    static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
 
-        if (cmdLinePath.empty()) {
+    //    if (cmdLinePath.empty()) {
 
-            float sx, sy;
-            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(contextOpenGl.window()), &sx, &sy );
-            int32_t desiredWindowW = static_cast<int32_t>( 600.0f * sx );
-            int32_t desiredWindowH = static_cast<int32_t>( 600.0f * sy );
+    //        float sx, sy;
+    //        glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(contextOpenGl.window()), &sx, &sy );
+    //        int32_t desiredWindowW = static_cast<int32_t>( 600.0f * sx );
+    //        int32_t desiredWindowH = static_cast<int32_t>( 600.0f * sy );
 
-            auto strWindowW = stringUtils::ToString( desiredWindowW );
-            auto strWindowH = stringUtils::ToString( desiredWindowH );            
+    //        auto strWindowW = stringUtils::ToString( desiredWindowW );
+    //        auto strWindowH = stringUtils::ToString( desiredWindowH );            
 
-            std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
-        #ifdef _MSC_VER
-            auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
-        #else
-            // auto argv0Wide = std::codecvt_utf8( argv );
-            // auto argv0Wide = utf8_decode( argv );
-            auto argv0Wide = argv;
-        #endif
-            cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
-                //cmdLine.c_str(),
-                argv0Wide,
-                TinyProcessLib::Process::string_type{ _TEXT( "--colorPicker" ) },
-                _T( "-x" ),
-                strWindowW.c_str(), //_T( "600" ),
-                _T( "-y" ),
-                strWindowH.c_str()  //_T( "600" ) 
-            };
-        }
+    //        std::basic_string<TCHAR> cmdLine = ::GetCommandLine();
+    //    #ifdef _MSC_VER
+    //        auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
+    //    #else
+    //        // auto argv0Wide = std::codecvt_utf8( argv );
+    //        // auto argv0Wide = utf8Utils::utf8_decode( argv );
+    //        auto argv0Wide = argv;
+    //    #endif
+    //        cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
+    //            //cmdLine.c_str(),
+    //            argv0Wide,
+    //            TinyProcessLib::Process::string_type{ _TEXT( "--colorPicker" ) },
+    //            _T( "-x" ),
+    //            strWindowW.c_str(), //_T( "600" ),
+    //            _T( "-y" ),
+    //            strWindowH.c_str()  //_T( "600" ) 
+    //        };
+    //    }
 
-        return cmdLinePath;
-    }
+    //    return cmdLinePath;
+    //}
 
     static const std::vector<TinyProcessLib::Process::string_type>& CommandLinePath_ShaderCompiler( const char* const argv ) {
         static std::vector<TinyProcessLib::Process::string_type> cmdLinePath{};
@@ -161,7 +122,7 @@ namespace {
         //    auto argv0Wide = std::filesystem::_Convert_Source_to_wide( argv );
         //#else
             //auto argv0Wide = std::codecvt_utf8( argv );
-            auto argv0Wide = utf8_decode( argv );
+            auto argv0Wide = utf8Utils::utf8_decode( argv );
             //auto argv0Wide = argv;
         //#endif
             cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
@@ -294,7 +255,11 @@ int main( int argc, const char* argv[] )
 #if ( ONLY_TEST_TF_APP != 0 )
     const bool checkWatchdog = false;
     std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL, checkWatchdog ) };
-    reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
+    reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setTFCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
+    pApp->run();
+    return 0;
+#elif ( ONLY_TEST_SC_APP != 0 )
+    std::shared_ptr< iApplication > pApp{ new ApplicationShaderCompiler( "-DDVR_MODE=MRI" ) };
     pApp->run();
     return 0;
 #endif
@@ -302,17 +267,23 @@ int main( int argc, const char* argv[] )
     if (argParser.exists( "transferFunction" )) {
         printf( "main: spin up transfer-function app!\n" );
         std::shared_ptr< iApplication > pApp{ new ApplicationTransferFunction( contextOpenGL ) };
-        reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
+        //reinterpret_cast<ApplicationTransferFunction*>(pApp.get())->setTFCommandLinePath( CommandLinePath_ColorPicker( contextOpenGL, argv[0] ) );
         pApp->run();
-    } else if (argParser.exists( "shaderCompiler" )) {
+    }
+    else if (argParser.exists( "shaderCompiler" )) {
         printf( "main: spin up shaderCompiler app!\n" );
-        std::shared_ptr< iApplication > pApp{ new ApplicationShaderCompiler() };
-        reinterpret_cast<ApplicationShaderCompiler*>(pApp.get())->setCommandLinePath( CommandLinePath_ShaderCompiler( argv[0] ) );
+        SharedMemIPC sharedMem{ "DVR_shared_memory" };
+        //sharedMem.put( "SHADERS_RECOMPILED", "false" );
+        const std::string shaderDefines = sharedMem.get( "SHADER_DEFINES" );
+        std::shared_ptr< iApplication > pApp{ new ApplicationShaderCompiler( shaderDefines ) };
+        //reinterpret_cast<ApplicationShaderCompiler*>(pApp.get())->setSCCommandLinePath( CommandLinePath_ShaderCompiler( argv[0] ) );
         pApp->run();
+        //sharedMem.put( "SHADERS_RECOMPILED", "true" );
     } else {
         //std::shared_ptr< iApplication > pVolCreateApp{ new ApplicationCreateVol( contextOpenGL, linAlg::i32vec3_t{512,64,128}, "./data/dummyvol.dat" ) };
         std::shared_ptr< iApplication > pApp{ new ApplicationDVR( contextOpenGL ) };
-        reinterpret_cast<ApplicationDVR*>(pApp.get())->setCommandLinePath( CommandLinePath_TransferFunction( contextOpenGL, argv[0] ) );
+        reinterpret_cast<ApplicationDVR*>(pApp.get())->setTFCommandLinePath( CommandLinePath_TransferFunction( contextOpenGL, argv[0] ) );
+        reinterpret_cast<ApplicationDVR*>(pApp.get())->setSCCommandLinePath( CommandLinePath_ShaderCompiler( argv[0] ) );
         pApp->run();
     }
 

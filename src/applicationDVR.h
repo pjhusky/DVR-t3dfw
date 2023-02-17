@@ -43,6 +43,8 @@ struct ApplicationDVR : public iApplication {
                                 const int32_t& fbWidth, const int32_t& fbHeight, 
                                 const float currMouseX, const float currMouseY );
 
+    void LoadDVR_Shaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader );
+
     virtual Status_t run() override;
     
     void handleScreenResize( 
@@ -54,12 +56,16 @@ struct ApplicationDVR : public iApplication {
         int32_t& fbHeight );
 
     void tryStartTransferFunctionApp();
+    void tryStartShaderCompilerApp();
 
     void resetTransformations( ArcBall::ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle );
 
-    void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mCmdLinePath = cmdLinePath; }
+    void setTFCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mTFCmdLinePath = cmdLinePath; }
+    void setSCCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mSCCmdLinePath = cmdLinePath; }
 
     private:
+        void fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader );
+
     const GfxAPI::ContextOpenGL&    mContextOpenGL;
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
@@ -90,8 +96,11 @@ struct ApplicationDVR : public iApplication {
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
     gfxUtils::bufferHandles_t mScreenTriHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
-    std::vector<TinyProcessLib::Process::string_type>    mCmdLinePath;
-    TinyProcessLib::Process* mpProcess;
+    std::vector<TinyProcessLib::Process::string_type>    mTFCmdLinePath;
+    TinyProcessLib::Process*                             mpTFProcess;
+
+    std::vector<TinyProcessLib::Process::string_type>    mSCCmdLinePath;
+    TinyProcessLib::Process*                             mpSCProcess;
 
     SharedMemIPC                    mSharedMem;
 

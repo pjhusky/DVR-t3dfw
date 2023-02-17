@@ -27,11 +27,12 @@ uniform int u_frameNum;
 #include "shaderUtils.h.glsl"
 #include "dvrCommonDefines.h.glsl"
 
-#define DVR_MODE                LEVOY_ISO_SURFACE
-//#define DVR_MODE                F2B_COMPOSITE
-//#define DVR_MODE                XRAY
-//#define DVR_MODE                MRI
-
+#ifndef DVR_MODE
+    #define DVR_MODE                LEVOY_ISO_SURFACE
+    //#define DVR_MODE                F2B_COMPOSITE
+    //#define DVR_MODE                XRAY
+    //#define DVR_MODE                MRI
+#endif
 
 void main() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );

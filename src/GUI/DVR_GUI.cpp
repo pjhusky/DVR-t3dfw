@@ -181,7 +181,7 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
         if (*(pGuiUserData->pGradientModeIdx) >= 0) {
             separatorWithVpadding();
 
-            ImGui::Text( "Gradient Calculation Method:" );
+            ImGui::Text( "Gradient Calculation Method" );
             static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
 
             for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
@@ -193,7 +193,7 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
         { // combo box
             separatorWithVpadding();
 
-            ImGui::Text( "Volume Intersection:" );
+            ImGui::Text( "Volume Intersection Method" );
 
             static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
 
@@ -221,8 +221,7 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
             //LightMenuGui( pGuiUserData );
 
             separatorWithVpadding();
-            ImGui::Text( "Render Algorithm:" );
-
+            ImGui::Text( "Render Algorithm" );
 
             for (int32_t i = 0; i < visAlgoNames.size(); i++) {
                 ImGui::RadioButton( visAlgoNames[i], pGuiUserData->pVisAlgoIdx, i );

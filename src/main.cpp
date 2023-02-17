@@ -192,8 +192,10 @@ int main( int argc, const char* argv[] )
         return EXIT_SUCCESS;
     }
 
-    int32_t resx = 1800;
-    int32_t resy = resx;
+    //int32_t resx = 1800;
+    //int32_t resy = resx;
+    int32_t resx = 2400;
+    int32_t resy = 1800;
     if ( argParser.exists( "x" ) ) { resx = argParser.get< int32_t >( "x" ); }
     if ( argParser.exists( "y" ) ) { resy = argParser.get< int32_t >( "y" ); }
 

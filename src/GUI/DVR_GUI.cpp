@@ -141,7 +141,8 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
     ImGui::SetNextWindowPos( ImVec2{ 10, 20 }, ImGuiCond_FirstUseEver );
 
     if (ImGui::Begin( controlsWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
-        ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
+        //ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
+        ImGui::Text( "Loaded .dat file:\n%s", std::filesystem::path( pGuiUserData->volumeDataUrl ).filename().string().c_str() );
 
         if (ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger) {
 

@@ -35,7 +35,7 @@ struct ApplicationTransferFunction : public iApplication {
 
     virtual Status_t run() override;
 
-    void setCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLine ) { mCmdLineColorPickerProcess = cmdLine; }
+    //void setTFCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLine ) { mCmdLineColorPickerProcess = cmdLine; }
 
 private:
 
@@ -74,8 +74,8 @@ private:
     // VAOs
     gfxUtils::bufferHandles_t mScreenQuadHandle{ .vaoHandle = static_cast<uint32_t>(-1) };
 
-    std::vector<TinyProcessLib::Process::string_type>    mCmdLineColorPickerProcess;
-    TinyProcessLib::Process* mpColorPickerProcess;
+    //std::vector<TinyProcessLib::Process::string_type>   mCmdLineColorPickerProcess;
+    //TinyProcessLib::Process*                            mpColorPickerProcess;
 
     SharedMemIPC                    mSharedMem;
 

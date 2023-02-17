@@ -176,7 +176,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityColorDotTex2d( nullptr )
     , mpDensityHistogramTex2d( nullptr )
     , mpIsovalMarkerTex2d( nullptr )
-    , mpColorPickerProcess( nullptr )
+    //, mpColorPickerProcess( nullptr )
     , mSharedMem( "DVR_shared_memory" )
     , mGrabCursor( true )
     , mCheckWatchdog( checkWatchdog ) {
@@ -342,9 +342,9 @@ ApplicationTransferFunction::~ApplicationTransferFunction() {
     mpDensityColorsTex2d = nullptr;
 
 
-    if (mpColorPickerProcess) { mpColorPickerProcess->close_stdin(); mpColorPickerProcess->kill(); int exitStatus = mpColorPickerProcess->get_exit_status(); }
-    delete mpColorPickerProcess;
-    mpColorPickerProcess = nullptr;
+    //if (mpColorPickerProcess) { mpColorPickerProcess->close_stdin(); mpColorPickerProcess->kill(); int exitStatus = mpColorPickerProcess->get_exit_status(); }
+    //delete mpColorPickerProcess;
+    //mpColorPickerProcess = nullptr;
 
     printf( "end ApplicationTransferFunction dtor\n" );
 }

@@ -82,6 +82,8 @@ void main() {
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
 
+
+
     float numSkips = 0.0;
 
     ivec3 hiResDim = textureSize( u_densityTex, 0 );
@@ -91,38 +93,19 @@ void main() {
     vec3 fLoResDim = vec3( loResDim );
     vec3 fRecipLoResDim = 1.0 / fLoResDim;
 
-//    int mainDir = -1;
-//    vec3 abs_vol_step_ray_unit = abs( vol_step_ray_unit );
-//    if ( abs_vol_step_ray_unit.x >= abs_vol_step_ray_unit.y ) { //1. x >= y
-//        if (abs_vol_step_ray_unit.x >= abs_vol_step_ray_unit.z) { //2. x >= z
-//            mainDir = 0; // x biggest
-//        } else { //2. x < z 
-//            mainDir = 2; // z biggest
-//        }
-//    } else { //1. x < y
-//        if (abs_vol_step_ray_unit.y >= abs_vol_step_ray_unit.z) { //2. y >= z
-//            mainDir = 1; // y biggest
-//        } else { //2. y < z
-//            mainDir = 2; // z biggest
-//        }
-//    }
-
     vec3 normPlaneX = ( vol_step_ray.x > 0.0 ) ? vec3( 1.0, 0.0, 0.0 ) : vec3( -1.0,  0.0,  0.0 );
     vec3 normPlaneY = ( vol_step_ray.y > 0.0 ) ? vec3( 0.0, 1.0, 0.0 ) : vec3(  0.0, -1.0,  0.0 );
     vec3 normPlaneZ = ( vol_step_ray.z > 0.0 ) ? vec3( 0.0, 0.0, 1.0 ) : vec3(  0.0,  0.0, -1.0 );
 
-//    float normPlaneXdecider = normPlaneX.x * 0.5 + 0.5;
-//    float normPlaneYdecider = normPlaneY.y * 0.5 + 0.5;
-//    float normPlaneZdecider = normPlaneZ.z * 0.5 + 0.5;
     vec3 normPlaneDecider = vec3( normPlaneX.x, normPlaneY.y, normPlaneZ.z ) * vec3(0.5) + vec3(0.5);
 
-//    normPlaneX.x *= fRecipLoResDim.x;
-//    normPlaneY.y *= fRecipLoResDim.y;
-//    normPlaneZ.z *= fRecipLoResDim.z;
+
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
+
+
 
         // center hiResTexCoord to the parent-loresBlock's loResTexCoord center
         vec3 hi2lo = (curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
@@ -136,20 +119,10 @@ void main() {
 
         if ( emptySpaceTableEntry > 0.0 ) {
             
-            //vec3 currSampleLoResTexelSpace = loResTexCoord * (fLoResDim);
             vec3 fractDistTxlS = fract( hi2lo );
-            //vec3 fractDistTxlS = fract( currSampleLoResTexelSpace );
-            //vec3 floorPosTxlS = floor( currSampleLoResTexelSpace );
-            
-//            fractDistTxlS.x = mix( fractDistTxlS.x, 1.0 - fractDistTxlS.x, normPlaneXdecider );
-//            fractDistTxlS.y = mix( fractDistTxlS.y, 1.0 - fractDistTxlS.y, normPlaneYdecider );
-//            fractDistTxlS.z = mix( fractDistTxlS.z, 1.0 - fractDistTxlS.z, normPlaneZdecider );
 
             fractDistTxlS = mix( fractDistTxlS, 1.0 - fractDistTxlS, normPlaneDecider );
-            
-//            float dx = dot( normPlaneX * fRecipLoResDim, vol_step_ray ) * fractDistTxlS.x;
-//            float dy = dot( normPlaneY * fRecipLoResDim, vol_step_ray ) * fractDistTxlS.y;
-//            float dz = dot( normPlaneZ * fRecipLoResDim, vol_step_ray ) * fractDistTxlS.z;
+
             float dx = dot( normPlaneX, vol_step_ray_unit ) * fractDistTxlS.x;
             float dy = dot( normPlaneY, vol_step_ray_unit ) * fractDistTxlS.y;
             float dz = dot( normPlaneZ, vol_step_ray_unit ) * fractDistTxlS.z;
@@ -157,29 +130,22 @@ void main() {
             float minDelta = min( dx, min( dy, dz ) )  * BRICK_BLOCK_DIM;
             
             currStep += RAY_STEP_SIZE * minDelta;
-
-            //curr_sample_pos_noRand += vol_step_ray * minDelta;
-//            curr_sample_pos_noRand += 0.5 * vol_step_ray; // push into the dir of the ray since up to -0.5 backward rand movement possible
-
-            curr_sample_pos_noRand += vol_step_ray * ( minDelta + 0.5 ); // push into the dir of the ray since up to -0.5 backward rand movement possible
+            curr_sample_pos_noRand += vol_step_ray * ( minDelta + 0.5 ); // "+0.5" => push into the dir of the ray since up to -0.5 backward rand movement possible
 
             numSkips++;
             continue;
         }
 
+
+
+
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
 
-        
         iStep++; iStep %= 3;
-        if ( iStep == 2 ) {
-            rnd01 = rand01(randInput);
-        }
-
+        rnd01 = (( iStep == 2 ) ? rand01(randInput) : rnd01);
 
         float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
         raw_densityVal *= HOUNSFIELD_UNIT_SCALE;
-
-
 
         vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
         vec3 currColor = colorAndAlpha.rgb;

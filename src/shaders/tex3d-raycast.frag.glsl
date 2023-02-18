@@ -93,11 +93,11 @@ void main() {
     vec3 fLoResDim = vec3( loResDim );
     vec3 fRecipLoResDim = 1.0 / fLoResDim;
 
-    vec3 normPlaneX = ( vol_step_ray.x > 0.0 ) ? vec3( 1.0, 0.0, 0.0 ) : vec3( -1.0,  0.0,  0.0 );
-    vec3 normPlaneY = ( vol_step_ray.y > 0.0 ) ? vec3( 0.0, 1.0, 0.0 ) : vec3(  0.0, -1.0,  0.0 );
-    vec3 normPlaneZ = ( vol_step_ray.z > 0.0 ) ? vec3( 0.0, 0.0, 1.0 ) : vec3(  0.0,  0.0, -1.0 );
+    vec3 normPlane = vec3( ( vol_step_ray.x > 0.0 ) ? 1.0 : -1.0,
+                           ( vol_step_ray.y > 0.0 ) ? 1.0 : -1.0,
+                           ( vol_step_ray.z > 0.0 ) ? 1.0 : -1.0 );
 
-    vec3 normPlaneDecider = vec3( normPlaneX.x, normPlaneY.y, normPlaneZ.z ) * vec3(0.5) + vec3(0.5);
+    vec3 normPlaneDecider = normPlane * vec3(0.5) + vec3(0.5);
 
 
 
@@ -123,11 +123,9 @@ void main() {
 
             fractDistTxlS = mix( fractDistTxlS, 1.0 - fractDistTxlS, normPlaneDecider );
 
-            float dx = dot( normPlaneX, vol_step_ray_unit ) * fractDistTxlS.x;
-            float dy = dot( normPlaneY, vol_step_ray_unit ) * fractDistTxlS.y;
-            float dz = dot( normPlaneZ, vol_step_ray_unit ) * fractDistTxlS.z;
+            vec3 skipDelta = normPlane * vol_step_ray_unit * fractDistTxlS;
 
-            float minDelta = min( dx, min( dy, dz ) )  * BRICK_BLOCK_DIM;
+            float minDelta = min( skipDelta.x, min( skipDelta.y, skipDelta.z ) )  * BRICK_BLOCK_DIM;
             
             currStep += RAY_STEP_SIZE * minDelta;
             curr_sample_pos_noRand += vol_step_ray * ( minDelta + 0.5 ); // "+0.5" => push into the dir of the ray since up to -0.5 backward rand movement possible
@@ -140,9 +138,6 @@ void main() {
 
 
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
-
-        iStep++; iStep %= 3;
-        rnd01 = (( iStep == 2 ) ? rand01(randInput) : rnd01);
 
         float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
         raw_densityVal *= HOUNSFIELD_UNIT_SCALE;
@@ -196,11 +191,17 @@ void main() {
         }
     #endif
 
-    #if ( DVR_MODE != XRAY )
-        if ( color.a >= 0.99 ) {
-            break;
+        iStep++; iStep %= 3;
+        if ( iStep == 2 ) {
+            rnd01 = rand01(randInput);
+        #if ( DVR_MODE != XRAY )
+            if ( color.a >= 0.99 ) { // early out test only every 3rd step, since we need to re-shuffle noise anyway at this frequency
+                break;
+            }
+        #endif
         }
-    #endif
+
+
 
     }
 

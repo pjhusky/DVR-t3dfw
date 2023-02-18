@@ -29,6 +29,7 @@ struct DVR_GUI {
         std::string& volumeDataUrl;
         int* pGradientModeIdx;
         SharedMemIPC* pSharedMem;
+        float frameRate;
         int* pVisAlgoIdx;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
@@ -57,11 +58,12 @@ struct DVR_GUI {
     static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );
 
 
-    static void CreateGuiLayout( void* const pUserData );
-    static void MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData );
-    static void LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData );
+    static void CreateGuiLayout( void* const pUserData, const int32_t fbW, const int32_t fbH );
+    static void MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH );
+    static void LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH );
+    static void StatsMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH );
 
-    static void DisplayGui( void* const pUserData, std::vector<bool>& collapsedState );
+    static void DisplayGui( void* const pUserData, std::vector<bool>& collapsedState, const int32_t fbW, const int32_t fbH );
 
     static void DestroyGui();
 

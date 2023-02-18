@@ -1,14 +1,10 @@
 // ### TODO ###
 
-// more than 1 Levoy iso surface?
-// per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
-
-
-
-
-// printVec raus-refaktoren
-// # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
-// SharedMemIPC sharedMem{ "DVR_shared_memory" }; ==> define the name "DVR_shared_memory" in one location, accessible to each file that needs to access the shared mem
+// * more than 1 Levoy iso surface?
+// * per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
+// * printVec raus-refaktoren
+// * # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
+// * SharedMemIPC sharedMem{ "DVR_shared_memory" }; ==> define the name "DVR_shared_memory" in one location, accessible to each file that needs to access the shared mem
 
 
 // schaff ich jetzt NICHT!!!
@@ -18,6 +14,7 @@
 //      kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
 // - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
 
+
 // * Documentation:
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
@@ -26,6 +23,8 @@
 // UI renders in lock-step with renderer - not ideal but easier to manage with ImGui...
 // shader recompilation (with glslValidator preprocessing) working, but locked to Windows atm
 //      - NOTE-TO-SELF: launch glslValidator.exe with "cmd /C ..." so that '>' piping of stdout to file works 
+// bei SW arch kann ich das mit zwei prozessen für 2 opengl windows anmerken und daß sie über shared mem kommunizieren (quasi named pipes?)
+//      - volume data preproc mittels OpenMP thread-parallel
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -65,12 +64,16 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
+#include "src/shaders/dvrCommonDefines.h.glsl"
 
 using namespace ArcBall;
 
 namespace {
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
     static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
+
+    static constexpr int32_t brickLen = static_cast<int32_t>( BRICK_BLOCK_DIM );
+    static constexpr linAlg::i32vec3_t volBrickDim{ brickLen, brickLen, brickLen };
 
     constexpr static float fovY_deg = 60.0f;
 
@@ -223,6 +226,8 @@ ApplicationDVR::ApplicationDVR(
     , mDataFileUrl( "" )
     , mpData( nullptr )
     , mpDensityTex3d( nullptr )
+    , mpDensityLoResTex3d( nullptr )
+    , mpEmptySpaceTex2d( nullptr )
     , mpGradientTex3d( nullptr )
     , mpDensityColorsTex2d( nullptr )
 #if 0
@@ -239,6 +244,8 @@ ApplicationDVR::ApplicationDVR(
     , mGrabCursor( true ) {
 
     std::atexit( atExit );
+
+    mVolLoResData.clear();
 
     mSharedMem.put( "histoBucketEntries", std::to_string( VolumeData::mNumHistogramBuckets ) );
     DVR_GUI::InitGui( contextOpenGL );
@@ -259,6 +266,28 @@ ApplicationDVR::ApplicationDVR(
     } );
     mSharedMem.put( "loadTF", " " );
     mSharedMem.put( "saveTF", " " );
+    
+
+    GfxAPI::Texture::Desc_t emptySpaceTexDesc{
+        .texDim = {1024,1024,0},
+        .numChannels = 1,
+        .channelType = GfxAPI::eChannelType::u8,
+        .semantics = GfxAPI::eSemantics::color,
+        .isMipMapped = false,
+    };
+    const uint32_t mipLvl = 0;
+
+    delete mpEmptySpaceTex2d;
+    mpEmptySpaceTex2d = new GfxAPI::Texture;
+    mpEmptySpaceTex2d->create( emptySpaceTexDesc );
+    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    //mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    const auto minFilter = GfxAPI::eFilterMode::box;
+    const auto magFilter = GfxAPI::eFilterMode::box;
+    const auto mipFilter = GfxAPI::eFilterMode::box;
+    mpEmptySpaceTex2d->setFilterMode( minFilter, magFilter, mipFilter );
+
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -267,7 +296,13 @@ ApplicationDVR::~ApplicationDVR() {
     
     delete mpDensityTex3d;
     mpDensityTex3d = nullptr;
-    
+
+    delete mpDensityLoResTex3d;
+    mpDensityLoResTex3d = nullptr;
+
+    delete mpEmptySpaceTex2d;
+    mpEmptySpaceTex2d = nullptr;
+
     delete mpGradientTex3d;
     mpGradientTex3d = nullptr;
     
@@ -324,7 +359,7 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     GfxAPI::Texture::Desc_t volTexDesc{
         .texDim = texDim,
         .numChannels = 1,
-        .channelType = GfxAPI::eChannelType::i16,
+        .channelType = GfxAPI::eChannelType::u16,
         .semantics = GfxAPI::eSemantics::color,
         .isMipMapped = false,
     };
@@ -496,6 +531,8 @@ void ApplicationDVR::LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::S
     meshShader.use( true );
     meshShader.setInt( "u_densityTex", 0 );
     meshShader.setInt( "u_gradientTex", 1 );
+    meshShader.setInt( "u_densityLoResTex", 2 );
+    meshShader.setInt( "u_emptySpaceTex", 3 );
     meshShader.setInt( "u_colorAndAlphaTex", 7 );
     meshShader.setFloat( "u_recipTexDim", 1.0f );
     meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
@@ -510,6 +547,8 @@ void ApplicationDVR::LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::S
     volShader.use( true );
     volShader.setInt( "u_densityTex", 0 );
     volShader.setInt( "u_gradientTex", 1 );
+    volShader.setInt( "u_densityLoResTex", 2 );
+    volShader.setInt( "u_emptySpaceTex", 3 );
     volShader.setInt( "u_colorAndAlphaTex", 7 );
     volShader.setFloat( "u_recipTexDim", 1.0f );
     volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
@@ -560,6 +599,84 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 
     printf( "min max densities %u %u\n", (uint32_t)minMaxDensity[0], (uint32_t)minMaxDensity[1] );
     glCheckError();
+
+
+    //mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
+    const auto volDataDim = mpData->getDim();
+
+    const linAlg::i32vec3_t volBrickLodDim = { 
+        ( volDataDim[0] + ( volBrickDim[0] - 1 ) ) / volBrickDim[0],
+        ( volDataDim[1] + ( volBrickDim[1] - 1 ) ) / volBrickDim[1],
+        ( volDataDim[2] + ( volBrickDim[2] - 1 ) ) / volBrickDim[2],
+    };
+
+    mVolLoResData.clear();
+    mVolLoResData.resize( volBrickLodDim[0] * volBrickLodDim[1] * volBrickLodDim[2] );
+
+#pragma omp parallel for schedule(dynamic, 1)		// OpenMP 
+    for (int32_t z = 0; z < volDataDim[2]; z += volBrickDim[2]) { // error C3016: 'z': index variable in OpenMP 'for' statement must have signed integral type
+        for (int32_t y = 0; y < volDataDim[1]; y += volBrickDim[1]) {
+            for (int32_t x = 0; x < volDataDim[0]; x += volBrickDim[0]) {
+
+                // TODO: find max transparency
+                //      - for now, just use the density, later map density to transparency through TF
+                uint16_t maxVal = 0;
+                uint16_t minVal = std::numeric_limits<uint16_t>::max();
+                uint32_t numVoxelsVisited = 0;
+                for (int32_t bz = 0; bz < volBrickDim[2]; bz++) { // error C3016: 'z': index variable in OpenMP 'for' statement must have signed integral type
+                    const auto hiResZ = z + bz;
+                    if (hiResZ >= volDataDim[2]) { break; }
+                    for (int32_t by = 0; by < volBrickDim[1]; by++) {
+                        const auto hiResY = y + by;
+                        if (hiResY >= volDataDim[1]) { break; }
+                        for (int32_t bx = 0; bx < volBrickDim[0]; bx++) {
+                            const auto hiResX = x + bx;
+                            if (hiResX >= volDataDim[0]) { break; }
+                            
+                            //const uint32_t addrHiRes = (hiResZ * volDataDim[1] + hiResY) * volDataDim[0] + hiResX;
+                            const uint32_t addrHiRes = mpData->calcAddr( hiResX, hiResY, hiResZ );
+
+                            uint16_t currVal = mpData->getDensities()[addrHiRes]; // for now, just use the density, later map density to transparency through TF
+                            maxVal = linAlg::maximum( maxVal, currVal );
+                            minVal = linAlg::minimum( minVal, currVal );
+                            numVoxelsVisited++;
+                        }
+                    }
+                }
+
+                const uint32_t loResX = x / volBrickDim[0];
+                const uint32_t loResY = y / volBrickDim[1];
+                const uint32_t loResZ = z / volBrickDim[2];
+
+                //mVolLoResData[(loResZ * volBrickLodDim[1] + loResY) * volBrickLodDim[0] + loResX] = maxVal;
+                mVolLoResData[(loResZ * volBrickLodDim[1] + loResY) * volBrickLodDim[0] + loResX] = { minVal, maxVal };
+            }
+        }
+    }
+    
+    GfxAPI::Texture::Desc_t volLoResTexDesc{
+        .texDim = volBrickLodDim,
+        .numChannels = 2,
+        .channelType = GfxAPI::eChannelType::u16,
+        .semantics = GfxAPI::eSemantics::color,
+        .isMipMapped = false,
+    };
+    const uint32_t mipLvl = 0;
+
+    delete mpDensityLoResTex3d;
+    mpDensityLoResTex3d = new GfxAPI::Texture;
+    mpDensityLoResTex3d->create( volLoResTexDesc );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    const auto minFilter = GfxAPI::eFilterMode::box;
+    const auto magFilter = GfxAPI::eFilterMode::box;
+    const auto mipFilter = GfxAPI::eFilterMode::box;
+    mpDensityLoResTex3d->setFilterMode( minFilter, magFilter, mipFilter );
+    mpDensityLoResTex3d->uploadData( mVolLoResData.data(), GL_RG, GL_UNSIGNED_SHORT, mipLvl );
+
+
+
 }
 
 Status_t ApplicationDVR::run() {
@@ -671,7 +788,9 @@ Status_t ApplicationDVR::run() {
 
 
     bool guiWantsMouseCapture = false;
-    std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
+    //std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
+    std::vector<uint8_t> interpolatedDensityColorsCPU;
+    interpolatedDensityColorsCPU.resize( 1024 * 4 );
 
     int gradientCalculationAlgoIdx = (mpData == nullptr) ? static_cast<int>(FileLoader::VolumeData::gradientMode_t::SOBEL_3D ) : static_cast<int>(mpData->getGradientMode());
     
@@ -687,6 +806,8 @@ Status_t ApplicationDVR::run() {
         .specular = 0.95f,
     };
 
+    std::array<float, 8> frameDurations;
+    std::fill( frameDurations.begin(), frameDurations.end(), 1.0f / 60.0f );
 
     bool prevDidMove = false;
     uint64_t frameNum = 0;
@@ -705,6 +826,38 @@ Status_t ApplicationDVR::run() {
                 assert( retVal == true && bytesRead == interpolatedDensityColorsCPU.size() );
 
                 mpDensityColorsTex2d->uploadData( interpolatedDensityColorsCPU.data(), GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+
+                // TODO: create empty space skipping table => entry in table x..minVal, y..maxVal => search transparency between the minVal and maxVal density and if any val with transparency > 1 exists, break and set table entry to false (no space skipping, since not empty space)
+                {
+                    std::vector<uint8_t> emptySpaceTableData;
+                    emptySpaceTableData.resize( 1024 * 1024 );
+                    std::fill( emptySpaceTableData.begin(), emptySpaceTableData.end(), 255 );
+                    for ( uint32_t y = 0; y < 1024; y++ ) { // start at first significant hounsfield unit
+                        
+                        for (uint32_t x = 0; x < 1024; x++) {
+                            const uint32_t addr = y * 1024 + x;
+                            if (x > y) { // makes no sense when x..minVal bigger than y..maxVal
+                                continue;
+                            }
+                            bool foundPosTransparency = false;
+                            for (uint32_t densityIdx = x; densityIdx <= y; densityIdx++) {
+                                const auto alpha = interpolatedDensityColorsCPU[densityIdx * 4 + 3];
+                                //if (alpha > 0) {
+                                if (alpha > 0) {
+                                    foundPosTransparency = true;
+                                    break;
+                                }
+                            }
+                            if (foundPosTransparency) {
+                                emptySpaceTableData[addr] = 0;
+                            }
+                        }
+                    }
+                    const uint32_t mipLvl = 0;
+                    mpEmptySpaceTex2d->uploadData( emptySpaceTableData.data(), GL_RED, GL_UNSIGNED_BYTE, mipLvl );
+                    
+                }
+
                 mSharedMem.put( "TFdirty", "false" );
             }
         }
@@ -966,6 +1119,13 @@ Status_t ApplicationDVR::run() {
                 mpGradientTex3d->bindToTexUnit( 1 );
             }
 
+            if (mpDensityLoResTex3d != nullptr) {
+                mpDensityLoResTex3d->bindToTexUnit( 2 );
+            }
+            if (mpEmptySpaceTex2d != nullptr) {
+                mpEmptySpaceTex2d->bindToTexUnit( 3 );
+            }
+
             linAlg::mat4_t invModelViewMatrix;
             linAlg::inverse( invModelViewMatrix, mModelViewMatrix );
             const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
@@ -1042,7 +1202,12 @@ Status_t ApplicationDVR::run() {
                 mpDensityTex3d->unbindFromTexUnit();
                 mpGradientTex3d->unbindFromTexUnit();
             }
-
+            if (mpDensityLoResTex3d != nullptr) {
+                mpDensityLoResTex3d->unbindFromTexUnit();
+            }
+            if (mpEmptySpaceTex2d != nullptr) {
+                mpEmptySpaceTex2d->unbindFromTexUnit();
+            }
         }
 
 
@@ -1112,6 +1277,7 @@ Status_t ApplicationDVR::run() {
                 .volumeDataUrl = mDataFileUrl,
                 .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
+                .frameRate = 1.0f / frameDurations[frameDurations.size()/2u],
                 .pVisAlgoIdx = pVisAlgoIdx,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
@@ -1129,7 +1295,7 @@ Status_t ApplicationDVR::run() {
             std::vector<bool> collapsedState;
             
         #if 1
-            DVR_GUI::DisplayGui( &guiUserData, collapsedState );
+            DVR_GUI::DisplayGui( &guiUserData, collapsedState, fbWidth, fbHeight );
         #else
             mpGuiFbo->bind( true );
             {
@@ -1245,6 +1411,10 @@ Status_t ApplicationDVR::run() {
 
         const auto frameEndTime = std::chrono::system_clock::now();
         frameDelta = static_cast<float>(std::chrono::duration_cast<std::chrono::duration<double>>(frameEndTime - frameStartTime).count());
+
+        frameDurations[frameNum % frameDurations.size()] = frameDelta;
+        std::sort( frameDurations.begin(), frameDurations.end() );
+
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;

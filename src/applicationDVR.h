@@ -73,6 +73,8 @@ struct ApplicationDVR : public iApplication {
     std::string                     mDataFileUrl;
     FileLoader::VolumeData*         mpData;
     GfxAPI::Texture*                mpDensityTex3d;
+    GfxAPI::Texture*                mpDensityLoResTex3d;
+    GfxAPI::Texture*                mpEmptySpaceTex2d;
     GfxAPI::Texture*                mpGradientTex3d;
     GfxAPI::Texture*                mpDensityColorsTex2d;
 
@@ -86,6 +88,10 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Fbo*                    mpVol_RT_Fbo;
 
     GfxAPI::Ubo*                    mpLight_Ubo;
+
+    //std::vector< uint16_t > mVolLoResData;
+    std::vector< std::array<uint16_t,2> > mVolLoResData;
+
 
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;

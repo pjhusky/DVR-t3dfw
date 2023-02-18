@@ -9,6 +9,9 @@
 
 #define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )
 
+#define BRICK_BLOCK_DIM     8.0
+#define RECIP_BRICK_BLOCK_DIM (1.0 / BRICK_BLOCK_DIM)
+
 #ifdef __cplusplus
 using vec4 = std::array<float, 4>;
 struct

@@ -102,7 +102,7 @@ void DVR_GUI::InitGui( const GfxAPI::ContextOpenGL& contextOpenGL )
     //colors[ImGuiCol_WindowBg] = {0.0f, 0.0f, 0.0f, 0.0f};
 }
 
-void DVR_GUI::CreateGuiLayout( void* const pUserData )
+void DVR_GUI::CreateGuiLayout( void* const pUserData, const int32_t fbW, const int32_t fbH )
 {
     GuiUserData_t* const pGuiUserData = reinterpret_cast<GuiUserData_t* const>(pUserData);
 
@@ -132,13 +132,14 @@ void DVR_GUI::CreateGuiLayout( void* const pUserData )
     const float imguiWindowDpiScale = ImGui::GetWindowDpiScale();
     //printf( "   imguiWindowDpiScale = %f\n", imguiWindowDpiScale );
 
-    MainMenuGui( pGuiUserData );
-    LightMenuGui( pGuiUserData );
+    MainMenuGui( pGuiUserData, fbW, fbH );
+    LightMenuGui( pGuiUserData, fbW, fbH );
+    StatsMenuGui( pGuiUserData, fbW, fbH );
 }
 
-void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
+void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH )
 {
-    ImGui::SetNextWindowPos( ImVec2{ 10, 20 }, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2{ static_cast<float>(fbW-215*ImGui::GetWindowDpiScale()), 20.0f }, ImGuiCond_FirstUseEver );
 
     if (ImGui::Begin( controlsWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
         //ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
@@ -291,9 +292,9 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData )
     ImGui::End();
 }
 
-void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData ) {
+void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH ) {
     //separatorWithVpadding();
-    ImGui::SetNextWindowPos( ImVec2{ 10,730 }, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2{ 10.0f, static_cast<float>(fbH-120*ImGui::GetWindowDpiScale()) }, ImGuiCond_FirstUseEver );
     if (ImGui::Begin( lightingWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
 
         //    static bool firstRunDofGuiParams = true;
@@ -395,7 +396,15 @@ void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData ) {
     ImGui::End();
 }
 
-void DVR_GUI::DisplayGui( void* const pUserData, std::vector<bool>& collapsedState ) {
+void DVR_GUI::StatsMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH ) {
+    ImGui::SetNextWindowPos( ImVec2{ 10.0f, 20.0f }, ImGuiCond_FirstUseEver );
+    if (ImGui::Begin( "Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
+        ImGui::Text( "FPS: %6.2f", pGuiUserData->frameRate );
+    }
+    ImGui::End();
+}
+
+void DVR_GUI::DisplayGui( void* const pUserData, std::vector<bool>& collapsedState, const int32_t fbW, const int32_t fbH ) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -405,7 +414,7 @@ void DVR_GUI::DisplayGui( void* const pUserData, std::vector<bool>& collapsedSta
 
     //ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1,0,0,0));
 
-    CreateGuiLayout( pUserData );
+    CreateGuiLayout( pUserData, fbW, fbH );
 
     //ImGui::PopStyleColor(1);
 

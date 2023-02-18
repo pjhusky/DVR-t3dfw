@@ -6,6 +6,7 @@ layout ( location = 0 ) out vec4 o_fragColor;
 
 uniform sampler3D u_densityTex;
 uniform sampler3D u_gradientTex;
+uniform sampler3D u_densityLoResTex;
 uniform sampler2D u_colorAndAlphaTex;
 
 uniform vec2 u_surfaceIsoAndThickness;
@@ -37,7 +38,6 @@ void main() {
     vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
     vec3 ray_dir = ray_end - ray_start; // no need to normalize here
     float tnear, tfar;
-	//int hit = intersectBox(ray_start, ray_dir, vec3(-1.0), vec3(1.0), tnear, tfar);
     int hit = intersectBox(ray_start, ray_dir, vec3(0.0), vec3(1.0), tnear, tfar);
     tnear = max( 0.0, tnear );
 
@@ -134,11 +134,11 @@ void main() {
         
         float currAlpha = colorAndAlpha.a;
 
-        float n_dot_l_raw = dot( lightDir, gradient_unit );
-        float diffuseIntensity = materialDiffuse * max( 0.0, n_dot_l_raw );
-        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir ) ) ) );
-        float specularIntensity = materialSpecular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
-        currColor = (ambientIntensity + diffuseIntensity + specularIntensity) * currColor;
+        float n_dot_l_raw = dot( lightDir.xyz, gradient_unit );
+        float diffuseIntensity = diffuse * max( 0.0, n_dot_l_raw );
+        float clampedSpecularIntensity = max( 0.0, ( dot( vol_step_ray_unit, reflect( gradient_unit, -lightDir.xyz ) ) ) );
+        float specularIntensity = specular * ( ( n_dot_l_raw <= 0.0 ) ? 0.0 : clampedSpecularIntensity );
+        currColor = (ambient + diffuseIntensity + specularIntensity) * currColor;
 
         float currBlendFactor = ( 1.0 - color.a ) * currAlpha;
         color.rgb = color.rgb + currBlendFactor * currColor;

@@ -99,14 +99,17 @@ void main() {
 
     vec3 normPlaneDecider = normPlane * vec3(0.5) + vec3(0.5);
 
-
+    float loopIterations_dbg = 0.001;
+    float maxLoopIterations_dbg = lenInVolume / RAY_STEP_SIZE;
+    //float maxLoopIterations_dbg = sqrt( dot( fHiResDim, fHiResDim ) );
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
+        loopIterations_dbg += 1.0;
 
-
+    #if 1
         // center hiResTexCoord to the parent-loresBlock's loResTexCoord center
         vec3 hi2lo = (curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
         vec3 currSampleLoResTexelSpace = ( floor( hi2lo ) + 0.5 );
@@ -133,8 +136,9 @@ void main() {
             numSkips++;
             continue;
         }
+    #endif
 
-
+        
 
 
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
@@ -212,6 +216,13 @@ void main() {
         o_fragColor.rgb = color.rgb * lightColor.rgb;
 //        o_fragColor.rgb = vec3( numSkips * 0.05 );
         //o_fragColor.rgb = vec3( 1.0 - ( lenInVolume - numSkips ) / lenInVolume );
+        
+        o_fragColor.rgb = vec3( loopIterations_dbg / maxLoopIterations_dbg ); // relative costs per ray, slightly shows brick-grid in entire volume
+        //o_fragColor.rgb = vec3( numSkips / ( loopIterations_dbg ) ); // how many skips thanks to EmptySpace => cuberille look
+        //o_fragColor.rgb = vec3( 1.0 - numSkips / ( loopIterations_dbg ) ); // inverse of above => cuberille look enhanced
+
+        // o_fragColor.rgb = vec3( numSkips / ( maxLoopIterations_dbg * BRICK_BLOCK_DIM ) ); // meh
+        
     #endif
 
     //o_fragColor.a = 1.0;

@@ -12,7 +12,12 @@
 //      set up additive blending in the framebuffer
 //      render small boxes front2back - immer alle small boxes, ABER jede dieser boxen repräsentiert ein texel einer groben 3D texture die das max der transparency-mapped densities ist
 //      kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
+//
 // - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
+
+
+// debug vis empty space skipping
+// GUI toggle switch empty space skipping
 
 
 // * Documentation:

@@ -74,7 +74,10 @@
 using namespace ArcBall;
 
 namespace {
+
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
+    //static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::backfaceCubeRaster;
+
     static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
 
     static constexpr int32_t brickLen = static_cast<int32_t>( BRICK_BLOCK_DIM );
@@ -509,12 +512,17 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     printf( "\n" );
 }
 
-void ApplicationDVR::LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader )
+void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
+                                        const DVR_GUI::eDebugVisMode debugVisMode, 
+                                        const bool useEmptySpaceSkipping, 
+                                        GfxAPI::Shader& meshShader, 
+                                        GfxAPI::Shader& volShader )
 {
     meshShader.~Shader();
     volShader.~Shader();
 
     std::string defineStr;
+    
     if (visAlgo == DVR_GUI::eVisAlgo::levoyIsosurface) {
         defineStr = "-DDVR_MODE=LEVOY_ISO_SURFACE";
     } else if (visAlgo == DVR_GUI::eVisAlgo::f2bCompositing) {
@@ -524,6 +532,25 @@ void ApplicationDVR::LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::S
     } else if (visAlgo == DVR_GUI::eVisAlgo::mri) {
         defineStr = "-DDVR_MODE=MRI";
     }
+    
+    defineStr.append( " " );
+    if (debugVisMode == DVR_GUI::eDebugVisMode::none) {
+        defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_NONE" );
+    } else if (debugVisMode == DVR_GUI::eDebugVisMode::relativeCost) {
+        defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_RELCOST" );
+    } else if (debugVisMode == DVR_GUI::eDebugVisMode::stepsSkipped) {
+        defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_STEPSSKIPPED" );
+    } else if (debugVisMode == DVR_GUI::eDebugVisMode::invStepsSkipped) {
+        defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_INVSTEPSSKIPPED" );
+    }
+
+    defineStr.append( " " );
+    if (useEmptySpaceSkipping) {
+        defineStr.append( "-DUSE_EMPTY_SPACE_SKIPPING=1" );
+    } else {
+        defineStr.append( "-DUSE_EMPTY_SPACE_SKIPPING=0" );
+    }
+
     mSharedMem.put( "SHADER_DEFINES", defineStr );
     tryStartShaderCompilerApp();
 
@@ -713,7 +740,7 @@ Status_t ApplicationDVR::run() {
         stlModel.indices().size(),
         stlModel.indices() );
     
-    LoadDVR_Shaders( visAlgo, meshShader, volShader );
+    LoadDVR_Shaders( visAlgo, DVR_GUI::eDebugVisMode::none, true, meshShader, volShader );
 
 
 
@@ -813,6 +840,9 @@ Status_t ApplicationDVR::run() {
 
     std::array<float, 8> frameDurations;
     std::fill( frameDurations.begin(), frameDurations.end(), 1.0f / 60.0f );
+
+    bool useEmptySpaceSkipping = true;
+    auto debugVisMode = DVR_GUI::eDebugVisMode::none;
 
     bool prevDidMove = false;
     uint64_t frameNum = 0;
@@ -973,17 +1003,17 @@ Status_t ApplicationDVR::run() {
                 const float dimZ = static_cast<float>(dataDim[2]);
                 const float maxDim = linAlg::maximum( dimX, linAlg::maximum( dimY, dimZ ) );
 
-               
-
                 volDimRatio = linAlg::vec3_t{ dimX / maxDim, dimY / maxDim, dimZ / maxDim };
                 
                 if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
-                    linAlg::loadScaleMatrix( scaleMatrix, volDimRatio ); // unit cube approach
+                    // DEBUG!!!
+                    volDimRatio = volDimRatio * 0.5f;
+                    //linAlg::loadScaleMatrix( scaleMatrix, volDimRatio ); // unit cube approach
+                    linAlg::loadIdentityMatrix( scaleMatrix );
                 }
             }
         
             
-         
             // MODEL matrix => place center of object's bounding sphere at world origin
             linAlg::mat3x4_t boundingSphereCenter_Translation_ModelMatrix;
             linAlg::loadTranslationMatrix(
@@ -1080,8 +1110,6 @@ Status_t ApplicationDVR::run() {
         glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
         { // clear screen
             
-            
-
             constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
 
             if (didMove || prevDidMove ) {
@@ -1154,11 +1182,17 @@ Status_t ApplicationDVR::run() {
                 if (!didMove) {
                     meshShader.setInt( "u_frameNum", rand() % 10000 );
                 }
-                meshShader.setVec4( "u_camPos_OS", camPos_OS );
-                meshShader.setVec3( "u_volDimRatio", volDimRatio );
                 meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
 
+                meshShader.setVec4( "u_camPos_OS", camPos_OS );
+                meshShader.setVec3( "u_volDimRatio", volDimRatio );
+                
+                //meshShader.setVec3( "u_volOffset", { -0.25f, -0.25f, -0.25f } );
+                meshShader.setVec3( "u_volOffset", { -1.0f, -1.0f, -1.0f } );
+                //meshShader.setVec3( "u_volOffset", { -0.0f, -0.0f, -0.0f } );
+                
                 glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+
 
                 meshShader.use( false );
                 glBindVertexArray( 0 );
@@ -1260,6 +1294,9 @@ Status_t ApplicationDVR::run() {
             int visAlgoIdx = static_cast<int>(visAlgo);
             int* pVisAlgoIdx = &visAlgoIdx;
 
+            int debugVisModeIdx = static_cast<int>(debugVisMode);
+            int* pDebugVisModeIdx = &debugVisModeIdx;
+
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
             int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
 
@@ -1278,12 +1315,15 @@ Status_t ApplicationDVR::run() {
                 1.0f / 255.0f * interpolatedDensityColorsCPU[ colorIdx * 4 + 2 ],
             };
 
+            bool prevUseEmptySpaceSkipping = useEmptySpaceSkipping;
             DVR_GUI::GuiUserData_t guiUserData{
                 .volumeDataUrl = mDataFileUrl,
                 .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
                 .frameRate = 1.0f / frameDurations[frameDurations.size()/2u],
                 .pVisAlgoIdx = pVisAlgoIdx,
+                .pDebugVisModeIdx = pDebugVisModeIdx,
+                .useEmptySpaceSkipping = useEmptySpaceSkipping,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
@@ -1364,9 +1404,21 @@ Status_t ApplicationDVR::run() {
                 ////#define DVR_MODE                XRAY
                 ////#define DVR_MODE                MRI
 
-                
-                LoadDVR_Shaders( visAlgo, meshShader, volShader );
+                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                didMove = true;
+            }
 
+            if (*pDebugVisModeIdx != static_cast<int>(debugVisMode)) {
+                debugVisMode = (DVR_GUI::eDebugVisMode)(*pDebugVisModeIdx);
+                printf( "debugVisModeIdx = %d, debugVisMode = %d\n", *pDebugVisModeIdx, (int)debugVisMode );
+
+                // spawn shader compiler and re-load DVR shaders
+                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                didMove = true;
+            }
+
+            if (prevUseEmptySpaceSkipping != useEmptySpaceSkipping) {
+                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
                 didMove = true;
             }
 

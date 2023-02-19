@@ -34,6 +34,13 @@ namespace {
         "MRI",
     };
 
+    static std::vector< const char* > debugVisModeNames{
+        "none           ",
+        "relativeCost   ",
+        "stepsSkipped   ",
+        "invStepsSkipped",
+    };
+
     static std::vector< const char* > rayMarchAlgoNames{
         "Raster Cube Backfaces",
         "Intersect Ray",
@@ -65,6 +72,53 @@ namespace {
         ImGui::Dummy(ImVec2(0.0f, ImGui::GetTextLineHeight() * vPadding));
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0.0f, ImGui::GetTextLineHeight() * vPadding));
+    }
+
+    static void display_TF_dialog( DVR_GUI::GuiUserData_t* const pGuiUserData ) {
+        separatorWithVpadding();
+
+        pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
+
+        // load TF
+
+        if (ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
+            printf( "Open TF File Dialog\n" );
+
+
+            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
+            const char* filter{ "*.tf" };
+            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+            const char* pTfFileUrl = tinyfd_openFileDialog( "Load TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc, 0 );
+
+            if (pTfFileUrl == nullptr) {
+                printf( "Load TF canceled or there was an error\n" );
+            }
+            else {
+                std::string tfFileUrl = pTfFileUrl;
+                pGuiUserData->pSharedMem->put( "loadTF", tfFileUrl );
+                //pGuiUserData->editTransferFunction = true;
+            }
+        }
+
+        // save TF
+        if (ImGui::Button( "Save .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "saveTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
+            printf( "Save TF File Dialog\n" );
+
+            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
+            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
+            const char* filter{ "*.tf" };
+            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
+            const char* pTfFileUrl = tinyfd_saveFileDialog( "Save TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc );
+
+            if (pTfFileUrl == nullptr) {
+                printf( "Save TF canceled or there was an error\n" );
+            }
+            else {
+                std::string tfFileUrl = pTfFileUrl;
+                pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
+            }
+        }
     }
 }
 
@@ -142,8 +196,9 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
     ImGui::SetNextWindowPos( ImVec2{ static_cast<float>(fbW-215*ImGui::GetWindowDpiScale()), 20.0f }, ImGuiCond_FirstUseEver );
 
     if (ImGui::Begin( controlsWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
-        //ImGui::Text( "Loaded .dat file:\n%s", pGuiUserData->volumeDataUrl.c_str() );
-        ImGui::Text( "Loaded .dat file:\n%s", std::filesystem::path( pGuiUserData->volumeDataUrl ).filename().string().c_str() );
+        
+        const auto filename = std::filesystem::path( pGuiUserData->volumeDataUrl ).filename().string();
+        ImGui::Text( "Loaded .dat file:\n%s", (filename.empty()) ? " " : filename.c_str() );
 
         if (ImGui::Button( "Load .dat File", guiButtonSize() ) && !pGuiUserData->loadFileTrigger) {
 
@@ -172,6 +227,9 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
         ImGui::Text( "x %d x", (pGuiUserData->dim)[1] );
         ImGui::SameLine();
         ImGui::Text( "%d", (pGuiUserData->dim)[2] );
+
+
+        display_TF_dialog( pGuiUserData );
 
         separatorWithVpadding();
 
@@ -220,6 +278,10 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
             }
         #endif
 
+            separatorWithVpadding();
+
+            ImGui::Checkbox( "Use Empty Space Skipping", &pGuiUserData->useEmptySpaceSkipping );
+
             //LightMenuGui( pGuiUserData );
 
             separatorWithVpadding();
@@ -243,50 +305,6 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
             }
         }
 
-        separatorWithVpadding();
-
-        pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
-
-        // load TF
-
-        if (ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
-            printf( "Open TF File Dialog\n" );
-
-
-            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
-            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
-            const char* filter{ "*.tf" };
-            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
-            const char* pTfFileUrl = tinyfd_openFileDialog( "Load TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc, 0 );
-
-            if (pTfFileUrl == nullptr) {
-                printf( "Load TF canceled or there was an error\n" );
-            }
-            else {
-                std::string tfFileUrl = pTfFileUrl;
-                pGuiUserData->pSharedMem->put( "loadTF", tfFileUrl );
-                //pGuiUserData->editTransferFunction = true;
-            }
-        }
-
-        // save TF
-        if (ImGui::Button( "Save .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "saveTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
-            printf( "Save TF File Dialog\n" );
-
-            std::filesystem::path volumeDataUrl = pGuiUserData->volumeDataUrl;
-            std::filesystem::path volumeDataUrlTfExtenstion = (volumeDataUrl.empty()) ? "" : volumeDataUrl.replace_extension( "tf" );
-            const char* filter{ "*.tf" };
-            const char* fileDesc = "*.tf Transfer Function"; // "Transfer Function File";
-            const char* pTfFileUrl = tinyfd_saveFileDialog( "Save TF File", volumeDataUrlTfExtenstion.string().c_str(), 1, &filter, fileDesc );
-
-            if (pTfFileUrl == nullptr) {
-                printf( "Save TF canceled or there was an error\n" );
-            }
-            else {
-                std::string tfFileUrl = pTfFileUrl;
-                pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
-            }
-        }
 
     }
     ImGui::End();
@@ -400,6 +418,22 @@ void DVR_GUI::StatsMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const in
     ImGui::SetNextWindowPos( ImVec2{ 10.0f, 20.0f }, ImGuiCond_FirstUseEver );
     if (ImGui::Begin( "Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
         ImGui::Text( "FPS: %6.2f", pGuiUserData->frameRate );
+
+        
+        separatorWithVpadding();
+        for (int32_t i = 0; i < debugVisModeNames.size(); i++) {
+            if (!pGuiUserData->useEmptySpaceSkipping && i >= DEBUG_VIS_STEPSSKIPPED) { 
+                if (*pGuiUserData->pDebugVisModeIdx >= i) {
+                    *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>( eDebugVisMode::none );
+                }
+                break; 
+            }
+            ImGui::RadioButton( debugVisModeNames[i], pGuiUserData->pDebugVisModeIdx, i );
+        }
+        
+        //else {
+        //    *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>( eDebugVisMode::none );
+        //}
     }
     ImGui::End();
 }

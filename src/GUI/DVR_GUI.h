@@ -31,6 +31,8 @@ struct DVR_GUI {
         SharedMemIPC* pSharedMem;
         float frameRate;
         int* pVisAlgoIdx;
+        int* pDebugVisModeIdx;
+        bool& useEmptySpaceSkipping;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
         bool& resetTrafos;
@@ -44,10 +46,17 @@ struct DVR_GUI {
     };
 
     enum class eVisAlgo: int {
-        levoyIsosurface = 0,
-        f2bCompositing  = 1,
-        xray            = 2,
-        mri             = 3,
+        levoyIsosurface = LEVOY_ISO_SURFACE,
+        f2bCompositing  = F2B_COMPOSITE,
+        xray            = XRAY,
+        mri             = MRI,
+    };
+
+    enum class eDebugVisMode: int {
+        none            = DEBUG_VIS_NONE,
+        relativeCost    = DEBUG_VIS_RELCOST,
+        stepsSkipped    = DEBUG_VIS_STEPSSKIPPED,
+        invStepsSkipped = DEBUG_VIS_INVSTEPSSKIPPED,
     };
 
     enum class eRayMarchAlgo: int {

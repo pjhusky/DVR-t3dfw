@@ -46,7 +46,11 @@ struct ApplicationDVR : public iApplication {
                                 const int32_t& fbWidth, const int32_t& fbHeight, 
                                 const float currMouseX, const float currMouseY );
 
-    void LoadDVR_Shaders( const DVR_GUI::eVisAlgo visAlgo, GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader );
+    void LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
+                            const DVR_GUI::eDebugVisMode debugVisMode, 
+                            const bool useEmptySpaceSkipping, 
+                            GfxAPI::Shader& meshShader, 
+                            GfxAPI::Shader& volShader );
 
     virtual Status_t run() override;
     

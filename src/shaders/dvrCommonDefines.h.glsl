@@ -7,6 +7,12 @@
 #define XRAY                    2
 #define MRI                     3
 
+#define DEBUG_VIS_NONE              0
+#define DEBUG_VIS_RELCOST           1
+#define DEBUG_VIS_STEPSSKIPPED      2
+#define DEBUG_VIS_INVSTEPSSKIPPED   3
+
+
 #define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )
 
 #define BRICK_BLOCK_DIM     12.0 // better than 8 and 16 ...

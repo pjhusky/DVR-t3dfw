@@ -36,6 +36,14 @@ uniform int u_frameNum;
     //#define DVR_MODE                MRI
 #endif
 
+#ifndef DEBUG_VIS_MODE
+    #define DEBUG_VIS_MODE          DEBUG_VIS_NONE
+#endif
+
+#ifndef USE_EMPTY_SPACE_SKIPPING
+    #define USE_EMPTY_SPACE_SKIPPING    1
+#endif
+
 void main() {
     vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
     vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
@@ -82,8 +90,7 @@ void main() {
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;
 
-
-
+#if ( USE_EMPTY_SPACE_SKIPPING != 0 )
     float numSkips = 0.0;
 
     ivec3 hiResDim = textureSize( u_densityTex, 0 );
@@ -99,17 +106,23 @@ void main() {
 
     vec3 normPlaneDecider = normPlane * vec3(0.5) + vec3(0.5);
 
-    float loopIterations_dbg = 0.001;
-    float maxLoopIterations_dbg = lenInVolume / RAY_STEP_SIZE;
-    //float maxLoopIterations_dbg = sqrt( dot( fHiResDim, fHiResDim ) );
+#endif
+
+    #if ( DEBUG_VIS_MODE != DEBUG_VIS_NONE )
+        float loopIterations_dbg = 0.00001;
+        float maxLoopIterations_dbg = lenInVolume / RAY_STEP_SIZE;
+        //float maxLoopIterations_dbg = sqrt( dot( fHiResDim, fHiResDim ) );
+    #endif
 
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
+    #if ( DEBUG_VIS_MODE != DEBUG_VIS_NONE )
         loopIterations_dbg += 1.0;
+    #endif
 
-    #if 1
+    #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
         // center hiResTexCoord to the parent-loresBlock's loResTexCoord center
         vec3 hi2lo = (curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
         vec3 currSampleLoResTexelSpace = ( floor( hi2lo ) + 0.5 );
@@ -213,16 +226,20 @@ void main() {
         color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
         o_fragColor.rgb = color.rgb / numPosDensities;
     #else
-        o_fragColor.rgb = color.rgb * lightColor.rgb;
-//        o_fragColor.rgb = vec3( numSkips * 0.05 );
-        //o_fragColor.rgb = vec3( 1.0 - ( lenInVolume - numSkips ) / lenInVolume );
-        
-        o_fragColor.rgb = vec3( loopIterations_dbg / maxLoopIterations_dbg ); // relative costs per ray, slightly shows brick-grid in entire volume
-        //o_fragColor.rgb = vec3( numSkips / ( loopIterations_dbg ) ); // how many skips thanks to EmptySpace => cuberille look
-        //o_fragColor.rgb = vec3( 1.0 - numSkips / ( loopIterations_dbg ) ); // inverse of above => cuberille look enhanced
+        o_fragColor.rgb = color.rgb * lightColor.rgb;        
+    #endif
 
+    #if ( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST )        
+        o_fragColor.rgb = vec3( loopIterations_dbg / maxLoopIterations_dbg ); // relative costs per ray, slightly shows brick-grid in entire volume
+    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_STEPSSKIPPED )
+        o_fragColor.rgb = vec3( numSkips / ( loopIterations_dbg ) ); // how many skips thanks to EmptySpace => cuberille look
+    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_INVSTEPSSKIPPED )
+        o_fragColor.rgb = vec3( 1.0 - numSkips / ( loopIterations_dbg ) ); // inverse of above => cuberille look enhanced
+    #else
+        // MEH
         // o_fragColor.rgb = vec3( numSkips / ( maxLoopIterations_dbg * BRICK_BLOCK_DIM ) ); // meh
-        
+        //o_fragColor.rgb = vec3( numSkips * 0.05 );
+        //o_fragColor.rgb = vec3( 1.0 - ( lenInVolume - numSkips ) / lenInVolume );
     #endif
 
     //o_fragColor.a = 1.0;

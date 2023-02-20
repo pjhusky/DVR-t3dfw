@@ -31,12 +31,12 @@ void main() {
     v_coord3d.xyz = scaledPos.xyz * 0.5 + 0.5;
 
 #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
-//    ivec3 loResDim = textureSize( u_densityLoResTex, 0 );
-//    vec3 fLoResDim = vec3( loResDim );
-//    vec3 fRecipLoResDim = 1.0 / fLoResDim;
+    ivec3 loResDim = textureSize( u_densityLoResTex, 0 );
+    vec3 fLoResDim = vec3( loResDim );
+    vec3 fRecipLoResDim = 1.0 / fLoResDim;
 //
     //vec3 loResTexCoord = v_coord3d.xyz;// + 0.5 * fRecipLoResDim;
-    vec3 loResTexCoord = u_volOffset + 0.5 * u_volDimRatio;
+    vec3 loResTexCoord = u_volOffset + 0.5 * u_volDimRatio * fRecipLoResDim;
 
     vec2 minMaxLoRes = texture( u_densityLoResTex, loResTexCoord ).rg;
     minMaxLoRes *= HOUNSFIELD_UNIT_SCALE;

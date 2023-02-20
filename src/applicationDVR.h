@@ -96,6 +96,7 @@ struct ApplicationDVR : public iApplication {
     //std::vector< uint16_t > mVolLoResData;
     std::vector< std::array<uint16_t,2> > mVolLoResData;
 
+    linAlg::i32vec3_t mVolLoResEmptySpaceSkipDim;
 
     // Camera Params
     linAlg::mat3x4_t mModelMatrix3x4;

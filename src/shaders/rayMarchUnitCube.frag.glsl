@@ -31,9 +31,11 @@ uniform int u_frameNum;
 void main() {
 
     vec3 curr_sample_pos;
-#if 1
+
+
+
     vec3 ray_end = v_coord3d;
-    //o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
+    o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
 
     vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
     vec3 ray_dir = ray_end - ray_start; // no need to normalize here
@@ -44,31 +46,8 @@ void main() {
     curr_sample_pos = ray_start + tnear * ray_dir;
     vec3 end_sample_pos = ray_end;
 
-#else // WON'T WORK - JUST FOR REFERENCE
-    vec4 fp_x_ipol_top = mix( u_fpDist_OS[ 0 ], u_fpDist_OS[ 3 ], v_coord3d.x );
-    vec4 fp_x_ipol_btm = mix( u_fpDist_OS[ 1 ], u_fpDist_OS[ 2 ], v_coord3d.x );
-    vec4 fp_xy_ipol = mix(fp_x_ipol_btm, fp_x_ipol_top, v_coord3d.y);
 
-    // project interpolated homogeneous OS pos to real OS
-    vec3 ray_far_OS = fp_xy_ipol.xyz / fp_xy_ipol.w;
 
-    vec3 ray_end   = ray_far_OS;
-    vec3 ray_start = u_camPos_OS.xyz;
-    vec3 ray_dir = ray_end - ray_start; // no need to normalize here
-
-    float tnear, tfar;
-    int hit = intersectBox(ray_start, ray_dir, -u_volDimRatio, u_volDimRatio, tnear, tfar);
-    if ( hit == 0 ) { discard; return; }
-
-    tnear = max( 0.0, tnear );
-    tfar = max( tfar, tnear );
-    curr_sample_pos = ray_start + tnear * ray_dir;
-    vec3 end_sample_pos = ray_start + tfar * ray_dir;
-
-    // perform transformation into "non-square" dataset only once instead of at each sampling position
-    curr_sample_pos = curr_sample_pos / u_volDimRatio * 0.5 + 0.5;
-    end_sample_pos = end_sample_pos / u_volDimRatio * 0.5 + 0.5;
-#endif
     
 
     vec4 color = vec4( 0.0 );

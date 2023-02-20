@@ -600,7 +600,6 @@ void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     //glBindBufferRange(GL_UNIFORM_BUFFER, 2, uboExampleBlock, 0, 152);
     glBindBufferRange( GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>(mpLight_Ubo->handle()), 0, mpLight_Ubo->desc().numBytes );
 
-
     if (mpData != nullptr) {
         fixupShaders( meshShader, volShader );
     }
@@ -636,14 +635,14 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
     //mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
     const auto volDataDim = mpData->getDim();
 
-    const linAlg::i32vec3_t volBrickLodDim = { 
+    mVolLoResEmptySpaceSkipDim = { 
         ( volDataDim[0] + ( volBrickDim[0] - 1 ) ) / volBrickDim[0],
         ( volDataDim[1] + ( volBrickDim[1] - 1 ) ) / volBrickDim[1],
         ( volDataDim[2] + ( volBrickDim[2] - 1 ) ) / volBrickDim[2],
     };
 
     mVolLoResData.clear();
-    mVolLoResData.resize( volBrickLodDim[0] * volBrickLodDim[1] * volBrickLodDim[2] );
+    mVolLoResData.resize( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] );
 
 #pragma omp parallel for schedule(dynamic, 1)		// OpenMP 
     for (int32_t z = 0; z < volDataDim[2]; z += volBrickDim[2]) { // error C3016: 'z': index variable in OpenMP 'for' statement must have signed integral type
@@ -680,14 +679,14 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
                 const uint32_t loResY = y / volBrickDim[1];
                 const uint32_t loResZ = z / volBrickDim[2];
 
-                //mVolLoResData[(loResZ * volBrickLodDim[1] + loResY) * volBrickLodDim[0] + loResX] = maxVal;
-                mVolLoResData[(loResZ * volBrickLodDim[1] + loResY) * volBrickLodDim[0] + loResX] = { minVal, maxVal };
+                //mVolLoResData[(loResZ * mVolLoResEmptySpaceSkipDim[1] + loResY) * mVolLoResEmptySpaceSkipDim[0] + loResX] = maxVal;
+                mVolLoResData[(loResZ * mVolLoResEmptySpaceSkipDim[1] + loResY) * mVolLoResEmptySpaceSkipDim[0] + loResX] = { minVal, maxVal };
             }
         }
     }
     
     GfxAPI::Texture::Desc_t volLoResTexDesc{
-        .texDim = volBrickLodDim,
+        .texDim = mVolLoResEmptySpaceSkipDim,
         .numChannels = 2,
         .channelType = GfxAPI::eChannelType::u16,
         .semantics = GfxAPI::eSemantics::color,
@@ -848,12 +847,14 @@ Status_t ApplicationDVR::run() {
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
         
+        bool didMove = false;
 
         const auto frameStartTime = std::chrono::system_clock::now();
         std::time_t newt = std::chrono::system_clock::to_time_t(frameStartTime);
         mSharedMem.put( "DVR-app-time", std::to_string( newt ) );
 
         if ( /*frameNum % 3 == 0 &&*/ mSharedMem.get( "TFdirty" ) == "true" ) {
+            didMove = true;
             //std::array<uint8_t, 1024 * 4> interpolatedDensityColorsCPU;
             uint32_t bytesRead;
             bool retVal = mSharedMem.get( "TFcolorsAndAlpha", interpolatedDensityColorsCPU.data(), static_cast<uint32_t>( interpolatedDensityColorsCPU.size() ), &bytesRead );
@@ -912,7 +913,7 @@ Status_t ApplicationDVR::run() {
         bool rightMouseButtonPressed  = ( glfwGetMouseButton( pWindow, GLFW_MOUSE_BUTTON_2 ) == GLFW_PRESS );
 
 
-        bool didMove = false;
+        
         if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
         if (fabsf( targetCamTiltRadAngle - camTiltRadAngle ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
         if (fabsf( targetPanDeltaVector[0] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
@@ -1007,9 +1008,9 @@ Status_t ApplicationDVR::run() {
                 
                 if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
                     // DEBUG!!!
-                    volDimRatio = volDimRatio * 0.5f;
-                    //linAlg::loadScaleMatrix( scaleMatrix, volDimRatio ); // unit cube approach
-                    linAlg::loadIdentityMatrix( scaleMatrix );
+                    //volDimRatio = volDimRatio * 0.5f;
+                    linAlg::loadScaleMatrix( scaleMatrix, volDimRatio ); // unit cube approach
+                    //linAlg::loadIdentityMatrix( scaleMatrix );
                 }
             }
         
@@ -1185,13 +1186,28 @@ Status_t ApplicationDVR::run() {
                 meshShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
 
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
-                meshShader.setVec3( "u_volDimRatio", volDimRatio );
+                //meshShader.setVec3( "u_volDimRatio", volDimRatio ); //!!!
                 
-                //meshShader.setVec3( "u_volOffset", { -0.25f, -0.25f, -0.25f } );
-                meshShader.setVec3( "u_volOffset", { -1.0f, -1.0f, -1.0f } );
-                //meshShader.setVec3( "u_volOffset", { -0.0f, -0.0f, -0.0f } );
+                //meshShader.setVec3( "u_volDimRatio", {1.0f, 1.0f, 1.0f} ); //!!!
+                //meshShader.setVec3( "u_volOffset", { 0.0f, 0.0f, 0.0f } ); //!!!
+                //glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+
+                {
+                    float scaleFactor = 1.0f / brickLen;
+                    meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
+
+                    for (int32_t z = 0; z < brickLen; z++) {
+                        //for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++) {
+                        for (int32_t y = 0; y < brickLen; y++) {
+                            //for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++) {
+                            for (int32_t x = 0; x < brickLen; x++) {
+                                meshShader.setVec3( "u_volOffset", { x * scaleFactor, y * scaleFactor, z * scaleFactor } );
+                                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                            }
+                        }
+                    }
+                }
                 
-                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
 
 
                 meshShader.use( false );

@@ -36,6 +36,7 @@ namespace {
 
     static std::vector< const char* > debugVisModeNames{
         "none           ",
+        "bricks         ",
         "relativeCost   ",
         "stepsSkipped   ",
         "invStepsSkipped",

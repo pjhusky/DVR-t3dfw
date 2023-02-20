@@ -124,9 +124,20 @@ void main() {
 
     #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
         // center hiResTexCoord to the parent-loresBlock's loResTexCoord center
-        vec3 hi2lo = (curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
+        //vec3 hi2lo = (curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
+        vec3 hi2lo = floor(curr_sample_pos_noRand * fHiResDim) * RECIP_BRICK_BLOCK_DIM;
         vec3 currSampleLoResTexelSpace = ( floor( hi2lo ) + 0.5 );
         vec3 loResTexCoord = currSampleLoResTexelSpace * fRecipLoResDim;
+
+
+    #if ( DEBUG_VIS_MODE == DEBUG_VIS_BRICKS )
+        bool inRangeHiRes = all( lessThan( curr_sample_pos_noRand, vec3( 1.0 ) ) ) && all( greaterThan( curr_sample_pos_noRand, vec3( 0.0 ) ) );
+        if ( !inRangeHiRes ) {
+            o_fragColor.rgb = vec3( 0.0 );
+            o_fragColor.a = 1.0;
+            return;
+        }
+    #endif
 
         vec2 minMaxLoRes = texture( u_densityLoResTex, loResTexCoord ).rg;
         minMaxLoRes *= HOUNSFIELD_UNIT_SCALE;
@@ -151,6 +162,14 @@ void main() {
         }
     #endif
 
+    #if ( DEBUG_VIS_MODE == DEBUG_VIS_BRICKS )        
+        //o_fragColor.rgb = curr_sample_pos_noRand;
+        //o_fragColor.rgb = loResTexCoord;
+        bool inRange = all( lessThan( loResTexCoord, vec3( 1.0 ) ) ) && all( greaterThan( loResTexCoord, vec3( 0.0 ) ) );
+        o_fragColor.rgb = ( inRange ) ? loResTexCoord : vec3( 0.0 );
+        o_fragColor.a = 1.0;
+        return;
+    #endif
         
 
 

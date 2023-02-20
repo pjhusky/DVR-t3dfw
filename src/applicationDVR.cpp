@@ -288,8 +288,8 @@ ApplicationDVR::ApplicationDVR(
     delete mpEmptySpaceTex2d;
     mpEmptySpaceTex2d = new GfxAPI::Texture;
     mpEmptySpaceTex2d->create( emptySpaceTexDesc );
-    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 0 );
+    mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
     //mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
     const auto minFilter = GfxAPI::eFilterMode::box;
     const auto magFilter = GfxAPI::eFilterMode::box;
@@ -536,6 +536,8 @@ void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     defineStr.append( " " );
     if (debugVisMode == DVR_GUI::eDebugVisMode::none) {
         defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_NONE" );
+    } else if (debugVisMode == DVR_GUI::eDebugVisMode::bricks) {
+        defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_BRICKS" );
     } else if (debugVisMode == DVR_GUI::eDebugVisMode::relativeCost) {
         defineStr.append( "-DDEBUG_VIS_MODE=DEBUG_VIS_RELCOST" );
     } else if (debugVisMode == DVR_GUI::eDebugVisMode::stepsSkipped) {
@@ -1192,20 +1194,79 @@ Status_t ApplicationDVR::run() {
                 //meshShader.setVec3( "u_volOffset", { 0.0f, 0.0f, 0.0f } ); //!!!
                 //glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
 
+                //glEnable( GL_BLEND );
+                //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                //glBlendFunc( GL_ONE, GL_ONE);
                 {
-                    float scaleFactor = 1.0f / brickLen;
-                    meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
+                    //float scaleFactor = 1.0f / brickLen;
+                    //int32_t scaleBrickLen = 2 * brickLen;
+                    //float scaleFactor = 1.0f / scaleBrickLen;
+                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
+                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
+                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
+                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ),
+                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ )} );
 
-                    for (int32_t z = 0; z < brickLen; z++) {
-                        //for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++) {
-                        for (int32_t y = 0; y < brickLen; y++) {
-                            //for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++) {
-                            for (int32_t x = 0; x < brickLen; x++) {
-                                meshShader.setVec3( "u_volOffset", { x * scaleFactor, y * scaleFactor, z * scaleFactor } );
+
+                    //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+                #if 0
+                    for (int32_t z = 0; z < mVolLoResEmptySpaceSkipDim[2]; z++ ) {
+                        for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++ ) {
+                            for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++ ) {
+                                meshShader.setVec3( "u_volOffset", { 
+                                    (float)(x) / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
+                                    (float)(y) / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ), 
+                                    (float)(z) / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ ) } );
                                 glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                             }
                         }
                     }
+                #else
+                    const auto hiResDimOrig = mpData->getDim();
+
+                    auto hiResDim = mpData->getDim();
+                    hiResDim[0] = ( ( hiResDim[0] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
+                    hiResDim[1] = ( ( hiResDim[1] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
+                    hiResDim[2] = ( ( hiResDim[2] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
+
+                    meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
+                        (float)(brickLen) / ( hiResDimOrig[0] /*- 1*/ ), 
+                        (float)(brickLen) / ( hiResDimOrig[1] /*- 1*/ ),
+                        (float)(brickLen) / ( hiResDimOrig[2] /*- 1*/ )} );
+                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
+                    //    (float)(brickLen) / ( hiResDim[0] ), 
+                    //    (float)(brickLen) / ( hiResDim[1] ),
+                    //    (float)(brickLen) / ( hiResDim[2] )} );
+
+                    for ( int32_t z = 0; z <= hiResDim[2]; z += brickLen ) {
+                        for ( int32_t y = 0; y <= hiResDim[1]; y += brickLen ) {
+                            for ( int32_t x = 0; x <= hiResDim[0]; x += brickLen ) {
+                                meshShader.setVec3( "u_volOffset", { // !!! <<<
+                                    (float)x / ( hiResDimOrig[0] ), 
+                                    (float)y / ( hiResDimOrig[1] ), 
+                                    (float)z / ( hiResDimOrig[2] ) } );
+
+                                //meshShader.setVec3( "u_volOffset", { 
+                                //    (float)x / ( hiResDimOrig[0]-1 ), 
+                                //    (float)y / ( hiResDimOrig[1]-1 ), 
+                                //    (float)z / ( hiResDimOrig[2]-1 ) } );
+                                //meshShader.setVec3( "u_volOffset", { 
+                                //    (float)x / ( hiResDim[0] - 1 ), 
+                                //    (float)y / ( hiResDim[1] - 1 ), 
+                                //    (float)z / ( hiResDim[2] - 1 ) } );
+
+                                //meshShader.setVec3( "u_volOffset", { 
+                                //    (float)x / ( hiResDim[0] ), 
+                                //    (float)y / ( hiResDim[1] ), 
+                                //    (float)z / ( hiResDim[2] ) } );
+
+                                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                            }
+                        }
+                    }
+                #endif
+                    //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
                 }
                 
 

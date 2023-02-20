@@ -8,9 +8,10 @@
 #define MRI                     3
 
 #define DEBUG_VIS_NONE              0
-#define DEBUG_VIS_RELCOST           1
-#define DEBUG_VIS_STEPSSKIPPED      2
-#define DEBUG_VIS_INVSTEPSSKIPPED   3
+#define DEBUG_VIS_BRICKS            1
+#define DEBUG_VIS_RELCOST           2
+#define DEBUG_VIS_STEPSSKIPPED      3
+#define DEBUG_VIS_INVSTEPSSKIPPED   4
 
 
 #define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )

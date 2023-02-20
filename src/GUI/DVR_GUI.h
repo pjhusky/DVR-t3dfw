@@ -54,6 +54,7 @@ struct DVR_GUI {
 
     enum class eDebugVisMode: int {
         none            = DEBUG_VIS_NONE,
+        bricks          = DEBUG_VIS_BRICKS,
         relativeCost    = DEBUG_VIS_RELCOST,
         stepsSkipped    = DEBUG_VIS_STEPSSKIPPED,
         invStepsSkipped = DEBUG_VIS_INVSTEPSSKIPPED,

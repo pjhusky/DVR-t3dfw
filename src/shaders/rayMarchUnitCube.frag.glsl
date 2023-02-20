@@ -13,7 +13,10 @@ uniform vec2 u_surfaceIsoAndThickness;
 
 uniform vec3 u_minMaxScaleVal;
 uniform vec4 u_camPos_OS;
+
 uniform vec3 u_volDimRatio;
+uniform vec3 u_volOffset;
+
 //uniform float u_recipTexDim; // not needed here
 
 uniform int u_frameNum;
@@ -28,6 +31,10 @@ uniform int u_frameNum;
     //#define DVR_MODE                MRI
 #endif
 
+#ifndef USE_EMPTY_SPACE_SKIPPING
+    #define USE_EMPTY_SPACE_SKIPPING    1
+#endif
+
 void main() {
 
     vec3 curr_sample_pos;
@@ -35,15 +42,27 @@ void main() {
 
 
     vec3 ray_end = v_coord3d;
-    o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
+    //o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
 
     vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
     vec3 ray_dir = ray_end - ray_start; // no need to normalize here
     float tnear, tfar;
+
+#if ( USE_EMPTY_SPACE_SKIPPING != 0 )
+    int hit = intersectBox(ray_start, ray_dir, u_volOffset, u_volOffset + u_volDimRatio, tnear, tfar);
+#else    
     int hit = intersectBox(ray_start, ray_dir, vec3(0.0), vec3(1.0), tnear, tfar);
+#endif
+    
+
     tnear = max( 0.0, tnear );
 
     curr_sample_pos = ray_start + tnear * ray_dir;
+    
+    //o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return;
+    o_fragColor.rgb = u_volOffset + 0.5 * u_volDimRatio; o_fragColor.a = 1.0; return;
+
+
     vec3 end_sample_pos = ray_end;
 
 

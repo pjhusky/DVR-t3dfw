@@ -49,14 +49,37 @@ void main() {
     float tnear, tfar;
 
 #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
+    //ivec3 loResDim = textureSize( u_densityLoResTex, 0 );
+    //vec3 fLoResDim = vec3( loResDim );
+    //vec3 fRecipLoResDim = 1.0 / fLoResDim;
+    //int hit = intersectBox(ray_start, ray_dir, u_volOffset, u_volOffset + u_volDimRatio * fRecipLoResDim, tnear, tfar);
     int hit = intersectBox(ray_start, ray_dir, u_volOffset, u_volOffset + u_volDimRatio, tnear, tfar);
+    //if ( hit == 0 ) {o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return;}
+    //if ( hit == 0 ) {o_fragColor.rgb = vec3( 1.0, 0.8, 0.0 ); o_fragColor.a = 1.0; return;}
+    
+    if ( tfar - tnear < 0.004 ) {
+
+        //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!
+        
+//        //tnear = max( 0.0, tnear );
+//        //curr_sample_pos = ray_start + tnear * ray_dir;
+//        curr_sample_pos = ray_end;
+//        float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
+//        raw_densityVal *= HOUNSFIELD_UNIT_SCALE;
+//        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
+//        vec3 currColor = colorAndAlpha.rgb;
+//        o_fragColor.rgb = currColor; o_fragColor.a = colorAndAlpha.a;
+        discard;
+        
+        return;
+    }
+
 #else    
     int hit = intersectBox(ray_start, ray_dir, vec3(0.0), vec3(1.0), tnear, tfar);
 #endif
     
 
     tnear = max( 0.0, tnear );
-
     curr_sample_pos = ray_start + tnear * ray_dir;
     
 #if ( DEBUG_VIS_MODE == DEBUG_VIS_BRICKS )
@@ -67,6 +90,7 @@ void main() {
 
     //o_fragColor.rgb = u_volOffset + 0.5 * u_volDimRatio * fRecipLoResDim; o_fragColor.a = 1.0; return; // LOD coloring
     o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return; // smooth coloring
+    //o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return; // smooth coloring
 #endif
 
 
@@ -87,12 +111,14 @@ void main() {
     vec3 rnd01 = rand01(randInput);
 
     float lenInVolume = length( end_sample_pos - curr_sample_pos );
-    //if ( lenInVolume <= 0.00001 ) { o_fragColor.rgb = vec3(0.0); o_fragColor.a = 0.0; return; }
+    //if ( lenInVolume <= 0.0001 ) { o_fragColor.rgb = vec3(1.0); o_fragColor.a = 1.0; return; }
     //o_fragColor.rgb = vec3(lenInVolume); o_fragColor.a = 1.0; return;
 
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );
     
     vec3 vol_step_ray = vol_step_ray_unit * RAY_STEP_SIZE; // max steps roughly 300
+    //if ( dot( vol_step_ray, vol_step_ray ) <= 0.00001 ) { o_fragColor.rgb = vec3(1.0,0.8,0.0); o_fragColor.a = 1.0; return; }
+
 
     float surfaceIso = u_surfaceIsoAndThickness.x;
     float surfaceThickness = u_surfaceIsoAndThickness.y;

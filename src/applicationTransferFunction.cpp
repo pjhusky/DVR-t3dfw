@@ -211,8 +211,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityTransparenciesTex2d = new GfxAPI::Texture;
         mpDensityTransparenciesTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
+        mpDensityTransparenciesTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
 
         mTransparencyPaintHeightsCPU.resize( texDesc.texDim[0] );
 
@@ -248,8 +248,8 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityHistogramTex2d = new GfxAPI::Texture;
         mpDensityHistogramTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
+        mpDensityHistogramTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
     }
 
     { // colors
@@ -259,7 +259,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityColorsTex2d = new GfxAPI::Texture;
         mpDensityColorsTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
     }
 
@@ -276,7 +276,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpDensityColorDotTex2d = new GfxAPI::Texture;
         mpDensityColorDotTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
         mpDensityColorDotTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
 
         mpDensityColorDotTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
@@ -295,7 +295,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpIsovalMarkerTex2d = new GfxAPI::Texture;
         mpIsovalMarkerTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpIsovalMarkerTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpIsovalMarkerTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
         mpIsovalMarkerTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
 
         mpIsovalMarkerTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
@@ -639,7 +639,7 @@ Status_t ApplicationTransferFunction::run() {
                 // clicked into the density-to-transparency & density histogram window
                 inTransparencyInteractionMode_LMB = true;
 
-                currMouseY = linAlg::clamp( currMouseY, 0.0f, maxY_transparencies - 1.0f );
+                currMouseY = linAlg::clampToBorder( currMouseY, 0.0f, maxY_transparencies - 1.0f );
 
                 float relMouseStartX = currMouseX / fbWidth;
                 float relMouseEndX   = prevMouseX / fbWidth;
@@ -669,12 +669,12 @@ Status_t ApplicationTransferFunction::run() {
                                                 ? 0
                                                 : ( (interactingWithLastColorDot_LMB )
                                                     ? (ApplicationDVR_common::numDensityBuckets - 1)
-                                                    : linAlg::clamp( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
+                                                    : linAlg::clampToBorder( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
 
                 if (inColorInteractionMode) {
                     distMouseMovementWhileInColorInteractionMode += fabsf( mouse_dx );
 
-                    const auto allowedDragBucketIdx = linAlg::clamp( 
+                    const auto allowedDragBucketIdx = linAlg::clampToBorder( 
                         densityBucketIdx, 
                         maxDeviationX_colorDots, 
                         ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots );

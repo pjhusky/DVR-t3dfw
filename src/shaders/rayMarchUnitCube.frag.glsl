@@ -200,5 +200,10 @@ void main() {
         o_fragColor.rgb = color.rgb * lightColor.rgb;
     #endif
 
-    o_fragColor.a = 0.25;
+    //gl_FragDepth = 1.0 - 1.0/length(ray_dir); //tnear;
+    //gl_FragDepth = 0.5 * ( tnear + tfar ); //tnear;
+    gl_FragDepth = ( color.a > 0.99 ) ? 0.0 : 1.0;
+    o_fragColor.a = color.a;
+
+    //o_fragColor.a = 0.25;
 }

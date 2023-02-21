@@ -290,7 +290,7 @@ ApplicationDVR::ApplicationDVR(
     mpEmptySpaceTex2d->create( emptySpaceTexDesc );
     mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 0 );
     mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
-    //mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    //mpEmptySpaceTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 2 );
     const auto minFilter = GfxAPI::eFilterMode::box;
     const auto magFilter = GfxAPI::eFilterMode::box;
     const auto mipFilter = GfxAPI::eFilterMode::box;
@@ -374,9 +374,10 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     delete mpDensityTex3d;
     mpDensityTex3d = new GfxAPI::Texture;
     mpDensityTex3d->create( volTexDesc );
-    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
-    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
+    mpDensityTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 2 );
+    mpDensityTex3d->setBorderColor( { 0.0f, 0.0f, 0.0f, 0.0f } );
     mpDensityTex3d->uploadData( mpData->getDensities().data(), GL_RED, GL_UNSIGNED_SHORT, mipLvl );
 
     GfxAPI::Texture::Desc_t gradientTexDesc{
@@ -391,9 +392,9 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     delete mpGradientTex3d;
     mpGradientTex3d = new GfxAPI::Texture;
     mpGradientTex3d->create( gradientTexDesc );
-    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
-    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
+    mpGradientTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 2 );
     mpGradientTex3d->uploadData( mpData->getNormals().data(), GL_RGB, GL_FLOAT, mipLvl );
 
     mpData->calculateHistogramBuckets();
@@ -699,9 +700,9 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
     delete mpDensityLoResTex3d;
     mpDensityLoResTex3d = new GfxAPI::Texture;
     mpDensityLoResTex3d->create( volLoResTexDesc );
-    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
-    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
-    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 2 );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
+    mpDensityLoResTex3d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 2 );
     const auto minFilter = GfxAPI::eFilterMode::box;
     const auto magFilter = GfxAPI::eFilterMode::box;
     const auto mipFilter = GfxAPI::eFilterMode::box;
@@ -814,9 +815,9 @@ Status_t ApplicationDVR::run() {
         mpDensityColorsTex2d = new GfxAPI::Texture;
         mpDensityColorsTex2d->create( texDesc );
         const uint32_t mipLvl = 0;
-        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 0 );
+        mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 0 );
         mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToEdge, 1 );
-        //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clamp, 1 );
+        //mpDensityColorsTex2d->setWrapModeForDimension( GfxAPI::eBorderMode::clampToBorder, 1 );
     }
 
 
@@ -867,9 +868,9 @@ Status_t ApplicationDVR::run() {
 
                 // TODO: create empty space skipping table => entry in table x..minVal, y..maxVal => search transparency between the minVal and maxVal density and if any val with transparency > 1 exists, break and set table entry to false (no space skipping, since not empty space)
                 {
-                    std::vector<uint8_t> emptySpaceTableData;
-                    emptySpaceTableData.resize( 1024 * 1024 );
-                    std::fill( emptySpaceTableData.begin(), emptySpaceTableData.end(), 255 );
+                    mEmptySpaceTableData.clear();
+                    mEmptySpaceTableData.resize( 1024 * 1024 );
+                    std::fill( mEmptySpaceTableData.begin(), mEmptySpaceTableData.end(), 255 );
                     for ( uint32_t y = 0; y < 1024; y++ ) { // start at first significant hounsfield unit
                         
                         for (uint32_t x = 0; x < 1024; x++) {
@@ -887,12 +888,12 @@ Status_t ApplicationDVR::run() {
                                 }
                             }
                             if (foundPosTransparency) {
-                                emptySpaceTableData[addr] = 0;
+                                mEmptySpaceTableData[addr] = 0;
                             }
                         }
                     }
                     const uint32_t mipLvl = 0;
-                    mpEmptySpaceTex2d->uploadData( emptySpaceTableData.data(), GL_RED, GL_UNSIGNED_BYTE, mipLvl );
+                    mpEmptySpaceTex2d->uploadData( mEmptySpaceTableData.data(), GL_RED, GL_UNSIGNED_BYTE, mipLvl );
                     
                 }
 
@@ -1189,86 +1190,93 @@ Status_t ApplicationDVR::run() {
 
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
                 //meshShader.setVec3( "u_volDimRatio", volDimRatio ); //!!!
-                
-                //meshShader.setVec3( "u_volDimRatio", {1.0f, 1.0f, 1.0f} ); //!!!
-                //meshShader.setVec3( "u_volOffset", { 0.0f, 0.0f, 0.0f } ); //!!!
-                //glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
 
-                //glEnable( GL_BLEND );
-                //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-                //glBlendFunc( GL_ONE, GL_ONE);
-                {
-                    //float scaleFactor = 1.0f / brickLen;
-                    //int32_t scaleBrickLen = 2 * brickLen;
-                    //float scaleFactor = 1.0f / scaleBrickLen;
-                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
-                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
-                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
-                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ),
-                    //    1.0f / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ )} );
-
-
-                    //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-
-                #if 0
-                    for (int32_t z = 0; z < mVolLoResEmptySpaceSkipDim[2]; z++ ) {
-                        for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++ ) {
-                            for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++ ) {
-                                meshShader.setVec3( "u_volOffset", { 
-                                    (float)(x) / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
-                                    (float)(y) / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ), 
-                                    (float)(z) / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ ) } );
-                                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
-                            }
-                        }
-                    }
-                #else
-                    const auto hiResDimOrig = mpData->getDim();
-
-                    auto hiResDim = mpData->getDim();
-                    hiResDim[0] = ( ( hiResDim[0] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
-                    hiResDim[1] = ( ( hiResDim[1] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
-                    hiResDim[2] = ( ( hiResDim[2] + ( brickLen - 1 ) ) / brickLen ) * brickLen;
-
-                    meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
-                        (float)(brickLen) / ( hiResDimOrig[0] /*- 1*/ ), 
-                        (float)(brickLen) / ( hiResDimOrig[1] /*- 1*/ ),
-                        (float)(brickLen) / ( hiResDimOrig[2] /*- 1*/ )} );
-                    //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
-                    //    (float)(brickLen) / ( hiResDim[0] ), 
-                    //    (float)(brickLen) / ( hiResDim[1] ),
-                    //    (float)(brickLen) / ( hiResDim[2] )} );
-
-                    for ( int32_t z = 0; z <= hiResDim[2]; z += brickLen ) {
-                        for ( int32_t y = 0; y <= hiResDim[1]; y += brickLen ) {
-                            for ( int32_t x = 0; x <= hiResDim[0]; x += brickLen ) {
-                                meshShader.setVec3( "u_volOffset", { // !!! <<<
-                                    (float)x / ( hiResDimOrig[0] ), 
-                                    (float)y / ( hiResDimOrig[1] ), 
-                                    (float)z / ( hiResDimOrig[2] ) } );
-
-                                //meshShader.setVec3( "u_volOffset", { 
-                                //    (float)x / ( hiResDimOrig[0]-1 ), 
-                                //    (float)y / ( hiResDimOrig[1]-1 ), 
-                                //    (float)z / ( hiResDimOrig[2]-1 ) } );
-                                //meshShader.setVec3( "u_volOffset", { 
-                                //    (float)x / ( hiResDim[0] - 1 ), 
-                                //    (float)y / ( hiResDim[1] - 1 ), 
-                                //    (float)z / ( hiResDim[2] - 1 ) } );
-
-                                //meshShader.setVec3( "u_volOffset", { 
-                                //    (float)x / ( hiResDim[0] ), 
-                                //    (float)y / ( hiResDim[1] ), 
-                                //    (float)z / ( hiResDim[2] ) } );
-
-                                glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
-                            }
-                        }
-                    }
-                #endif
-                    //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+                if (!useEmptySpaceSkipping) {
+                    meshShader.setVec3( "u_volDimRatio", { 1.0f, 1.0f, 1.0f } ); //!!!
+                    meshShader.setVec3( "u_volOffset", { 0.0f, 0.0f, 0.0f } ); //!!!
+                    glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                 }
-                
+                else {
+                    glEnable( GL_BLEND );
+                    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                    //glBlendFunc( GL_ONE, GL_ONE);
+                    {
+                        //float scaleFactor = 1.0f / brickLen;
+                        //int32_t scaleBrickLen = 2 * brickLen;
+                        //float scaleFactor = 1.0f / scaleBrickLen;
+                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
+                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
+                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
+                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ),
+                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ )} );
+
+
+                        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+                    #if 0
+                        for (int32_t z = 0; z < mVolLoResEmptySpaceSkipDim[2]; z++) {
+                            for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++) {
+                                for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++) {
+                                    meshShader.setVec3( "u_volOffset", {
+                                        (float)(x) / (mVolLoResEmptySpaceSkipDim[0] /*- 1*/),
+                                        (float)(y) / (mVolLoResEmptySpaceSkipDim[1] /*- 1*/),
+                                        (float)(z) / (mVolLoResEmptySpaceSkipDim[2] /*- 1*/) } );
+                                    glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                                }
+                            }
+                    }
+                    #else
+                        const auto hiResDimOrig = mpData->getDim();
+
+                        auto hiResDim = mpData->getDim();
+                        hiResDim[0] = ((hiResDim[0] + (brickLen - 1)) / brickLen) * brickLen;
+                        hiResDim[1] = ((hiResDim[1] + (brickLen - 1)) / brickLen) * brickLen;
+                        hiResDim[2] = ((hiResDim[2] + (brickLen - 1)) / brickLen) * brickLen;
+
+                        meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
+                            (float)(brickLen) / (hiResDimOrig[0] /*- 1*/),
+                            (float)(brickLen) / (hiResDimOrig[1] /*- 1*/),
+                            (float)(brickLen) / (hiResDimOrig[2] /*- 1*/) } );
+                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
+                        //    (float)(brickLen) / ( hiResDim[0] ), 
+                        //    (float)(brickLen) / ( hiResDim[1] ),
+                        //    (float)(brickLen) / ( hiResDim[2] )} );
+
+                        for (int32_t z = 0; z < hiResDim[2]; z += brickLen) {
+                            for (int32_t y = 0; y < hiResDim[1]; y += brickLen) {
+                                for (int32_t x = 0; x < hiResDim[0]; x += brickLen) {
+
+                                    {// BRICK SKIP CPU
+                                        const auto lx = x / brickLen;
+                                        const auto ly = y / brickLen;
+                                        const auto lz = z / brickLen;
+                                        const auto minMaxDensity = mVolLoResData[(lz * mVolLoResEmptySpaceSkipDim[1] + ly) * mVolLoResEmptySpaceSkipDim[0] + lx];
+                                        if (mEmptySpaceTableData[((minMaxDensity[1] + 2) / 4) * 1024 + (minMaxDensity[0] + 2) / 4] > 127) { continue; }
+                                    }
+
+                                    meshShader.setVec3( "u_volOffset", { // !!! <<<
+                                        (float)x / (hiResDimOrig[0]),
+                                        (float)y / (hiResDimOrig[1]),
+                                        (float)z / (hiResDimOrig[2]) } );
+
+                                    glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                                }
+                            }
+                        }
+                    #endif
+                        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+                    }
+
+                    if (didMove || prevDidMove) {
+                        glDisable( GL_BLEND );
+                    }
+                    else {
+                        glEnable( GL_BLEND );
+                        glBlendEquation( GL_FUNC_ADD );
+                        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                    }
+
+                }
 
 
                 meshShader.use( false );
@@ -1381,7 +1389,7 @@ Status_t ApplicationDVR::run() {
             
             std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
 
-            const uint32_t colorIdx = linAlg::clamp<uint32_t>( 
+            const uint32_t colorIdx = linAlg::clampToBorder<uint32_t>( 
                 static_cast<uint32_t>( surfaceIsoAndThickness[0] * ( interpolatedDensityColorsCPU.size()/4u ) ), 
                 0u, 
                 static_cast<uint32_t>( interpolatedDensityColorsCPU.size() )/4u - 1u );
@@ -1552,7 +1560,7 @@ Status_t ApplicationDVR::run() {
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
-        //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
+        //targetCamZoomDist = linAlg::clampToBorder( targetCamZoomDist, 0.1f, 1000.0f );
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
 

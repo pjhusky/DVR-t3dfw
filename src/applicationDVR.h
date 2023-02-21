@@ -93,8 +93,8 @@ struct ApplicationDVR : public iApplication {
 
     GfxAPI::Ubo*                    mpLight_Ubo;
 
-    //std::vector< uint16_t > mVolLoResData;
     std::vector< std::array<uint16_t,2> > mVolLoResData;
+    std::vector<uint8_t> mEmptySpaceTableData;
 
     linAlg::i32vec3_t mVolLoResEmptySpaceSkipDim;
 

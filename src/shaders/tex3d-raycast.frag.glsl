@@ -163,10 +163,12 @@ void main() {
     #endif
 
     #if ( DEBUG_VIS_MODE == DEBUG_VIS_BRICKS )        
-        //o_fragColor.rgb = curr_sample_pos_noRand;
-        //o_fragColor.rgb = loResTexCoord;
-        bool inRange = all( lessThan( loResTexCoord, vec3( 1.0 ) ) ) && all( greaterThan( loResTexCoord, vec3( 0.0 ) ) );
-        o_fragColor.rgb = ( inRange ) ? loResTexCoord : vec3( 0.0 );
+        //bool inRange = all( lessThan( loResTexCoord, vec3( 1.0 ) ) ) && all( greaterThan( loResTexCoord, vec3( 0.0 ) ) ); // LOD coloring
+        //o_fragColor.rgb = ( inRange ) ? loResTexCoord : vec3( 0.0 ); // LOD coloring
+
+        bool inRange = all( lessThan( curr_sample_pos_noRand, vec3( 1.0 ) ) ) && all( greaterThan( curr_sample_pos_noRand, vec3( 0.0 ) ) ); // smooth coloring
+        o_fragColor.rgb = ( inRange ) ? curr_sample_pos_noRand : vec3( 0.0 ); // smooth coloring
+
         o_fragColor.a = 1.0;
         return;
     #endif

@@ -59,8 +59,15 @@ void main() {
 
     curr_sample_pos = ray_start + tnear * ray_dir;
     
+#if ( DEBUG_VIS_MODE == DEBUG_VIS_BRICKS )
     //o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return;
-    o_fragColor.rgb = u_volOffset + 0.5 * u_volDimRatio; o_fragColor.a = 1.0; return;
+    ivec3 loResDim = textureSize( u_densityLoResTex, 0 );
+    vec3 fLoResDim = vec3( loResDim );
+    vec3 fRecipLoResDim = 1.0 / fLoResDim;
+
+    //o_fragColor.rgb = u_volOffset + 0.5 * u_volDimRatio * fRecipLoResDim; o_fragColor.a = 1.0; return; // LOD coloring
+    o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return; // smooth coloring
+#endif
 
 
     vec3 end_sample_pos = ray_end;
@@ -80,6 +87,7 @@ void main() {
     vec3 rnd01 = rand01(randInput);
 
     float lenInVolume = length( end_sample_pos - curr_sample_pos );
+    //if ( lenInVolume <= 0.00001 ) { o_fragColor.rgb = vec3(0.0); o_fragColor.a = 0.0; return; }
     //o_fragColor.rgb = vec3(lenInVolume); o_fragColor.a = 1.0; return;
 
     vec3 vol_step_ray_unit = normalize( end_sample_pos - curr_sample_pos );

@@ -1254,6 +1254,18 @@ Status_t ApplicationDVR::run() {
                                         if (mEmptySpaceTableData[((minMaxDensity[1] + 2) / 4) * 1024 + (minMaxDensity[0] + 2) / 4] > 127) { continue; }
                                     }
 
+                                    // sort x, y, z axes according to view dir 
+                                    // only render bricks (partially) in front of camera xy plane (clip against near plane)
+                                    // split rendering in left and right part based on intersection with plane through cam origin that is perpendicular to view-ray|view-up plane
+                                    //      ==> dist-to-center-slice-vertical-plane
+                                    //  - first render the bricks that intersect this dividing plane
+                                    //  - then render bricks totally left of the plane and totally right of the plane 
+                                    //    "from center away", but doesn't matter if left or right part is rendered first
+                                    // within the left/right parts sort again agains view-ray|view-strafe plane and render "away" from the plane
+                                    //      ==> dist-to-center-slice-horizontal-plane
+
+                                    // store x,y,z of brick, along with dist-to-cam-near plane and abs(dist-to-center-slice-vertical-plane) and abs(dist-to-center-slice-horizontal-plane)
+
                                     meshShader.setVec3( "u_volOffset", { // !!! <<<
                                         (float)x / (hiResDimOrig[0]),
                                         (float)y / (hiResDimOrig[1]),

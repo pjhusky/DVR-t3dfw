@@ -639,7 +639,7 @@ Status_t ApplicationTransferFunction::run() {
                 // clicked into the density-to-transparency & density histogram window
                 inTransparencyInteractionMode_LMB = true;
 
-                currMouseY = linAlg::clampToBorder( currMouseY, 0.0f, maxY_transparencies - 1.0f );
+                currMouseY = linAlg::clamp( currMouseY, 0.0f, maxY_transparencies - 1.0f );
 
                 float relMouseStartX = currMouseX / fbWidth;
                 float relMouseEndX   = prevMouseX / fbWidth;
@@ -669,12 +669,12 @@ Status_t ApplicationTransferFunction::run() {
                                                 ? 0
                                                 : ( (interactingWithLastColorDot_LMB )
                                                     ? (ApplicationDVR_common::numDensityBuckets - 1)
-                                                    : linAlg::clampToBorder( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
+                                                    : linAlg::clamp( static_cast<int32_t>((currMouseX * ApplicationDVR_common::numDensityBuckets) / (fbWidth - 1) + 0.5f), 0, ApplicationDVR_common::numDensityBuckets-1 ) );
 
                 if (inColorInteractionMode) {
                     distMouseMovementWhileInColorInteractionMode += fabsf( mouse_dx );
 
-                    const auto allowedDragBucketIdx = linAlg::clampToBorder( 
+                    const auto allowedDragBucketIdx = linAlg::clamp( 
                         densityBucketIdx, 
                         maxDeviationX_colorDots, 
                         ApplicationDVR_common::numDensityBuckets - 1 - maxDeviationX_colorDots );

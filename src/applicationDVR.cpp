@@ -1389,7 +1389,7 @@ Status_t ApplicationDVR::run() {
             
             std::array<int, 3> dimArray = (mpData == nullptr) ? std::array<int, 3>{0, 0, 0} : std::array<int, 3>{ mpData->getDim()[0], mpData->getDim()[1], mpData->getDim()[2] };
 
-            const uint32_t colorIdx = linAlg::clampToBorder<uint32_t>( 
+            const uint32_t colorIdx = linAlg::clamp<uint32_t>( 
                 static_cast<uint32_t>( surfaceIsoAndThickness[0] * ( interpolatedDensityColorsCPU.size()/4u ) ), 
                 0u, 
                 static_cast<uint32_t>( interpolatedDensityColorsCPU.size() )/4u - 1u );
@@ -1560,7 +1560,7 @@ Status_t ApplicationDVR::run() {
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
-        //targetCamZoomDist = linAlg::clampToBorder( targetCamZoomDist, 0.1f, 1000.0f );
+        //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
 

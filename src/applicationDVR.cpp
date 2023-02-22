@@ -1378,9 +1378,8 @@ Status_t ApplicationDVR::run() {
                                     float minPositiveDist = std::numeric_limits<float>::max();
                                     bool isPositive = false;
                                     {
-                                    #if 1
+                                    #if 1 // did i transform the ref equation correctly to prevent the scaling of each visited brick voxel...?
                                         const linAlg::vec4_t brickCenterOS = { fx, fy, fz, 1.0f };
-
                                         const float distBrickCornerToViewPlane_OS = linAlg::dot( viewPlaneRef_OS, brickCenterOS );
                                     #else // play it safe, but should be slower...
                                         const linAlg::vec4_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
@@ -1444,10 +1443,14 @@ Status_t ApplicationDVR::run() {
                                     std::begin(visibleBricksWithDists),
                                     std::end(visibleBricksWithDists),
                                     [&]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec3_t currPtA{ static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z) };
-                                        linAlg::vec3_t currPtB{ static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z) };
-                                        return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
-                                    } );
+                                        //linAlg::vec3_t currPtA{ static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z) };
+                                        //linAlg::vec3_t currPtB{ static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z) };
+                                        //return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
+                                    linAlg::vec3_t currPtA{ refPt[0] - static_cast<float>(a.x), refPt[1] - static_cast<float>(a.y), refPt[2] - static_cast<float>(a.z) };
+                                    linAlg::vec3_t currPtB{ refPt[0] - static_cast<float>(b.x), refPt[1] - static_cast<float>(b.y), refPt[2] - static_cast<float>(b.z) };
+                                    //return ( fabsf(currPtA[0])+fabsf(currPtA[1])+fabsf(currPtA[2]) ) < fabsf(currPtB[0])+fabsf(currPtB[1])+fabsf(currPtB[2]);
+                                    return linAlg::dot( currPtA, currPtA ) < linAlg::dot( currPtB, currPtB );
+                            } );
                     #else
                         std::sort(  visibleBricksWithDists.begin(),
                             visibleBricksWithDists.end(),

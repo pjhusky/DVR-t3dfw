@@ -16,7 +16,11 @@
 
 #define HOUNSFIELD_UNIT_SCALE ( 65535.0 / 4095.0 )
 
-#define BRICK_BLOCK_DIM     12.0 // better than 8 and 16 ...
+//#define BRICK_BLOCK_DIM     6.0 // better than 8 and 16 ...
+#define BRICK_BLOCK_DIM     8.0
+//#define BRICK_BLOCK_DIM     12.0 // better than 8 and 16 ...
+
+
 #define RECIP_BRICK_BLOCK_DIM (1.0 / BRICK_BLOCK_DIM)
 
 #ifdef __cplusplus

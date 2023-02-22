@@ -58,13 +58,17 @@ void main() {
     //if ( hit == 0 ) {o_fragColor.rgb = vec3( 1.0, 0.8, 0.0 ); o_fragColor.a = 1.0; return;}
 
     #if 1
-        //if ( tfar - tnear < 0.004 ) {
-        if ( hit == 0 || abs( tfar - tnear ) < 0.0005 ) {
+        if ( tfar - tnear < 0.004 ) {
+        //if ( hit == 0 || abs( tfar - tnear ) < 0.0001 ) {
 
         #if 0 // cool brick wireframe mode
             //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!        
             gl_FragDepth = 1.0;
             o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 0.0;
+            return;
+        #elif 0
+            gl_FragDepth = 1.0;
+            o_fragColor.rgb = vec3( 0.0 ); o_fragColor.a = 0.0;
             return;
         #else
             discard;

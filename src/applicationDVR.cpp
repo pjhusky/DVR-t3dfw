@@ -43,11 +43,6 @@
 #include "gfxAPI/ubo.h"
 #include "gfxAPI/checkErrorGL.h"
 
-#include <math.h>
-#include <float.h>
-#include <iostream>
-#include <tchar.h>
-#include <filesystem>
 
 #include "applicationDVR_common.h"
 
@@ -59,10 +54,18 @@
 #include "arcBall/arcBallControls.h"
 
 
+#include <math.h>
+#include <float.h>
+#include <iostream>
+#include <tchar.h>
+#include <filesystem>
+
 #include <memory>
 #include <string>
 #include <chrono>
 #include <thread>
+
+#include <algorithm>
 #include <execution>
 
 #include <cassert>
@@ -1329,6 +1332,29 @@ Status_t ApplicationDVR::run() {
                         //    }
                         //}
 
+                        const linAlg::vec3_t refPt{
+                            ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
+                            ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
+                            ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
+
+                        // for ref - how it's calculated in the [-1;+1] OS range
+                        //linAlg::vec4_t viewPlane_OS{ 
+                        //    viewPlane_normal_OS[0], 
+                        //    viewPlane_normal_OS[1], 
+                        //    viewPlane_normal_OS[2], 
+                        //    -linAlg::dot( viewPlane_normal_OS, {camPos_OS[0], camPos_OS[1], camPos_OS[2] } ) };
+
+                        const linAlg::vec3_t viewPlaneNormalRefOS{ // undo - this time just the scaling (multiply and divide)
+                            ( viewPlane_OS[0] * 0.5f ) * hiResDimOrig[0] /* - 0.5f / brickLen */,
+                            ( viewPlane_OS[1] * 0.5f ) * hiResDimOrig[1] /* - 0.5f / brickLen */,
+                            ( viewPlane_OS[2] * 0.5f ) * hiResDimOrig[2] /* - 0.5f / brickLen */ };
+
+                        const linAlg::vec4_t viewPlaneRef_OS{
+                            viewPlaneNormalRefOS[0],
+                            viewPlaneNormalRefOS[1],
+                            viewPlaneNormalRefOS[2],
+                            -linAlg::dot( viewPlaneNormalRefOS, refPt ) };
+
                         //int threadId;
                     #pragma omp parallel for schedule(dynamic, 1) //private(threadId)		// OpenMP 
                     //#pragma omp parallel for shared(k, visibleBricksWithDists)
@@ -1352,12 +1378,18 @@ Status_t ApplicationDVR::run() {
                                     float minPositiveDist = std::numeric_limits<float>::max();
                                     bool isPositive = false;
                                     {
+                                    #if 1
+                                        const linAlg::vec4_t brickCenterOS = { fx, fy, fz, 1.0f };
+
+                                        const float distBrickCornerToViewPlane_OS = linAlg::dot( viewPlaneRef_OS, brickCenterOS );
+                                    #else // play it safe, but should be slower...
                                         const linAlg::vec4_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
                                                                                ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
                                                                                ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f ,
                                                                                1.0f };
 
                                         const float distBrickCornerToViewPlane_OS = linAlg::dot( viewPlane_OS, brickCenterOS );
+                                    #endif
                                         if (distBrickCornerToViewPlane_OS >= 0.0f) {
                                             minPositiveDist = distBrickCornerToViewPlane_OS;
                                             isPositive = true;
@@ -1402,15 +1434,18 @@ Status_t ApplicationDVR::run() {
                         }
 
                     #if 1
-                        const linAlg::vec3_t refPt{
-                            ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
-                            ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
-                            ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
-                        std::sort(  std::execution::par_unseq, visibleBricksWithDists.begin(),
-                                    visibleBricksWithDists.end(),
-                                    [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec3_t currPtA{ a.x, a.y, a.z };
-                                        linAlg::vec3_t currPtB{ b.x, b.y, b.z };
+                        //const linAlg::vec3_t refPt{
+                        //    ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
+                        //    ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
+                        //    ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
+
+                        //std::sort(  std::execution::par_unseq, visibleBricksWithDists.begin(),
+                        std::sort(  std::execution::par, 
+                                    std::begin(visibleBricksWithDists),
+                                    std::end(visibleBricksWithDists),
+                                    [&]( const brickSortData_t& a, const brickSortData_t& b ) {
+                                        linAlg::vec3_t currPtA{ static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z) };
+                                        linAlg::vec3_t currPtB{ static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z) };
                                         return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
                                     } );
                     #else

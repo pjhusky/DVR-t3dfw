@@ -71,9 +71,25 @@
 
 #include "src/shaders/dvrCommonDefines.h.glsl"
 
+//#include <concurrent_vector.h>
+#include <omp.h>
+
 using namespace ArcBall;
 
 namespace {
+
+    struct brickSortData_t {
+        int32_t x, y, z;
+        float distToNearPlane;
+        float distFromViewRay;
+    };
+    static std::vector<brickSortData_t> visibleBricksWithDists;
+    static std::mutex visibleBricksWithDists_mutex;
+    
+    //static Concurrency::concurrent_vector<brickSortData_t> visibleBricksWithDists;
+
+    static std::vector< std::vector< brickSortData_t > > threadBsd; 
+
 
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
     //static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::backfaceCubeRaster;
@@ -710,6 +726,14 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
     mpDensityLoResTex3d->uploadData( mVolLoResData.data(), GL_RG, GL_UNSIGNED_SHORT, mipLvl );
 
 
+    visibleBricksWithDists.clear();
+    visibleBricksWithDists.reserve( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] );
+
+    threadBsd.clear();
+    threadBsd.resize( omp_get_max_threads() );
+    for (auto& entry : threadBsd) {
+        entry.reserve( ( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] ) / omp_get_num_threads() );
+    }
 
 }
 
@@ -1106,7 +1130,8 @@ Status_t ApplicationDVR::run() {
         }
 
         glEnable( GL_DEPTH_TEST );
-        glDepthFunc( GL_LESS );
+        //glDepthFunc( GL_LESS );
+        glDepthFunc( GL_LEQUAL );
         
         mpVol_RT_Fbo->bind( true );
         //glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -1114,7 +1139,9 @@ Status_t ApplicationDVR::run() {
         glViewport( 0, 0, fbWidth, fbHeight ); // set to render-target size
         { // clear screen
             
-            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
+            constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 1.0f };
+            //!!! constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.5f };
+            //constexpr float clearColorValue[]{ 0.0f, 0.0f, 0.0f, 0.0f };
 
             if (didMove || prevDidMove ) {
                 glClearBufferfv( GL_COLOR, 0, clearColorValue );
@@ -1168,14 +1195,42 @@ Status_t ApplicationDVR::run() {
             const linAlg::vec4_t camPos_ES{ 0.0f, 0.0f, 0.0f, 1.0f };
             linAlg::vec4_t camPos_OS = camPos_ES;
             linAlg::applyTransformationToPoint( invModelViewMatrix, &camPos_OS, 1 );
-            camPos_OS[0] /= camPos_OS[3];
-            camPos_OS[1] /= camPos_OS[3];
-            camPos_OS[2] /= camPos_OS[3];
+
+            // use inverse transpose ???
+            //linAlg::mat4_t invTransposeModelViewMatrix;
+            //linAlg::transpose( invTransposeModelViewMatrix, invModelViewMatrix );
+
+            const auto vecTransformMat = invModelViewMatrix;
+            //const auto vecTransformMat = invTransposeModelViewMatrix;
+
+            //constexpr linAlg::vec4_t cam_ES_x = { 1.0f, 0.0f, 0.0f, 0.0f };
+            //linAlg::vec4_t cam_OS_x = cam_ES_x;
+            //linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_x, 1 );
+
+            //constexpr linAlg::vec4_t cam_ES_y = { 0.0f, 1.0f, 0.0f, 0.0f };
+            //linAlg::vec4_t cam_OS_y = cam_ES_y;
+            //linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_y, 1 );
+
+            constexpr linAlg::vec4_t cam_ES_z = { 0.0f, 0.0f, 1.0f, 1.0f };
+            linAlg::vec4_t cam_OS_p_z = cam_ES_z;
+            linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_p_z, 1.0f );
+            linAlg::vec4_t cam_OS_z;
+            linAlg::sub( cam_OS_z, cam_OS_p_z, camPos_OS );
+
+            // OS-plane parallel to view plane through camera pos
+            linAlg::vec3_t viewPlane_normal_OS{ -cam_OS_z[0], -cam_OS_z[1], -cam_OS_z[2] };
+            linAlg::normalize( viewPlane_normal_OS );
+            linAlg::vec4_t viewPlane_OS{ viewPlane_normal_OS[0], 
+                                         viewPlane_normal_OS[1], 
+                                         viewPlane_normal_OS[2], 
+                                         -linAlg::dot( viewPlane_normal_OS, {camPos_OS[0], camPos_OS[1], camPos_OS[2] } ) };
+
 
         #if 1 // unit-cube STL file
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
                 glEnable( GL_CULL_FACE );
-                glCullFace( GL_FRONT );
+                glCullFace( GL_FRONT ); // <<< !!!
+                //glCullFace( GL_BACK );
 
                 glBindVertexArray( mStlModelHandle.vaoHandle );
                 meshShader.use( true );
@@ -1198,7 +1253,16 @@ Status_t ApplicationDVR::run() {
                 }
                 else {
                     glEnable( GL_BLEND );
-                    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                    //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA ); // B2F
+
+                    // https://community.khronos.org/t/front-to-back-blending/65155
+                    // https://developer.download.nvidia.com/SDK/10/opengl/src/dual_depth_peeling/doc/DualDepthPeeling.pdf
+                    glBlendEquation(GL_FUNC_ADD);
+                    glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_ONE_MINUS_SRC_ALPHA); // F2B
+                    //glClearColor( 0.0, 0.0, 0.0, 1.0 );
+                    //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+
                     //glBlendFunc( GL_ONE, GL_ONE);
                     {
                         //float scaleFactor = 1.0f / brickLen;
@@ -1242,6 +1306,21 @@ Status_t ApplicationDVR::run() {
                         //    (float)(brickLen) / ( hiResDim[1] ),
                         //    (float)(brickLen) / ( hiResDim[2] )} );
 
+
+                        visibleBricksWithDists.clear();
+                        //visibleBricksWithDists.reserve( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] );
+
+                        const linAlg::vec3_t camPos3_OS{ camPos_OS[0], camPos_OS[1], camPos_OS[2] };
+                        
+                        //visibleBricksWithDists.resize(mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2]);
+                        //int k = 0;
+                        for (auto& entry : threadBsd) {
+                            entry.clear();
+                        }
+
+                        //int threadId;
+                    #pragma omp parallel for schedule(dynamic, 1) //private(threadId)		// OpenMP 
+                    //#pragma omp parallel for shared(k, visibleBricksWithDists)
                         for (int32_t z = 0; z < hiResDim[2]; z += brickLen) {
                             for (int32_t y = 0; y < hiResDim[1]; y += brickLen) {
                                 for (int32_t x = 0; x < hiResDim[0]; x += brickLen) {
@@ -1251,9 +1330,153 @@ Status_t ApplicationDVR::run() {
                                         const auto ly = y / brickLen;
                                         const auto lz = z / brickLen;
                                         const auto minMaxDensity = mVolLoResData[(lz * mVolLoResEmptySpaceSkipDim[1] + ly) * mVolLoResEmptySpaceSkipDim[0] + lx];
-                                        if (mEmptySpaceTableData[((minMaxDensity[1] + 2) / 4) * 1024 + (minMaxDensity[0] + 2) / 4] > 127) { continue; }
+                                        //if (mEmptySpaceTableData[((minMaxDensity[1] + 2) / 4) * 1024 + (minMaxDensity[0] + 2) / 4] > 127) { continue; }
+                                        if (mEmptySpaceTableData[((minMaxDensity[1] + 0) / 4) * 1024 + (minMaxDensity[0] + 0) / 4] > 127) { continue; }
                                     }
 
+                                    const float fx = static_cast<float>( x );
+                                    const float fy = static_cast<float>( y );
+                                    const float fz = static_cast<float>( z );
+
+                                    float minPositiveDist = std::numeric_limits<float>::max();
+                                    bool isPositive = false;
+                                    //bool isNegative = false;
+                                    //for (uint32_t cornerZ = 0; cornerZ <= 1; cornerZ++) {
+                                    //    for (uint32_t cornerY = 0; cornerY <= 1; cornerY++) {
+                                    //        for (uint32_t cornerX = 0; cornerX <= 1; cornerX++) {
+                                    //            
+                                    //            //const linAlg::vec4_t cornerOS = {   fx + cornerX * brickLen,
+                                    //            //                                    fy + cornerY * brickLen,
+                                    //            //                                    fz + cornerZ * brickLen,
+                                    //            //                                    1.0f };
+
+                                    //            const linAlg::vec4_t cornerOS = {   ( fx + cornerX * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                    //                                                ( fy + cornerY * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                    //                                                ( fz + cornerZ * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f ,
+                                    //                                                1.0f };
+
+                                    //            const float distBrickCornerToViewPlane_OS = linAlg::dot( viewPlane_OS, cornerOS );
+                                    //            if (distBrickCornerToViewPlane_OS >= 0.0f) {
+                                    //                minPositiveDist = linAlg::minimum( minPositiveDist, distBrickCornerToViewPlane_OS );
+                                    //                isPositive = true;
+                                    //            } else {
+                                    //                isNegative = true;
+                                    //            }
+                                    //            
+                                    //        }
+                                    //    }
+                                    //}
+
+                                #if 1
+                                    {
+                                        //const linAlg::vec4_t brickCenterOS = {   fx + 0.5f * brickLen,
+                                        //                                    fy + 0.5f * brickLen,
+                                        //                                    fz + 0.5f * brickLen,
+                                        //                                    1.0f };
+
+                                        const linAlg::vec4_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                                                               ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                                                               ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f ,
+                                                                               1.0f };
+
+                                        const float distBrickCornerToViewPlane_OS = linAlg::dot( viewPlane_OS, brickCenterOS );
+                                        if (distBrickCornerToViewPlane_OS >= 0.0f) {
+                                            minPositiveDist = distBrickCornerToViewPlane_OS;
+                                            isPositive = true;
+                                        } 
+                                    }
+                                #endif
+
+                                #if 0
+                                    {
+                                        const linAlg::vec3_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                                                               ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                                                               ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
+
+                                        const float distBrickCornerToViewPlane_OS = linAlg::dist( camPos3_OS, brickCenterOS );
+                                        
+                                        minPositiveDist = distBrickCornerToViewPlane_OS;
+                                        isPositive = true;
+                                         
+                                    }
+                                #endif
+
+
+                                    if (!isPositive) { 
+                                        continue; } // none of the brick's corners is in front of camera - skip this brick
+
+                                #if 0
+                                    float minDistToViewRay = std::numeric_limits<float>::max();
+                                    for (uint32_t cornerZ = 0; cornerZ <= 1; cornerZ++) {
+                                        for (uint32_t cornerY = 0; cornerY <= 1; cornerY++) {
+                                            for (uint32_t cornerX = 0; cornerX <= 1; cornerX++) {
+
+                                                //const linAlg::vec4_t cornerOS = {   fx + cornerX * brickLen,
+                                                //                                    fy + cornerY * brickLen,
+                                                //                                    fz + cornerZ * brickLen,
+                                                //                                    1.0f };
+                                                const linAlg::vec4_t cornerOS = {   ( fx + cornerX * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                                                                    ( fy + cornerY * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                                                                    ( fz + cornerZ * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f ,
+                                                                                    1.0f };
+
+                                                linAlg::vec3_t vecCamToCorner;
+                                                linAlg::sub( vecCamToCorner, { cornerOS[0], cornerOS[1], cornerOS[2] }, { camPos_OS[0], camPos_OS[1], camPos_OS[2] } );
+                                                linAlg::vec3_t crossVec;
+                                                linAlg::cross( crossVec, vecCamToCorner, { cam_OS_z[0], cam_OS_z[1], cam_OS_z[2] } );
+
+                                                const float distBrickCornerToViewDir_OS = linAlg::len( crossVec );
+                                                minDistToViewRay = linAlg::minimum( minDistToViewRay, distBrickCornerToViewDir_OS );
+                                                
+                                            }
+                                        }
+                                    }
+                                #endif
+
+                                #if 1
+                                    float minDistToViewRay = std::numeric_limits<float>::max();
+                                    {
+                                        const linAlg::vec3_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                                                               ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                                                               ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
+
+                                        linAlg::vec3_t vecCamToCorner;
+                                        linAlg::sub( vecCamToCorner, brickCenterOS, camPos3_OS );
+                                        linAlg::vec3_t crossVec;
+                                        linAlg::cross( crossVec, vecCamToCorner, { cam_OS_z[0], cam_OS_z[1], cam_OS_z[2] } );
+
+                                        const float distBrickCornerToViewDir_OS = linAlg::len( crossVec );
+                                        minDistToViewRay = distBrickCornerToViewDir_OS;
+                                    }
+                                #endif
+
+                                {
+                                //#pragma omp critical // synched push_back
+                                std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
+                                    //visibleBricksWithDists.push_back( { // works ootb with concurrent_vector
+                                    //    .x = x,
+                                    //    .y = y,
+                                    //    .z = z,
+                                    //    .distToNearPlane = minPositiveDist,
+                                    //    //.distFromViewRay = 0.0f /*minDistToViewRay*/ } );
+                                    //    .distFromViewRay = minDistToViewRay } );
+
+                                    //visibleBricksWithDists[k] = { // works ootb with concurrent_vector
+                                    //    .x = x,
+                                    //    .y = y,
+                                    //    .z = z,
+                                    //    .distToNearPlane = minPositiveDist,
+                                    //    .distFromViewRay = minDistToViewRay };
+                                    //k++;
+
+                                    int ompThreadNum = omp_get_thread_num();
+                                    threadBsd[ompThreadNum].push_back( { // works ootb with concurrent_vector
+                                            .x = x,
+                                            .y = y,
+                                            .z = z,
+                                            .distToNearPlane = minPositiveDist,
+                                            .distFromViewRay = minDistToViewRay } );
+                                }
                                     // sort x, y, z axes according to view dir 
                                     // only render bricks (partially) in front of camera xy plane (clip against near plane)
                                     // split rendering in left and right part based on intersection with plane through cam origin that is perpendicular to view-ray|view-up plane
@@ -1266,15 +1489,82 @@ Status_t ApplicationDVR::run() {
 
                                     // store x,y,z of brick, along with dist-to-cam-near plane and abs(dist-to-center-slice-vertical-plane) and abs(dist-to-center-slice-horizontal-plane)
 
-                                    meshShader.setVec3( "u_volOffset", { // !!! <<<
-                                        (float)x / (hiResDimOrig[0]),
-                                        (float)y / (hiResDimOrig[1]),
-                                        (float)z / (hiResDimOrig[2]) } );
+                                    //meshShader.setVec3( "u_volOffset", { // !!! <<<
+                                    //    (float)x / (hiResDimOrig[0]),
+                                    //    (float)y / (hiResDimOrig[1]),
+                                    //    (float)z / (hiResDimOrig[2]) } );
 
-                                    glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                                    //glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                                 }
                             }
                         }
+
+                        //visibleBricksWithDists.resize( k );
+                        for (const auto& entry : threadBsd) {
+                            for (const auto& subEntry : entry) {
+                                visibleBricksWithDists.push_back( subEntry );
+                            }
+                            //std::copy( entry.begin(), entry.end(), visibleBricksWithDists.begin() + visibleBricksWithDists.size() ); 
+                            //visibleBricksWithDists.resize( visibleBricksWithDists.size() + entry.size() );
+                        }
+
+                        // sort visibleBricksWithDists based on distToNearPlane by binning into brickLen-discretized chunks
+                    #if 0
+                        for (auto& entry : visibleBricksWithDists) {
+                            entry.distToNearPlane = floorf( entry.distToNearPlane * 2.0f / brickLen );
+                            entry.distFromViewRay = floorf( entry.distFromViewRay * 2.0f / brickLen );
+                        }
+                    #endif
+
+                    #if 0
+                        const float hiResDimDiag = linAlg::len( hiResDimOrig );
+                        for (auto& entry : visibleBricksWithDists) {
+                            entry.distToNearPlane = floorf( entry.distToNearPlane * hiResDimDiag * 2.0f / brickLen );
+                            entry.distFromViewRay = floorf( entry.distFromViewRay * hiResDimDiag * 2.0f / brickLen );
+                        }
+                    #endif
+
+                        std::sort(  visibleBricksWithDists.begin(), 
+                                    visibleBricksWithDists.end(), 
+                                    //[]( const brickSortData_t& a, const brickSortData_t& b) { return a.distToNearPlane > b.distToNearPlane; } ); // > ... B2F
+                                    []( const brickSortData_t& a, const brickSortData_t& b) { return a.distToNearPlane < b.distToNearPlane; } ); // < ... F2B !!!
+
+                        // visibleBricksWithDists is now sorted by "z-buffer" dist
+                        // sort by distToViewRay within the binned dist-to-cam chunks
+                    #if 0
+                        for ( uint32_t i = 0; i < visibleBricksWithDists.size(); i++ ) {
+                            const float currDist = visibleBricksWithDists[i].distToNearPlane;
+                            uint32_t j = i;
+                            for (; j < visibleBricksWithDists.size(); j++) {
+                                if (visibleBricksWithDists[j].distToNearPlane > currDist) {
+                                    break;
+                                }
+                            }
+                            std::sort( visibleBricksWithDists.begin() + i, 
+                                       visibleBricksWithDists.begin() + j, 
+                                       //[]( const brickSortData_t& a, const brickSortData_t& b) { return a.distFromViewRay < b.distFromViewRay; } );
+                                       []( const brickSortData_t& a, const brickSortData_t& b) { return a.distFromViewRay > b.distFromViewRay; } );
+                            i = j;
+                        }
+                    #endif
+
+                        //glDisable( GL_DEPTH_TEST );
+                        glEnable( GL_DEPTH_TEST );
+                    
+                        for (auto& entry : visibleBricksWithDists) { // these should now render with correct brick-vis even without depth buffer
+                            meshShader.setVec3( "u_volOffset", { // !!! <<<
+                                (float)entry.x / (hiResDimOrig[0]),
+                                (float)entry.y / (hiResDimOrig[1]),
+                                (float)entry.z / (hiResDimOrig[2]) } );
+                            //meshShader.setVec3( "u_volOffset", { // !!! <<<
+                            //    (float)entry.x * 0.5f + 0.5f,
+                            //    (float)entry.y * 0.5f + 0.5f,
+                            //    (float)entry.z * 0.5f + 0.5f } );
+
+                            glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
+                        }
+                        glEnable( GL_DEPTH_TEST );
+
                     #endif
                         //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
                     }

@@ -58,23 +58,18 @@ void main() {
     //if ( hit == 0 ) {o_fragColor.rgb = vec3( 1.0, 0.8, 0.0 ); o_fragColor.a = 1.0; return;}
 
     #if 1
-        if ( tfar - tnear < 0.004 ) {
+        //if ( tfar - tnear < 0.004 ) {
+        if ( hit == 0 || abs( tfar - tnear ) < 0.0005 ) {
 
-            //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!
-        
-    //        //tnear = max( 0.0, tnear );
-    //        //curr_sample_pos = ray_start + tnear * ray_dir;
-    //        curr_sample_pos = ray_end;
-    //        float raw_densityVal = texture( u_densityTex, curr_sample_pos ).r;
-    //        raw_densityVal *= HOUNSFIELD_UNIT_SCALE;
-    //        vec4 colorAndAlpha = texture( u_colorAndAlphaTex, vec2( raw_densityVal, 0.5 ) );
-    //        vec3 currColor = colorAndAlpha.rgb;
-            //o_fragColor.rgb = currColor; o_fragColor.a = colorAndAlpha.a;
-//            gl_FragDepth = 1.0;
-//            o_fragColor.rgb = currColor; o_fragColor.a = 1.0;
-            discard;
-        
+        #if 0 // cool brick wireframe mode
+            //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!        
+            gl_FragDepth = 1.0;
+            o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 0.0;
             return;
+        #else
+            discard;
+            return;
+        #endif
         }
     #endif
 #else    
@@ -189,7 +184,7 @@ void main() {
     #if ( DVR_MODE != XRAY )
         if ( color.a >= 0.99 ) {
             color.a = 1.0;
-            gl_FragDepth = 1.0; // consider this pixel done by writing 0 depth (nothing will be closer, thus nothing can draw "over" this pixel anymore
+            //gl_FragDepth = 1.0; // consider this pixel done by writing 0 depth (nothing will be closer, thus nothing can draw "over" this pixel anymore
             break;
         }
     #endif

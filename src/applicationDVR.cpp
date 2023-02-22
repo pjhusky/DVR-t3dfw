@@ -1207,17 +1207,9 @@ Status_t ApplicationDVR::run() {
             const auto vecTransformMat = invModelViewMatrix;
             //const auto vecTransformMat = invTransposeModelViewMatrix;
 
-            //constexpr linAlg::vec4_t cam_ES_x = { 1.0f, 0.0f, 0.0f, 0.0f };
-            //linAlg::vec4_t cam_OS_x = cam_ES_x;
-            //linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_x, 1 );
-
-            //constexpr linAlg::vec4_t cam_ES_y = { 0.0f, 1.0f, 0.0f, 0.0f };
-            //linAlg::vec4_t cam_OS_y = cam_ES_y;
-            //linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_y, 1 );
-
             constexpr linAlg::vec4_t cam_ES_z = { 0.0f, 0.0f, 1.0f, 1.0f };
             linAlg::vec4_t cam_OS_p_z = cam_ES_z;
-            linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_p_z, 1.0f );
+            linAlg::applyTransformationToPoint( vecTransformMat, &cam_OS_p_z, 1 );
             linAlg::vec4_t cam_OS_z;
             linAlg::sub( cam_OS_z, cam_OS_p_z, camPos_OS );
 
@@ -1305,10 +1297,6 @@ Status_t ApplicationDVR::run() {
                             (float)(brickLen) / (hiResDimOrig[0] /*- 1*/),
                             (float)(brickLen) / (hiResDimOrig[1] /*- 1*/),
                             (float)(brickLen) / (hiResDimOrig[2] /*- 1*/) } );
-                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
-                        //    (float)(brickLen) / ( hiResDim[0] ), 
-                        //    (float)(brickLen) / ( hiResDim[1] ),
-                        //    (float)(brickLen) / ( hiResDim[2] )} );
 
 
                         visibleBricksWithDists.clear();
@@ -1322,23 +1310,23 @@ Status_t ApplicationDVR::run() {
                             entry.clear();
                         }
 
-                        const float lenCamOS_z = linAlg::len( linAlg::vec3_t{ cam_OS_z[0], cam_OS_z[1], cam_OS_z[2] } );
-                        int32_t maxDim = -1;
-                        linAlg::vec3_t absCam_OS_z{ abs(cam_OS_z[0]), abs(cam_OS_z[1]), abs(cam_OS_z[2]) };
-                        if (absCam_OS_z[0] > absCam_OS_z[1]) {
-                            if (absCam_OS_z[0] > absCam_OS_z[2]) {
-                                maxDim = 0; // X
-                            } else {
-                                maxDim = 2; // Z
-                            }
-                        }
-                        else {
-                            if (absCam_OS_z[1] > absCam_OS_z[2]) {
-                                maxDim = 1; // Y
-                            } else {
-                                maxDim = 2; // Z
-                            }
-                        }
+                        //const float lenCamOS_z = linAlg::len( linAlg::vec3_t{ cam_OS_z[0], cam_OS_z[1], cam_OS_z[2] } );
+                        //int32_t maxDim = -1;
+                        //linAlg::vec3_t absCam_OS_z{ abs(cam_OS_z[0]), abs(cam_OS_z[1]), abs(cam_OS_z[2]) };
+                        //if (absCam_OS_z[0] > absCam_OS_z[1]) {
+                        //    if (absCam_OS_z[0] > absCam_OS_z[2]) {
+                        //        maxDim = 0; // X
+                        //    } else {
+                        //        maxDim = 2; // Z
+                        //    }
+                        //}
+                        //else {
+                        //    if (absCam_OS_z[1] > absCam_OS_z[2]) {
+                        //        maxDim = 1; // Y
+                        //    } else {
+                        //        maxDim = 2; // Z
+                        //    }
+                        //}
 
                         //int threadId;
                     #pragma omp parallel for schedule(dynamic, 1) //private(threadId)		// OpenMP 
@@ -1363,11 +1351,6 @@ Status_t ApplicationDVR::run() {
                                     float minPositiveDist = std::numeric_limits<float>::max();
                                     bool isPositive = false;
                                     {
-                                        //const linAlg::vec4_t brickCenterOS = {   fx + 0.5f * brickLen,
-                                        //                                    fy + 0.5f * brickLen,
-                                        //                                    fz + 0.5f * brickLen,
-                                        //                                    1.0f };
-
                                         const linAlg::vec4_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
                                                                                ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
                                                                                ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f ,
@@ -1381,68 +1364,31 @@ Status_t ApplicationDVR::run() {
                                     }
                                     if (!isPositive) { continue; } // none of the brick's corners is in front of camera - skip this brick
 
-                                #if 0
-                                    float minDistToViewRay = std::numeric_limits<float>::max();
                                     {
-                                        const linAlg::vec3_t brickCenterOS = { ( fx + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                                                               ( fy + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                                                               ( fz + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
+                                    //#pragma omp critical // synched push_back
+                                        std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
+                                        //visibleBricksWithDists.push_back( { // works ootb with concurrent_vector
+                                        //    .x = x,
+                                        //    .y = y,
+                                        //    .z = z,
+                                        //    .distToNearPlane = minPositiveDist,
+                                        //    //.distFromViewRay = 0.0f /*minDistToViewRay*/ } );
+                                        //    .distFromViewRay = minDistToViewRay } );
 
-                                        linAlg::vec3_t vecCamToCorner;
-                                        linAlg::sub( vecCamToCorner, brickCenterOS, camPos3_OS );
-                                        linAlg::vec3_t crossVec;
-                                        linAlg::cross( crossVec, vecCamToCorner, { -cam_OS_z[0], -cam_OS_z[1], -cam_OS_z[2] } );
+                                        //visibleBricksWithDists[k] = { // works ootb with concurrent_vector
+                                        //    .x = x,
+                                        //    .y = y,
+                                        //    .z = z,
+                                        //    .distToNearPlane = minPositiveDist,
+                                        //    .distFromViewRay = minDistToViewRay };
+                                        //k++;
 
-                                        const float distBrickCornerToViewDir_OS = linAlg::len( crossVec ) / lenCamOS_z;
-                                        minDistToViewRay = distBrickCornerToViewDir_OS;
+                                        int ompThreadNum = omp_get_thread_num();
+                                        threadBsd[ompThreadNum].push_back( { // works ootb with concurrent_vector
+                                                .x = x,
+                                                .y = y,
+                                                .z = z } );
                                     }
-                                #endif
-
-                                {
-                                //#pragma omp critical // synched push_back
-                                std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
-                                    //visibleBricksWithDists.push_back( { // works ootb with concurrent_vector
-                                    //    .x = x,
-                                    //    .y = y,
-                                    //    .z = z,
-                                    //    .distToNearPlane = minPositiveDist,
-                                    //    //.distFromViewRay = 0.0f /*minDistToViewRay*/ } );
-                                    //    .distFromViewRay = minDistToViewRay } );
-
-                                    //visibleBricksWithDists[k] = { // works ootb with concurrent_vector
-                                    //    .x = x,
-                                    //    .y = y,
-                                    //    .z = z,
-                                    //    .distToNearPlane = minPositiveDist,
-                                    //    .distFromViewRay = minDistToViewRay };
-                                    //k++;
-
-                                    int ompThreadNum = omp_get_thread_num();
-                                    threadBsd[ompThreadNum].push_back( { // works ootb with concurrent_vector
-                                            .x = x,
-                                            .y = y,
-                                            .z = z/*,
-                                            .distToNearPlane = minPositiveDist,
-                                            .distFromViewRay = minDistToViewRay*/ } );
-                                }
-                                    // sort x, y, z axes according to view dir 
-                                    // only render bricks (partially) in front of camera xy plane (clip against near plane)
-                                    // split rendering in left and right part based on intersection with plane through cam origin that is perpendicular to view-ray|view-up plane
-                                    //      ==> dist-to-center-slice-vertical-plane
-                                    //  - first render the bricks that intersect this dividing plane
-                                    //  - then render bricks totally left of the plane and totally right of the plane 
-                                    //    "from center away", but doesn't matter if left or right part is rendered first
-                                    // within the left/right parts sort again agains view-ray|view-strafe plane and render "away" from the plane
-                                    //      ==> dist-to-center-slice-horizontal-plane
-
-                                    // store x,y,z of brick, along with dist-to-cam-near plane and abs(dist-to-center-slice-vertical-plane) and abs(dist-to-center-slice-horizontal-plane)
-
-                                    //meshShader.setVec3( "u_volOffset", { // !!! <<<
-                                    //    (float)x / (hiResDimOrig[0]),
-                                    //    (float)y / (hiResDimOrig[1]),
-                                    //    (float)z / (hiResDimOrig[2]) } );
-
-                                    //glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                                 }
                             }
                         }
@@ -1453,49 +1399,6 @@ Status_t ApplicationDVR::run() {
                                 visibleBricksWithDists.push_back( subEntry );
                             }
                         }
-
-                        //std::sort(  visibleBricksWithDists.begin(), 
-                        //            visibleBricksWithDists.end(), 
-                        //            //[]( const brickSortData_t& a, const brickSortData_t& b) { return a.distToNearPlane > b.distToNearPlane; } ); // > ... B2F
-                        //            []( const brickSortData_t& a, const brickSortData_t& b) { return a.distToNearPlane < b.distToNearPlane; } ); // < ... F2B !!!
-
-
-                        //std::sort(  visibleBricksWithDists.begin(), 
-                        //    visibleBricksWithDists.end(), 
-                        //    //[]( const brickSortData_t& a, const brickSortData_t& b) { return a.distToNearPlane < b.distToNearPlane; } ); // < ... F2B !!!
-                        //    []( const brickSortData_t& a, const brickSortData_t& b) { 
-                        //        constexpr float scaleF = 200.0f;
-                        //        return ( floorf( a.distToNearPlane * scaleF ) < floorf( b.distToNearPlane * scaleF ) ); 
-                        //        //return ( floorf( a.distToNearPlane * scaleF ) < floorf( b.distToNearPlane * scaleF ) || a.distFromViewRay < b.distFromViewRay ); 
-                        //    } ); // < ... F2B !!!
-
-                        // grid-based sorting
-                        //switch (maxDim) {
-                        //case 0: { // X
-                        //    const auto functional = ( cam_OS_z[0] < 0.0f ) 
-                        //        ? []( const brickSortData_t& a, const brickSortData_t& b) { return a.x < b.x; }
-                        //        : []( const brickSortData_t& a, const brickSortData_t& b) { return a.x > b.x; };
-                        //    std::sort(  visibleBricksWithDists.begin(), 
-                        //                visibleBricksWithDists.end(), 
-                        //                functional );
-                        //} break;
-                        //case 1: { // Y
-                        //    const auto functional = ( cam_OS_z[1] < 0.0f ) 
-                        //        ? []( const brickSortData_t& a, const brickSortData_t& b) { return a.y < b.y; }
-                        //        : []( const brickSortData_t& a, const brickSortData_t& b) { return a.y > b.y; };
-                        //    std::sort(  visibleBricksWithDists.begin(), 
-                        //                visibleBricksWithDists.end(), 
-                        //                functional );
-                        //} break;
-                        //case 2: { // Z
-                        //    const auto functional = ( cam_OS_z[2] < 0.0f ) 
-                        //        ? []( const brickSortData_t& a, const brickSortData_t& b) { return a.z < b.z; }
-                        //        : []( const brickSortData_t& a, const brickSortData_t& b) { return a.z > b.z; };
-                        //    std::sort(  visibleBricksWithDists.begin(), 
-                        //                visibleBricksWithDists.end(), 
-                        //                functional );
-                        //} break;
-                        //}
 
                     #if 1
                         std::sort(  visibleBricksWithDists.begin(),
@@ -1512,135 +1415,6 @@ Status_t ApplicationDVR::run() {
 
                                         return linAlg::dist( camPos3_OS, currPtA ) < linAlg::dist( camPos3_OS, currPtB );
                                     } );
-                    #else
-                        if (maxDim == 0) { // X
-                            if (cam_OS_z[0] < 0.0f) {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.x < b.x; } );
-                            }
-                            else {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.x > b.x; } );
-                            }
-                            for ( uint32_t i = 0; i < visibleBricksWithDists.size(); i++) {
-                                const float curr_val = visibleBricksWithDists[i].x;
-                                uint32_t j = i;
-                                for (; j < visibleBricksWithDists.size(); j++) {
-                                    if (visibleBricksWithDists[j].x > curr_val) { break; }
-                                }
-                                // from i to j we are in the same "closest to cam view major axis dir"
-                                // sort "away" from the closest corner
-                                linAlg::vec2_t refPt{ camPos3_OS[1], camPos3_OS[2] };
-                                std::sort(  visibleBricksWithDists.begin() + i,
-                                    visibleBricksWithDists.begin() + j,
-                                    [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec2_t currPtA{ ( a.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                                                ( a.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-                                        linAlg::vec2_t currPtB{ ( b.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                                                ( b.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-
-                                        //linAlg::vec2_t currPtA{ a.y, a.z };
-                                        //linAlg::vec2_t currPtB{ b.y, b.z };
-                                        return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
-                                    } );
-                                i = j;
-                            }
-                        } else if (maxDim == 1) { // Y
-                            if (cam_OS_z[1] < 0.0f) {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.y < b.y; } );
-                            }
-                            else {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.y > b.y; } );
-                            }
-                            for ( uint32_t i = 0; i < visibleBricksWithDists.size(); i++) {
-                                const float curr_val = visibleBricksWithDists[i].y;
-                                uint32_t j = i;
-                                for (; j < visibleBricksWithDists.size(); j++) {
-                                    if (visibleBricksWithDists[j].y > curr_val) { break; }
-                                }
-                                // from i to j we are in the same "closest to cam view major axis dir"
-                                // sort "away" from the closest corner
-                                linAlg::vec2_t refPt{ camPos3_OS[0], camPos3_OS[2] };
-                                std::sort(  visibleBricksWithDists.begin() + i,
-                                    visibleBricksWithDists.begin() + j,
-                                    [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec2_t currPtA{ ( a.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                                                ( a.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-                                        linAlg::vec2_t currPtB{ ( b.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                                                ( b.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-                                        //linAlg::vec2_t currPtA{ a.x, a.z };
-                                        //linAlg::vec2_t currPtB{ b.x, b.z };
-                                        return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
-                                    } );
-                                i = j;
-                            }
-                        } else if (maxDim == 2) { // Z
-                            if (cam_OS_z[2] < 0.0f) {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.z < b.z; } );
-                            }
-                            else {
-                                std::sort( visibleBricksWithDists.begin(),
-                                           visibleBricksWithDists.end(),
-                                           []( const brickSortData_t& a, const brickSortData_t& b) { return a.z > b.z; } );
-                            }
-                            for ( uint32_t i = 0; i < visibleBricksWithDists.size(); i++) {
-                                const float curr_val = visibleBricksWithDists[i].z;
-                                uint32_t j = i;
-                                for (; j < visibleBricksWithDists.size(); j++) {
-                                    if (visibleBricksWithDists[j].z > curr_val) { break; }
-                                }
-                                // from i to j we are in the same "closest to cam view major axis dir"
-                                // sort "away" from the closest corner
-                                linAlg::vec2_t refPt{ camPos3_OS[0], camPos3_OS[1] };
-                                std::sort(  visibleBricksWithDists.begin() + i,
-                                    visibleBricksWithDists.begin() + j,
-                                    [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec2_t currPtA{ ( a.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                                                ( a.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f };
-                                        linAlg::vec2_t currPtB{ ( b.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                                                ( b.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f };
-                                        //linAlg::vec2_t currPtA{ a.x, a.y };
-                                        //linAlg::vec2_t currPtB{ b.x, b.y };
-                                        return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
-                                    } );
-                                i = j;
-                            }
-                        }
-                    #endif
-
-                        //const auto functional = ( cam_OS_z[maxDim] < 0.0f ) 
-                        //    ? [=]( const brickSortData_t& a, const brickSortData_t& b) { return *(&a.x + maxDim) < *(&b.x + maxDim); }
-                        //    : [=]( const brickSortData_t& a, const brickSortData_t& b) { return *(&a.x + maxDim) > *(&b.x + maxDim); };
-                        //std::sort(  visibleBricksWithDists.begin(), 
-                        //            visibleBricksWithDists.end(), 
-                        //            functional );
-
-
-                        // visibleBricksWithDists is now sorted by "z-buffer" dist
-                        // sort by distToViewRay within the binned dist-to-cam chunks
-                    #if 0
-                        for ( uint32_t i = 0; i < visibleBricksWithDists.size(); i++ ) {
-                            const float currDist = visibleBricksWithDists[i].distToNearPlane;
-                            uint32_t j = i;
-                            for (; j < visibleBricksWithDists.size(); j++) {
-                                if (visibleBricksWithDists[j].distToNearPlane > currDist) {
-                                    break;
-                                }
-                            }
-                            std::sort( visibleBricksWithDists.begin() + i, 
-                                       visibleBricksWithDists.begin() + j, 
-                                       //[]( const brickSortData_t& a, const brickSortData_t& b) { return a.distFromViewRay < b.distFromViewRay; } );
-                                       []( const brickSortData_t& a, const brickSortData_t& b) { return a.distFromViewRay > b.distFromViewRay; } );
-                            i = j;
-                        }
                     #endif
 
                         //glDisable( GL_DEPTH_TEST );
@@ -1651,10 +1425,6 @@ Status_t ApplicationDVR::run() {
                                 (float)entry.x / (hiResDimOrig[0]),
                                 (float)entry.y / (hiResDimOrig[1]),
                                 (float)entry.z / (hiResDimOrig[2]) } );
-                            //meshShader.setVec3( "u_volOffset", { // !!! <<<
-                            //    (float)entry.x * 0.5f + 0.5f,
-                            //    (float)entry.y * 0.5f + 0.5f,
-                            //    (float)entry.z * 0.5f + 0.5f } );
 
                             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                         }

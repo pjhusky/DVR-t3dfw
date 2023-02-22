@@ -63,6 +63,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <execution>
 
 #include <cassert>
 
@@ -1401,20 +1402,32 @@ Status_t ApplicationDVR::run() {
                         }
 
                     #if 1
-                        std::sort(  visibleBricksWithDists.begin(),
+                        const linAlg::vec3_t refPt{
+                            ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
+                            ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
+                            ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
+                        std::sort(  std::execution::par_unseq, visibleBricksWithDists.begin(),
                                     visibleBricksWithDists.end(),
                                     [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        linAlg::vec3_t currPtA{ 
-                                            ( a.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                            ( a.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                            ( a.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-                                        linAlg::vec3_t currPtB{ 
-                                            ( b.x + 0.5f * brickLen ) / (hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                            ( b.y + 0.5f * brickLen ) / (hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                            ( b.z + 0.5f * brickLen ) / (hiResDimOrig[2] ) * 2.0f - 1.0f };
-
-                                        return linAlg::dist( camPos3_OS, currPtA ) < linAlg::dist( camPos3_OS, currPtB );
+                                        linAlg::vec3_t currPtA{ a.x, a.y, a.z };
+                                        linAlg::vec3_t currPtB{ b.x, b.y, b.z };
+                                        return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
                                     } );
+                    #else
+                        std::sort(  visibleBricksWithDists.begin(),
+                            visibleBricksWithDists.end(),
+                            [=]( const brickSortData_t& a, const brickSortData_t& b ) {
+                                linAlg::vec3_t currPtA{ 
+                                    ( a.x + 0.5f * brickLen ) / ( hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                    ( a.y + 0.5f * brickLen ) / ( hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                    ( a.z + 0.5f * brickLen ) / ( hiResDimOrig[2] ) * 2.0f - 1.0f };
+                                linAlg::vec3_t currPtB{ 
+                                    ( b.x + 0.5f * brickLen ) / ( hiResDimOrig[0] ) * 2.0f - 1.0f ,
+                                    ( b.y + 0.5f * brickLen ) / ( hiResDimOrig[1] ) * 2.0f - 1.0f ,
+                                    ( b.z + 0.5f * brickLen ) / ( hiResDimOrig[2] ) * 2.0f - 1.0f };
+
+                                return linAlg::dist( camPos3_OS, currPtA ) < linAlg::dist( camPos3_OS, currPtB );
+                            } );
                     #endif
 
                         //glDisable( GL_DEPTH_TEST );

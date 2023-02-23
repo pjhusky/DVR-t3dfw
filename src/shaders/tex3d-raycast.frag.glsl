@@ -250,11 +250,11 @@ void main() {
         o_fragColor.rgb = color.rgb * lightColor.rgb;        
     #endif
 
-    #if ( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST )        
+    #if ( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST ) 
         o_fragColor.rgb = vec3( loopIterations_dbg / maxLoopIterations_dbg ); // relative costs per ray, slightly shows brick-grid in entire volume
-    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_STEPSSKIPPED )
+    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_STEPSSKIPPED ) 
         o_fragColor.rgb = vec3( numSkips / ( loopIterations_dbg ) ); // how many skips thanks to EmptySpace => cuberille look
-    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_INVSTEPSSKIPPED )
+    #elif ( DEBUG_VIS_MODE == DEBUG_VIS_INVSTEPSSKIPPED ) 
         o_fragColor.rgb = vec3( 1.0 - numSkips / ( loopIterations_dbg ) ); // inverse of above => cuberille look enhanced
     #else
         // MEH

@@ -41,6 +41,11 @@ namespace {
         "stepsSkipped   ",
         "invStepsSkipped",
     };
+    static std::vector< const char* > debugVisModeNamesRaster{
+        "none           ",
+        "bricks         ",
+        "bricksWireframe",
+    };
 
     static std::vector< const char* > rayMarchAlgoNames{
         "Raster Cube Backfaces",
@@ -422,19 +427,29 @@ void DVR_GUI::StatsMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const in
 
         
         separatorWithVpadding();
-        for (int32_t i = 0; i < debugVisModeNames.size(); i++) {
-            if (!pGuiUserData->useEmptySpaceSkipping && i >= DEBUG_VIS_STEPSSKIPPED) { 
-                if (*pGuiUserData->pDebugVisModeIdx >= i) {
-                    *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>( eDebugVisMode::none );
+
+        if (*pGuiUserData->pRayMarchAlgoIdx == 1) {
+            for (int32_t i = 0; i < debugVisModeNames.size(); i++) {
+                if (!pGuiUserData->useEmptySpaceSkipping && i >= DEBUG_VIS_STEPSSKIPPED) {
+                    if (*pGuiUserData->pDebugVisModeIdx >= i) {
+                        *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>(eDebugVisMode::none);
+                    }
+                    break;
                 }
-                break; 
+                ImGui::RadioButton( debugVisModeNames[i], pGuiUserData->pDebugVisModeIdx, i );
             }
-            ImGui::RadioButton( debugVisModeNames[i], pGuiUserData->pDebugVisModeIdx, i );
+        } else {
+            *pGuiUserData->pDebugVisModeIdx = std::min<int32_t>( *pGuiUserData->pDebugVisModeIdx, debugVisModeNamesRaster.size() - 1 );
+            for (int32_t i = 0; i < debugVisModeNamesRaster.size(); i++) {
+                if (!pGuiUserData->useEmptySpaceSkipping && i >= DEBUG_VIS_RELCOST) {
+                    if (*pGuiUserData->pDebugVisModeIdx >= i) {
+                        *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>(eDebugVisMode::none);
+                    }
+                    break;
+                }
+                ImGui::RadioButton( debugVisModeNamesRaster[i], pGuiUserData->pDebugVisModeIdx, i );
+            }
         }
-        
-        //else {
-        //    *pGuiUserData->pDebugVisModeIdx = static_cast<int32_t>( eDebugVisMode::none );
-        //}
     }
     ImGui::End();
 }

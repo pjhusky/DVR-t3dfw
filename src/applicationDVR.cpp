@@ -759,8 +759,11 @@ Status_t ApplicationDVR::run() {
     stlModel.load( "./src/data/blender-cube-ascii.STL" );
     //stlModel.load( "./data/blender-cube.STL" );
 
-    GfxAPI::Shader meshShader;
-    GfxAPI::Shader volShader;
+    GfxAPI::Shader mesh_noESS_Shader;
+    GfxAPI::Shader vol_noESS_Shader;
+
+    GfxAPI::Shader mesh_ESS_Shader;
+    GfxAPI::Shader vol_ESS_Shader;
 
     mStlModelHandle = gfxUtils::createMeshGfxBuffers(
         stlModel.coords().size() / 3,
@@ -770,7 +773,8 @@ Status_t ApplicationDVR::run() {
         stlModel.indices().size(),
         stlModel.indices() );
     
-    LoadDVR_Shaders( visAlgo, DVR_GUI::eDebugVisMode::none, true, meshShader, volShader );
+    LoadDVR_Shaders( visAlgo, DVR_GUI::eDebugVisMode::none, true, mesh_ESS_Shader, vol_ESS_Shader );
+    LoadDVR_Shaders( visAlgo, DVR_GUI::eDebugVisMode::none, false, mesh_noESS_Shader, vol_noESS_Shader );
 
 
 
@@ -1225,7 +1229,8 @@ Status_t ApplicationDVR::run() {
                                          viewPlane_normal_OS[2], 
                                          -linAlg::dot( viewPlane_normal_OS, {camPos_OS[0], camPos_OS[1], camPos_OS[2] } ) };
 
-
+            const bool force_ESS_off = (!didMove && debugVisMode == DVR_GUI::eDebugVisMode::none);
+            auto& meshShader = (!useEmptySpaceSkipping || force_ESS_off) ? mesh_noESS_Shader : mesh_ESS_Shader;
         #if 1 // unit-cube STL file
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
                 glEnable( GL_CULL_FACE );
@@ -1246,7 +1251,7 @@ Status_t ApplicationDVR::run() {
                 meshShader.setVec4( "u_camPos_OS", camPos_OS );
                 //meshShader.setVec3( "u_volDimRatio", volDimRatio ); //!!!
 
-                if (!useEmptySpaceSkipping) {
+                if (!useEmptySpaceSkipping || force_ESS_off) {
                     meshShader.setVec3( "u_volDimRatio", { 1.0f, 1.0f, 1.0f } ); //!!!
                     meshShader.setVec3( "u_volOffset", { 0.0f, 0.0f, 0.0f } ); //!!!
                     glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
@@ -1504,6 +1509,7 @@ Status_t ApplicationDVR::run() {
         #endif
 
         #if 1 
+            auto& volShader = (!useEmptySpaceSkipping || force_ESS_off) ? vol_noESS_Shader : vol_ESS_Shader;
             if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect) {
                 glDisable( GL_CULL_FACE );
                 volShader.use( true );
@@ -1707,7 +1713,9 @@ Status_t ApplicationDVR::run() {
                 ////#define DVR_MODE                XRAY
                 ////#define DVR_MODE                MRI
 
-                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
+                LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
                 didMove = true;
             }
 
@@ -1716,12 +1724,15 @@ Status_t ApplicationDVR::run() {
                 printf( "debugVisModeIdx = %d, debugVisMode = %d\n", *pDebugVisModeIdx, (int)debugVisMode );
 
                 // spawn shader compiler and re-load DVR shaders
-                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
+                LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
+
                 didMove = true;
             }
 
             if (prevUseEmptySpaceSkipping != useEmptySpaceSkipping) {
-                LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
                 didMove = true;
             }
 
@@ -1734,7 +1745,8 @@ Status_t ApplicationDVR::run() {
             if (loadFileTrigger) {
                 load( mDataFileUrl, gradientCalculationAlgoIdx );
                 
-                fixupShaders( meshShader, volShader );
+                fixupShaders( mesh_ESS_Shader, vol_ESS_Shader );
+                fixupShaders( mesh_noESS_Shader, vol_noESS_Shader );
 
                 resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
 

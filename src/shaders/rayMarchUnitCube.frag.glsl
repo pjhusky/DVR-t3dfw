@@ -66,7 +66,7 @@ void main() {
             gl_FragDepth = 1.0;
             o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 0.0;
             return;
-        #elif 0 //( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST )
+        #elif 0 // failed trial of hiding brick seams 
             gl_FragDepth = 1.0;
             o_fragColor.rgb = vec3( 0.0 ); o_fragColor.a = 0.0;
             return;

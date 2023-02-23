@@ -125,6 +125,10 @@ namespace {
                 pGuiUserData->pSharedMem->put( std::string{ "saveTF" }, tfFileUrl );
             }
         }
+
+        if ( ImGui::Button( "Reset Transferfunction", guiButtonSize() ) ) {
+            pGuiUserData->pSharedMem->put( "resetTF", "true" );
+        }
     }
 }
 
@@ -443,7 +447,7 @@ void DVR_GUI::StatsMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const in
                 ImGui::RadioButton( debugVisModeNames[i], pGuiUserData->pDebugVisModeIdx, i );
             }
         } else {
-            *pGuiUserData->pDebugVisModeIdx = std::min<int32_t>( *pGuiUserData->pDebugVisModeIdx, debugVisModeNamesRaster.size() - 1 );
+            *pGuiUserData->pDebugVisModeIdx = std::min<int32_t>( *pGuiUserData->pDebugVisModeIdx, static_cast<int32_t>( debugVisModeNamesRaster.size() - 1 ) );
             for (int32_t i = 0; i < debugVisModeNamesRaster.size(); i++) {
                 if (!pGuiUserData->useEmptySpaceSkipping && i >= DEBUG_VIS_RELCOST) {
                     if (*pGuiUserData->pDebugVisModeIdx >= i) {

@@ -301,20 +301,7 @@ ApplicationTransferFunction::ApplicationTransferFunction(
         mpIsovalMarkerTex2d->uploadData( pData, GL_RGBA, GL_UNSIGNED_BYTE, mipLvl );
     }
     
-
-    mDensityColors.clear();
-
-    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
-    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
-
-    mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
-    mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
-    mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
-    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
-
-    colorKeysToTex2d();
-    mSharedMem.put( "TFdirty", "true" );
+    reset();
 
     {
         std::vector<uint8_t> densityHistogramCPU;
@@ -441,6 +428,32 @@ Status_t ApplicationTransferFunction::save( const std::string& fileUrl ) {
     return Status_t::OK();
 }
 
+void ApplicationTransferFunction::reset() {
+    mDensityColors.clear();
+
+    //mDensityColors.insert( std::make_pair( 0,    linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    //mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{1.0f, 1.0f, 1.0f} ) );
+
+    mDensityColors.insert( std::make_pair(    0, linAlg::vec3_t{0.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair(   60, linAlg::vec3_t{1.0f, 0.0f, 0.0f} ) );
+    mDensityColors.insert( std::make_pair(  200, linAlg::vec3_t{0.0f, 0.3f, 0.5f} ) );
+    mDensityColors.insert( std::make_pair(  300, linAlg::vec3_t{0.1f, 0.5f, 0.3f} ) );
+    mDensityColors.insert( std::make_pair( 1023, linAlg::vec3_t{0.5f, 1.0f, 1.0f} ) );
+
+    colorKeysToTex2d();
+
+    const float conversionFactor = 1.0f / static_cast<float>( mTransparencyPaintHeightsCPU.size() );
+    for ( int32_t idx = 0; idx < mTransparencyPaintHeightsCPU.size(); idx++ ) {
+        mTransparencyPaintHeightsCPU[idx] = static_cast<uint8_t>( 255.0f * static_cast<float>(idx) * conversionFactor );
+    }
+
+    densityTransparenciesToTex2d();
+
+    mSharedMem.put( "TransparencyPaintHeightsCPU", mTransparencyPaintHeightsCPU.data(), static_cast<uint32_t>( mTransparencyPaintHeightsCPU.size() ) );
+
+    mSharedMem.put( "TFdirty", "true" );
+}
+
 Status_t ApplicationTransferFunction::run() {
     
     // handle window resize
@@ -561,6 +574,11 @@ Status_t ApplicationTransferFunction::run() {
             save( saveTfUrl );
             mSharedMem.put( std::string{ "saveTF" }, std::string{ " " } );
             printf( "after TF save done frameNum = %llu\n", frameNum );
+        }
+
+        if (mSharedMem.get( "resetTF" ) == "true") {
+            reset();
+            mSharedMem.put( "resetTF", "false" );
         }
 
         if (mCheckWatchdog && parentProcessWatchdogTicks > 180) {

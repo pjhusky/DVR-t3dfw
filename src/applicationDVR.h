@@ -66,6 +66,7 @@ struct ApplicationDVR : public iApplication {
     void tryStartShaderCompilerApp();
 
     void resetTransformations( ArcBall::ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle );
+    void resetTF();
 
     void setTFCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mTFCmdLinePath = cmdLinePath; }
     void setSCCommandLinePath( const std::vector<TinyProcessLib::Process::string_type>& cmdLinePath ) { mSCCmdLinePath = cmdLinePath; }

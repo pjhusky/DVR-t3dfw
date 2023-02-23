@@ -1874,6 +1874,10 @@ void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, floa
     targetCamZoomDist = initialCamZoomDist;
 }
 
+void ApplicationDVR::resetTF() {
+    mSharedMem.put( "resetTF", "true" );
+}
+
 void ApplicationDVR::handleScreenResize( 
     GLFWwindow *const pWindow,
     linAlg::mat4_t& projMatrix, 

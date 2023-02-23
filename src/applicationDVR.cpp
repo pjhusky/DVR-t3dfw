@@ -1410,7 +1410,7 @@ Status_t ApplicationDVR::run() {
 
                                     {
                                     //#pragma omp critical // synched push_back
-                                        std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
+                                        //std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
                                         //visibleBricksWithDists.push_back( { // works ootb with concurrent_vector
                                         //    .x = x,
                                         //    .y = y,

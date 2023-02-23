@@ -208,7 +208,11 @@ void main() {
     gl_FragDepth = ( color.a >= 0.99 ) ? 0.0 : 1.0;
     //gl_FragDepth = 1.0; //
     //gl_FragDepth = gl_FragCoord.z;
-    o_fragColor.a = color.a;
 
-    //o_fragColor.a = 0.25;
+#if ( USE_EMPTY_SPACE_SKIPPING != 0 )
+    o_fragColor.a = color.a;
+#else
+    o_fragColor.a = 0.25;
+#endif
+
 }

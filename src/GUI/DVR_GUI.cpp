@@ -287,6 +287,10 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
             separatorWithVpadding();
 
             ImGui::Checkbox( "Use Empty Space Skipping", &pGuiUserData->useEmptySpaceSkipping );
+            //ImGui::Checkbox( "Use Empty Space Skipping\n(Only when not moving\nor debug-vis is active)", &pGuiUserData->useEmptySpaceSkipping );
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("\nOnly when not moving or debug-vis is active");
+            }
 
             //LightMenuGui( pGuiUserData );
 

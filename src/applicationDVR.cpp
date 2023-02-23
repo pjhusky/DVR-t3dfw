@@ -30,6 +30,9 @@
 //      - NOTE-TO-SELF: launch glslValidator.exe with "cmd /C ..." so that '>' piping of stdout to file works 
 // bei SW arch kann ich das mit zwei prozessen für 2 opengl windows anmerken und daß sie über shared mem kommunizieren (quasi named pipes?)
 //      - volume data preproc mittels OpenMP thread-parallel
+// ESS will automatically toggle off when cam/objects stop moving and we don't currently visualize bricks 
+// NOTE: raster shader => if a large amount of bricks remains visible, the ESS variant will be slower than the brute-force method
+//       shall we switch to noESS in that case?
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -1359,6 +1362,10 @@ Status_t ApplicationDVR::run() {
                             viewPlaneNormalRefOS[1],
                             viewPlaneNormalRefOS[2],
                             -linAlg::dot( viewPlaneNormalRefOS, refPt ) };
+
+
+                        // NOTE: if a large amount of bricks remains visible, the ESS variant will be slower than the brute-force method
+                        //       shall we switch to noESS in that case?
 
                         //int threadId;
                     #pragma omp parallel for schedule(dynamic, 1) //private(threadId)		// OpenMP 

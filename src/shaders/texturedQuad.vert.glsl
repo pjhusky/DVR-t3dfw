@@ -1,9 +1,7 @@
 #version 330 core
-//#extension GL_GOOGLE_include_directive : enable
 
 layout ( location = 0 ) in vec3 a_pos;
 
-//layout(location = 0) 
 out vec2 v_TexCoord;
 
 uniform vec4 u_topL;
@@ -15,7 +13,6 @@ out gl_PerVertex{
 
 void main() {
 
-    //v_TexCoord = vec2( gl_VertexID / 2, 1 - gl_VertexID % 2 ) * 2.0f;
     v_TexCoord = ( a_pos.xy * 0.5 + 0.5 );
     vec2 scaledPos = mix( u_topL.xy, u_btmR.xy, v_TexCoord.xy );
     vec2 scaledTC  = mix( u_topL.zw, u_btmR.zw, v_TexCoord.xy );

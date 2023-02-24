@@ -526,8 +526,11 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 //    labelFileUrl += "Label.json";
         
     const auto labelFileUrl = path.replace_extension( ".label.json" );
-
-    loadLabels(labelFileUrl.string());
+    if (std::filesystem::exists( labelFileUrl ) ) {
+        loadLabels( labelFileUrl.string() );
+    } else {
+        printf( "Label file '%s' does not exist\n", labelFileUrl.string().c_str() );
+    }
 
     return Status_t::OK();
 }
@@ -535,7 +538,11 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 Status_t ApplicationDVR::loadLabels( const std::string& fileUrl ) {
     
     std::ifstream f(fileUrl);
-    json data = json::parse(f);
+    try {
+        json data = json::parse( f );
+    } catch (json::exception& e) {
+        printf( "json parse exception: %s\n", e.what() );
+    }
 
     return Status_t::OK();
 }

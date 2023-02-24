@@ -40,6 +40,7 @@ struct ApplicationDVR : public iApplication {
     virtual ~ApplicationDVR();
 
     Status_t load( const std::string& fileUrl, const int32_t gradientMode );
+    Status_t loadLabels( const std::string& fileUrl );
 
     void setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
                                 linAlg::vec3_t& rotPivotPosWS, 

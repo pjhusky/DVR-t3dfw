@@ -68,6 +68,13 @@
 #include <chrono>
 #include <thread>
 
+#include <fstream>
+#include "external/jsonForModernCpp/single_include/nlohmann/json.hpp"
+using json = nlohmann::json;
+
+#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#include "external/stb/stb_truetype.h"
+
 #include <algorithm>
 #include <execution>
 
@@ -242,6 +249,88 @@ namespace {
     }
 
     
+
+
+    ////////////////
+    unsigned char ttf_buffer[1<<20];
+    unsigned char temp_bitmap[512*512];
+
+    stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+    GfxAPI::Texture*                fontTex2d;
+    static gfxUtils::bufferHandles_t textQuadBuffer;
+
+    static GfxAPI::Shader textShader;
+
+    void initStbFontRendering(void)
+    {
+        fread(ttf_buffer, 1, 1<<20, fopen("c:/windows/fonts/times.ttf", "rb"));
+        stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
+        // can free ttf_buffer at this point
+        //// can free temp_bitmap at this point
+
+        GfxAPI::Texture::Desc_t fontTexDesc{
+            .texDim = { 512, 512, 0 },
+            .numChannels = 1,
+            .channelType = GfxAPI::eChannelType::i8,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        fontTex2d = new GfxAPI::Texture;
+        fontTex2d->create( fontTexDesc );
+        fontTex2d->uploadData( temp_bitmap, GL_RED, GL_UNSIGNED_BYTE, 0 );
+
+        textQuadBuffer = gfxUtils::createScreenQuadGfxBuffers();
+
+        std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > textShaderDesc{
+            std::make_pair( "./src/shaders/texturedQuad.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+            std::make_pair( "./src/shaders/texturedQuad.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
+        };
+        gfxUtils::createShader( textShader, textShaderDesc );
+        textShader.use( true );
+        textShader.setInt( "u_Tex", 5 );
+        textShader.setVec4( "u_Color", { 0.5f, 1.0f, 0.1f, 0.5f} );
+        textShader.use( false );
+    }
+
+    void renderStbFontText(float x, float y, const char* text)
+    {
+        glDisable( GL_CULL_FACE );
+
+        // NOPE assume orthographic projection with units = screen pixels, origin at top left
+        // assume coords in NDC
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        fontTex2d->bindToTexUnit( 5 );
+        
+        textShader.use( true );
+
+        glBindVertexArray( textQuadBuffer.vaoHandle );
+        while (*text) {
+            if (*text >= 32 && *text < 128) {
+                stbtt_aligned_quad q;
+                stbtt_GetBakedQuad( cdata, 512, 512, *text - 32, &x, &y, &q, 1 );//1=opengl & d3d10+,0=d3d9
+                
+                textShader.setVec4( "u_topL", { q.x0/512.0f, -q.y0/512.0f, q.s0, q.t0 } );
+                textShader.setVec4( "u_btmR", { q.x1/512.0f, -q.y1/512.0f, q.s1, q.t1 } );
+
+                glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0 );
+            }
+            ++text;
+        }
+        glBindVertexArray( 0 );
+        textShader.use( false );
+
+        fontTex2d->unbindFromTexUnit();
+
+        glEnable( GL_CULL_FACE );
+    }
+    ////////////////
+
+
+
+
 } // namespace
 
 
@@ -319,6 +408,7 @@ ApplicationDVR::ApplicationDVR(
     const auto mipFilter = GfxAPI::eFilterMode::box;
     mpEmptySpaceTex2d->setFilterMode( minFilter, magFilter, mipFilter );
 
+    initStbFontRendering();
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -426,6 +516,26 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     mSharedMem.put( "volTexDim3D", reinterpret_cast<const uint8_t *const>( texDim.data() ), static_cast<uint32_t>( texDim.size() * sizeof( texDim[0] ) ) );
     mSharedMem.put( "histoBuckets", reinterpret_cast<const uint8_t *const>( histoBuckets.data() ), static_cast<uint32_t>( histoBuckets.size() * sizeof( histoBuckets[0] ) ) );
     mSharedMem.put( "histoBucketsDirty", "true" );
+
+    auto path = std::filesystem::path( fileUrl );
+//    const auto filename = path.filename();
+////    path.extension
+//    auto labelFileUrl = std::filesystem::absolute( path );
+//    auto t1 = std::filesystem::absolute( path.root_directory() );
+//    labelFileUrl += filename.root_name(); //std::filesystem::path::root_name( path );
+//    labelFileUrl += "Label.json";
+        
+    const auto labelFileUrl = path.replace_extension( ".label.json" );
+
+    loadLabels(labelFileUrl.string());
+
+    return Status_t::OK();
+}
+
+Status_t ApplicationDVR::loadLabels( const std::string& fileUrl ) {
+    
+    std::ifstream f(fileUrl);
+    json data = json::parse(f);
 
     return Status_t::OK();
 }
@@ -789,7 +899,7 @@ Status_t ApplicationDVR::run() {
     };
     gfxUtils::createShader( fullscreenTriShader, fullscreenTriShaderDesc );
     fullscreenTriShader.use( true );
-    fullscreenTriShader.setInt(   "u_Tex", 0 );
+    fullscreenTriShader.setInt( "u_Tex", 0 );
     fullscreenTriShader.use( false );
 
 
@@ -1577,6 +1687,7 @@ Status_t ApplicationDVR::run() {
             glClearBufferfv( GL_DEPTH, 0, &clearDepthValue );
         }
 
+
         glDisable( GL_DEPTH_TEST );
         glDepthMask( GL_FALSE );
         glDisable( GL_BLEND );
@@ -1592,6 +1703,11 @@ Status_t ApplicationDVR::run() {
 
 
         glCheckError();
+
+        renderStbFontText( 0.0f, 0.0f, "Hello There" );
+
+
+
 
         if (setNewRotationPivot > 0) {
             if (setNewRotationPivot > 1) {

@@ -1506,6 +1506,7 @@ Status_t ApplicationDVR::run() {
                             std::end(visibleBricksWithDists),
                             [&]( const brickSortData_t& a, const brickSortData_t& b ) {
 
+                                // https://math.stackexchange.com/questions/3517305/finding-the-nearest-least-distance-point-on-a-cube-from-a-point-lying-outside
                                 auto clampFunc = []( float t, float a, float b ) {
                                     if (t <= a) { return a; }
                                     else if (t <= b) { return t; }
@@ -1551,7 +1552,6 @@ Status_t ApplicationDVR::run() {
                     }
                     else {
                         glEnable( GL_BLEND );
-                        //glBlendEquation( GL_FUNC_ADD );
                         glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
                     }
                     glBlendEquation( GL_FUNC_ADD );

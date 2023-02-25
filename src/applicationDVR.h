@@ -9,6 +9,7 @@
 
 #include "tiny-process-library/process.hpp"
 #include "sharedMemIPC.h"
+#include "stbFont.h"
 
 #include "GUI/DVR_GUI.h"
 
@@ -119,6 +120,8 @@ struct ApplicationDVR : public iApplication {
     TinyProcessLib::Process*                             mpSCProcess;
 
     SharedMemIPC                    mSharedMem;
+
+    stbFont                         mStbFont;
 
     std::thread*                    mpWatchdogThread;
 

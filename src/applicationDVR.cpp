@@ -72,8 +72,7 @@
 #include "external/jsonForModernCpp/single_include/nlohmann/json.hpp"
 using json = nlohmann::json;
 
-#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
-#include "external/stb/stb_truetype.h"
+#include "external/ttf2mesh/ttf2mesh.h"
 
 #include <algorithm>
 #include <execution>
@@ -249,101 +248,6 @@ namespace {
     }
 
     
-
-
-    ////////////////
-    unsigned char ttf_buffer[1<<24];
-    unsigned char temp_bitmap[512*512];
-
-    stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
-    GfxAPI::Texture*                fontTex2d;
-    static gfxUtils::bufferHandles_t textQuadBuffer;
-
-    static GfxAPI::Shader textShader;
-
-    void initStbFontRendering(void)
-    {
-        fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Skinny__.ttf", "rb"));
-        //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Stylish-Regular.ttf", "rb"));
-        //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Spectral-Regular.ttf", "rb"));
-        stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
-        // can free ttf_buffer at this point
-        //// can free temp_bitmap at this point
-
-        GfxAPI::Texture::Desc_t fontTexDesc{
-            .texDim = { 512, 512, 0 },
-            .numChannels = 1,
-            .channelType = GfxAPI::eChannelType::i8,
-            .semantics = GfxAPI::eSemantics::color,
-            .isMipMapped = false,
-        };
-        fontTex2d = new GfxAPI::Texture;
-        fontTex2d->create( fontTexDesc );
-        fontTex2d->uploadData( temp_bitmap, GL_RED, GL_UNSIGNED_BYTE, 0 );
-
-        textQuadBuffer = gfxUtils::createScreenQuadGfxBuffers();
-
-        std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > textShaderDesc{
-            std::make_pair( "./src/shaders/texturedQuad.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
-            std::make_pair( "./src/shaders/texturedQuad.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ),
-        };
-        gfxUtils::createShader( textShader, textShaderDesc );
-        textShader.use( true );
-        textShader.setInt( "u_Tex", 5 );
-        textShader.setVec4( "u_Color", { 0.99f, 0.99f, 0.99f, 0.75f} );
-        textShader.use( false );
-    }
-
-    void renderStbFontText(float x, float y, const char* text)
-    {
-        glDisable( GL_CULL_FACE );
-
-        // NOPE assume orthographic projection with units = screen pixels, origin at top left
-        // assume coords in NDC
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        fontTex2d->bindToTexUnit( 5 );
-        
-        textShader.use( true );
-
-        linAlg::mat4_t orthoMat;
-        //linAlg::loadPerspectiveMatrix( orthoMat, 0.0f, fbWidth,  )
-        //glViewport( 0, 0, 2400, 1800 );
-        //linAlg::loadPerspectiveMatrix( orthoMat, 512.0f, -512.0, -512.0f, 512.0f, -1.0f, 1.0f );
-        linAlg::loadOrthoMatrix( orthoMat, -512.0f, 512.0, 512.0f, -512.0f, -1.0f, 1.0f );
-        linAlg::mat4_t orthoMatT;
-        linAlg::transpose( orthoMatT, orthoMat );
-        textShader.setMat4( "u_trafoMatrix", orthoMat );
-
-        glBindVertexArray( textQuadBuffer.vaoHandle );
-        while (*text) {
-            if (*text >= 32 && *text < 128) {
-                stbtt_aligned_quad q;
-                stbtt_GetBakedQuad( cdata, 512, 512, *text - 32, &x, &y, &q, 1 );//1=opengl & d3d10+,0=d3d9
-                
-                //textShader.setVec4( "u_topL", { q.x0/512.0f, -q.y0/512.0f, q.s0, q.t0 } );
-                //textShader.setVec4( "u_btmR", { q.x1/512.0f, -q.y1/512.0f, q.s1, q.t1 } );
-                textShader.setVec4( "u_topL", { q.x0, q.y0, q.s0, q.t0 } );
-                textShader.setVec4( "u_btmR", { q.x1, q.y1, q.s1, q.t1 } );
-
-                glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0 );
-            }
-            ++text;
-        }
-        glBindVertexArray( 0 );
-        textShader.use( false );
-
-        fontTex2d->unbindFromTexUnit();
-
-        glEnable( GL_CULL_FACE );
-    }
-    ////////////////
-
-
-
-
 } // namespace
 
 
@@ -421,7 +325,7 @@ ApplicationDVR::ApplicationDVR(
     const auto mipFilter = GfxAPI::eFilterMode::box;
     mpEmptySpaceTex2d->setFilterMode( minFilter, magFilter, mipFilter );
 
-    initStbFontRendering();
+    //mStbFont.initStbFontRendering();
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -1783,14 +1687,14 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        renderStbFontText( -512.0f, -512.0f + 24.0f, "Left Top" );
-        renderStbFontText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
-        renderStbFontText( -512.0f,  512.0f -  4.0f, "Left Btm" );
-        renderStbFontText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
-        renderStbFontText(  0.0f,  0.0f, "Hello There" );
+        mStbFont.renderStbFontText( -512.0f, -512.0f + 24.0f, "Left Top" );
+        mStbFont.renderStbFontText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
+        mStbFont.renderStbFontText( -512.0f,  512.0f -  4.0f, "Left Btm" );
+        mStbFont.renderStbFontText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
+        mStbFont.renderStbFontText(  0.0f,  0.0f, "Hello There" );
 
-        renderStbFontText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
-        renderStbFontText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
+        mStbFont.renderStbFontText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
+        mStbFont.renderStbFontText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
 
 
 

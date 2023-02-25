@@ -252,7 +252,7 @@ namespace {
 
 
     ////////////////
-    unsigned char ttf_buffer[1<<20];
+    unsigned char ttf_buffer[1<<24];
     unsigned char temp_bitmap[512*512];
 
     stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
@@ -263,7 +263,9 @@ namespace {
 
     void initStbFontRendering(void)
     {
-        fread(ttf_buffer, 1, 1<<20, fopen("./data/fonts/Skinny__.ttf", "rb"));
+        fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Skinny__.ttf", "rb"));
+        //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Stylish-Regular.ttf", "rb"));
+        //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Spectral-Regular.ttf", "rb"));
         stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
         // can free ttf_buffer at this point
         //// can free temp_bitmap at this point

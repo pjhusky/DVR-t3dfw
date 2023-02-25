@@ -63,8 +63,8 @@ void main() {
 
         #if ( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST ) // cool brick wireframe mode
             //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!        
-            gl_FragDepth = 1.0;
-            o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 0.0;
+            gl_FragDepth = 0.0;
+            o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0;
             return;
         #elif 0 // failed trial of hiding brick seams 
             gl_FragDepth = 1.0;
@@ -104,9 +104,6 @@ void main() {
 
 
     vec4 color = vec4( 0.0 );
-#if ( DVR_MODE == XRAY )
-    float numPosDensities = 0.0;
-#endif
     
     //uvec2 pix = uvec2( uint( gl_FragCoord.x ), uint( gl_FragCoord.y ) );
     uvec2 pix = uvec2( uint( gl_FragCoord.x + 0.17 * u_frameNum ), uint( gl_FragCoord.y + 0.17 * u_frameNum ) );
@@ -177,7 +174,6 @@ void main() {
         color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
         color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
-        numPosDensities += 1.0;
     #elif ( DVR_MODE == MRI )
         if ( colorAndAlpha.a > color.a ) {
             color.a = colorAndAlpha.a;
@@ -197,7 +193,12 @@ void main() {
 
     #if ( DVR_MODE == XRAY )
         color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
-        o_fragColor.rgb = color.rgb / numPosDensities;
+        o_fragColor.rgb = color.rgb / ( lenInVolume / RAY_STEP_SIZE );
+
+        #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
+            o_fragColor.a = 1.0 - color.a / ( lenInVolume / RAY_STEP_SIZE );
+        #endif
+
     #else
         o_fragColor.rgb = color.rgb * lightColor.rgb;
     #endif

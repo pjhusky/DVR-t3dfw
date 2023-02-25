@@ -24,6 +24,8 @@ void main() {
 
     vec3 a_pos01 = ( a_pos * 0.5 + 0.5 );
     vec3 scaledPos = clamp( a_pos01 * u_volDimRatio + u_volOffset, 0.0, 1.0 ) * 2.0 - 1.0;
+    
+    
 
     v_coord3d.xyz = scaledPos.xyz * 0.5 + 0.5;
 
@@ -48,5 +50,6 @@ void main() {
     }
 
     gl_Position = u_mvpMat * vec4( scaledPos, 1.0 );
+//    gl_Position.xy *= 1.1;
 
 }

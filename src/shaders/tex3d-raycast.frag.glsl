@@ -240,7 +240,7 @@ void main() {
     }
 
     #if ( DVR_MODE == XRAY )
-        color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
         o_fragColor.rgb = color.rgb / ( lenInVolume / RAY_STEP_SIZE );
     #else
         o_fragColor.rgb = color.rgb * lightColor.rgb;        

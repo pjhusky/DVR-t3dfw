@@ -1236,6 +1236,7 @@ Status_t ApplicationDVR::run() {
         glEnable( GL_DEPTH_TEST );
         //glDepthFunc( GL_LESS );
         glDepthFunc( GL_LEQUAL );
+        //glDepthFunc( GL_GEQUAL );
         
         mpVol_RT_Fbo->bind( true );
         //glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -1362,6 +1363,29 @@ Status_t ApplicationDVR::run() {
                     glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_ONE_MINUS_SRC_ALPHA); // F2B
                     //glClearColor( 0.0, 0.0, 0.0, 1.0 );
                     //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+                    if (visAlgo == DVR_GUI::eVisAlgo::xray) {
+                        glClearColor( 0.0, 0.0, 0.0, 0.0 );
+                        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+                        glBlendEquation(GL_FUNC_ADD);
+                        
+                        //glBlendFunc( GL_SRC_ALPHA, GL_DST_COLOR );
+                        //glBlendFunc( GL_SRC_COLOR, GL_DST_ALPHA );
+                        //glBlendFunc( GL_DST_COLOR, GL_SRC_ALPHA );
+                        //glBlendFunc( GL_DST_ALPHA, GL_SRC_COLOR );
+                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+                        //glBlendFunc( GL_SRC_ALPHA, GL_ZERO );
+                        //glBlendFunc( GL_ONE_MINUS_SRC_ALPHA, GL_DST_COLOR );
+                        
+                        //glBlendFunc(GL_CONSTANT_ALPHA_EXT, GL_ONE); // http://www.tinysg.de/techGuides/tg2_xray.html
+
+                        glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+                        //glBlendFunc( GL_ONE, GL_ONE );
+                        //glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE);
+                        //glBlendColor(1.0, 1.0, 1.0, 1.0);
+                        
+                    }
 
                     if (visAlgo == DVR_GUI::eVisAlgo::mri) {
                         glClearColor( 0.0, 0.0, 0.0, 0.0 );

@@ -39,39 +39,33 @@ void main() {
 
     vec3 curr_sample_pos;
 
-
-
     vec3 ray_end = v_coord3d;
-    //o_fragColor.rgb = ray_end; o_fragColor.a = 1.0; return;
 
     vec3 ray_start = u_camPos_OS.xyz * 0.5 + 0.5;
     vec3 ray_dir = ray_end - ray_start; // no need to normalize here
     float tnear, tfar;
 
 #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
-    //ivec3 loResDim = textureSize( u_densityLoResTex, 0 );
-    //vec3 fLoResDim = vec3( loResDim );
-    //vec3 fRecipLoResDim = 1.0 / fLoResDim;
-    //int hit = intersectBox(ray_start, ray_dir, u_volOffset, u_volOffset + u_volDimRatio * fRecipLoResDim, tnear, tfar);
     int hit = intersectBox(ray_start, ray_dir, u_volOffset, u_volOffset + u_volDimRatio, tnear, tfar);
-    //if ( hit == 0 ) {o_fragColor.rgb = curr_sample_pos; o_fragColor.a = 1.0; return;}
-    //if ( hit == 0 ) {o_fragColor.rgb = vec3( 1.0, 0.8, 0.0 ); o_fragColor.a = 1.0; return;}
 
     #if 1
         if ( tfar - tnear < 0.004 ) {
-        //if ( hit == 0 || abs( tfar - tnear ) < 0.0001 ) {
 
         #if ( DEBUG_VIS_MODE == DEBUG_VIS_RELCOST ) // cool brick wireframe mode
             //o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0; // <<< COOL !!! brick edge outlines overlayed over normal rendering !!!        
             gl_FragDepth = 0.0;
             o_fragColor.rgb = vec3( 1.0 ); o_fragColor.a = 1.0;
             return;
-        #elif 0 // failed trial of hiding brick seams 
-            gl_FragDepth = 1.0;
-            o_fragColor.rgb = vec3( 0.0 ); o_fragColor.a = 0.0;
-            return;
         #else
+
+//        #if ( DVR_MODE == XRAY )
+//            o_fragColor = vec4( 0.0 );
+//            gl_FragDepth = 1.0;
+//            return;
+//        #endif
+//
             discard;
+            //gl_FragDepth = 0.0; o_fragColor.rgb = vec3( 0.0 ); o_fragColor.a = 1.0; // cool black brick outlines
             return;
         #endif
         }
@@ -192,23 +186,22 @@ void main() {
     }
 
     #if ( DVR_MODE == XRAY )
-        color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
         o_fragColor.rgb = color.rgb / ( lenInVolume / RAY_STEP_SIZE );
 
         #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
-            o_fragColor.a = 1.0 - color.a / ( lenInVolume / RAY_STEP_SIZE );
+            lenInVolume = max( 0.001, lenInVolume );
+            o_fragColor.rgb = color.rgb / (lenInVolume / RAY_STEP_SIZE );
+            o_fragColor.a = color.a / ( BRICK_BLOCK_DIM * lenInVolume / RAY_STEP_SIZE );
+            gl_FragDepth = 1.0;
+            return;
         #endif
 
     #else
         o_fragColor.rgb = color.rgb * lightColor.rgb;
     #endif
 
-    //gl_FragDepth = 1.0 - 1.0/length(ray_dir); //tnear;
-    //gl_FragDepth = 0.5 * ( tnear + tfar ); //tnear;
-
     gl_FragDepth = ( color.a >= 0.99 ) ? 0.0 : 1.0;
-    //gl_FragDepth = 1.0; //
-    //gl_FragDepth = gl_FragCoord.z;
 
 #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
     o_fragColor.a = color.a;

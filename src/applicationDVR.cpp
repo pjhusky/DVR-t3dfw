@@ -72,7 +72,7 @@
 #include "external/jsonForModernCpp/single_include/nlohmann/json.hpp"
 using json = nlohmann::json;
 
-#include "external/ttf2mesh/ttf2mesh.h"
+#include "stbFont.h"
 
 #include <algorithm>
 #include <execution>
@@ -1363,34 +1363,26 @@ Status_t ApplicationDVR::run() {
                     //glClearColor( 0.0, 0.0, 0.0, 1.0 );
                     //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+                    if (visAlgo == DVR_GUI::eVisAlgo::mri) {
+                        glClearColor( 0.0, 0.0, 0.0, 0.0 );
+                        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-                    //glBlendFunc( GL_ONE, GL_ONE);
-                    {
-                        //float scaleFactor = 1.0f / brickLen;
-                        //int32_t scaleBrickLen = 2 * brickLen;
-                        //float scaleFactor = 1.0f / scaleBrickLen;
-                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ scaleFactor, scaleFactor, scaleFactor } );
-                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{ 
-                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[0] /*- 1*/ ), 
-                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[1] /*- 1*/ ),
-                        //    1.0f / ( mVolLoResEmptySpaceSkipDim[2] /*- 1*/ )} );
+                        //glBlendEquation(GL_MAX);
+                        //glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR ); // Hadwiger Vol Book, p57
 
+                        //glBlendEquation(GL_FUNC_ADD);
+                        glBlendEquation(GL_MAX);
+                        glBlendFunc( GL_SRC_ALPHA, GL_DST_ALPHA );
+                        //glBlendFunc( GL_ONE, GL_ONE );
+                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA );
 
-                        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-
-                    #if 0
-                        for (int32_t z = 0; z < mVolLoResEmptySpaceSkipDim[2]; z++) {
-                            for (int32_t y = 0; y < mVolLoResEmptySpaceSkipDim[1]; y++) {
-                                for (int32_t x = 0; x < mVolLoResEmptySpaceSkipDim[0]; x++) {
-                                    meshShader.setVec3( "u_volOffset", {
-                                        (float)(x) / (mVolLoResEmptySpaceSkipDim[0] /*- 1*/),
-                                        (float)(y) / (mVolLoResEmptySpaceSkipDim[1] /*- 1*/),
-                                        (float)(z) / (mVolLoResEmptySpaceSkipDim[2] /*- 1*/) } );
-                                    glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
-                                }
-                            }
+                        //glBlendFunc( GL_DST_ALPHA, GL_SRC_ALPHA );
                     }
-                    #else
+
+
+                    {
+
                         const auto hiResDimOrig = mpData->getDim();
 
                         auto hiResDim = mpData->getDim();
@@ -1399,9 +1391,9 @@ Status_t ApplicationDVR::run() {
                         hiResDim[2] = ((hiResDim[2] + (brickLen - 1)) / brickLen) * brickLen;
 
                         meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
-                            (float)(brickLen) / (hiResDimOrig[0] /*- 1*/),
-                            (float)(brickLen) / (hiResDimOrig[1] /*- 1*/),
-                            (float)(brickLen) / (hiResDimOrig[2] /*- 1*/) } );
+                            (float)(brickLen) / hiResDimOrig[0],
+                            (float)(brickLen) / hiResDimOrig[1],
+                            (float)(brickLen) / hiResDimOrig[2] } );
 
 
                         visibleBricksWithDists.clear();
@@ -1415,30 +1407,21 @@ Status_t ApplicationDVR::run() {
                             entry.clear();
                         }
 
-                        //const float lenCamOS_z = linAlg::len( linAlg::vec3_t{ cam_OS_z[0], cam_OS_z[1], cam_OS_z[2] } );
-                        //int32_t maxDim = -1;
-                        //linAlg::vec3_t absCam_OS_z{ abs(cam_OS_z[0]), abs(cam_OS_z[1]), abs(cam_OS_z[2]) };
-                        //if (absCam_OS_z[0] > absCam_OS_z[1]) {
-                        //    if (absCam_OS_z[0] > absCam_OS_z[2]) {
-                        //        maxDim = 0; // X
-                        //    } else {
-                        //        maxDim = 2; // Z
-                        //    }
-                        //}
-                        //else {
-                        //    if (absCam_OS_z[1] > absCam_OS_z[2]) {
-                        //        maxDim = 1; // Y
-                        //    } else {
-                        //        maxDim = 2; // Z
-                        //    }
-                        //}
+                        const auto recipBrickLen = 1.0f / brickLen;
 
                         const linAlg::vec3_t refPt{
-                            ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
-                            ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
-                            ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
+                            (camPos3_OS[0] * 0.5f + 0.5f) * hiResDimOrig[0], 
+                            (camPos3_OS[1] * 0.5f + 0.5f) * hiResDimOrig[1], 
+                            (camPos3_OS[2] * 0.5f + 0.5f) * hiResDimOrig[2] }; 
 
-                        // for ref - how it's calculated in the [-1;+1] OS range
+                        //printVec( "refPt", refPt );
+
+                        //const linAlg::vec3_t refPt{
+                        //    (camPos3_OS[0] * 0.5f + 0.5f) * hiResDimOrig[0] - 0.5f * recipBrickLen,
+                        //    (camPos3_OS[1] * 0.5f + 0.5f) * hiResDimOrig[1] - 0.5f * recipBrickLen,
+                        //    (camPos3_OS[2] * 0.5f + 0.5f) * hiResDimOrig[2] - 0.5f * recipBrickLen };
+
+                        // for reference - how it's calculated in the [-1;+1] OS range
                         //linAlg::vec4_t viewPlane_OS{ 
                         //    viewPlane_normal_OS[0], 
                         //    viewPlane_normal_OS[1], 
@@ -1446,9 +1429,9 @@ Status_t ApplicationDVR::run() {
                         //    -linAlg::dot( viewPlane_normal_OS, {camPos_OS[0], camPos_OS[1], camPos_OS[2] } ) };
 
                         const linAlg::vec3_t viewPlaneNormalRefOS{ // undo - this time just the scaling (multiply and divide)
-                            ( viewPlane_OS[0] * 0.5f ) * hiResDimOrig[0] /* - 0.5f / brickLen */,
-                            ( viewPlane_OS[1] * 0.5f ) * hiResDimOrig[1] /* - 0.5f / brickLen */,
-                            ( viewPlane_OS[2] * 0.5f ) * hiResDimOrig[2] /* - 0.5f / brickLen */ };
+                            ( viewPlane_OS[0] * 0.5f ) * hiResDimOrig[0] /* - 0.5f * recipBrickLen */,
+                            ( viewPlane_OS[1] * 0.5f ) * hiResDimOrig[1] /* - 0.5f * recipBrickLen */,
+                            ( viewPlane_OS[2] * 0.5f ) * hiResDimOrig[2] /* - 0.5f * recipBrickLen */ };
 
                         const linAlg::vec4_t viewPlaneRef_OS{
                             viewPlaneNormalRefOS[0],
@@ -1468,11 +1451,10 @@ Status_t ApplicationDVR::run() {
                                 for (int32_t x = 0; x < hiResDim[0]; x += brickLen) {
 
                                     {// BRICK SKIP CPU
-                                        const auto lx = x / brickLen;
-                                        const auto ly = y / brickLen;
-                                        const auto lz = z / brickLen;
+                                        const auto lx = x * recipBrickLen;
+                                        const auto ly = y * recipBrickLen;
+                                        const auto lz = z * recipBrickLen;
                                         const auto minMaxDensity = mVolLoResData[(lz * mVolLoResEmptySpaceSkipDim[1] + ly) * mVolLoResEmptySpaceSkipDim[0] + lx];
-                                        //if (mEmptySpaceTableData[((minMaxDensity[1] + 2) / 4) * 1024 + (minMaxDensity[0] + 2) / 4] > 127) { continue; }
                                         if (mEmptySpaceTableData[((minMaxDensity[1] + 0) / 4) * 1024 + (minMaxDensity[0] + 0) / 4] > 127) { continue; }
                                     }
 
@@ -1502,24 +1484,6 @@ Status_t ApplicationDVR::run() {
                                     if (!isPositive) { continue; } // none of the brick's corners is in front of camera - skip this brick
 
                                     {
-                                    //#pragma omp critical // synched push_back
-                                        //std::lock_guard<std::mutex> lk(visibleBricksWithDists_mutex);
-                                        //visibleBricksWithDists.push_back( { // works ootb with concurrent_vector
-                                        //    .x = x,
-                                        //    .y = y,
-                                        //    .z = z,
-                                        //    .distToNearPlane = minPositiveDist,
-                                        //    //.distFromViewRay = 0.0f /*minDistToViewRay*/ } );
-                                        //    .distFromViewRay = minDistToViewRay } );
-
-                                        //visibleBricksWithDists[k] = { // works ootb with concurrent_vector
-                                        //    .x = x,
-                                        //    .y = y,
-                                        //    .z = z,
-                                        //    .distToNearPlane = minPositiveDist,
-                                        //    .distFromViewRay = minDistToViewRay };
-                                        //k++;
-
                                         int ompThreadNum = omp_get_thread_num();
                                         threadBsd[ompThreadNum].push_back( { // works ootb with concurrent_vector
                                                 .x = x,
@@ -1530,48 +1494,41 @@ Status_t ApplicationDVR::run() {
                             }
                         }
 
-                        //visibleBricksWithDists.resize( k );
+                        
                         for (const auto& entry : threadBsd) {
                             for (const auto& subEntry : entry) {
                                 visibleBricksWithDists.push_back( subEntry );
                             }
                         }
 
-                    #if 1
-                        //const linAlg::vec3_t refPt{
-                        //    ( camPos3_OS[0] * 0.5f + 0.5f ) * hiResDimOrig[0] - 0.5f / brickLen,
-                        //    ( camPos3_OS[1] * 0.5f + 0.5f ) * hiResDimOrig[1] - 0.5f / brickLen,
-                        //    ( camPos3_OS[2] * 0.5f + 0.5f ) * hiResDimOrig[2] - 0.5f / brickLen };
-
-                        //std::sort(  std::execution::par_unseq, visibleBricksWithDists.begin(),
                         std::sort(  std::execution::par, 
-                                    std::begin(visibleBricksWithDists),
-                                    std::end(visibleBricksWithDists),
-                                    [&]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                        //linAlg::vec3_t currPtA{ static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z) };
-                                        //linAlg::vec3_t currPtB{ static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z) };
-                                        //return linAlg::dist( refPt, currPtA ) < linAlg::dist( refPt, currPtB );
-                                    linAlg::vec3_t currPtA{ refPt[0] - static_cast<float>(a.x), refPt[1] - static_cast<float>(a.y), refPt[2] - static_cast<float>(a.z) };
-                                    linAlg::vec3_t currPtB{ refPt[0] - static_cast<float>(b.x), refPt[1] - static_cast<float>(b.y), refPt[2] - static_cast<float>(b.z) };
-                                    //return ( fabsf(currPtA[0])+fabsf(currPtA[1])+fabsf(currPtA[2]) ) < fabsf(currPtB[0])+fabsf(currPtB[1])+fabsf(currPtB[2]);
-                                    return linAlg::dot( currPtA, currPtA ) < linAlg::dot( currPtB, currPtB );
-                            } );
-                    #else
-                        std::sort(  visibleBricksWithDists.begin(),
-                            visibleBricksWithDists.end(),
-                            [=]( const brickSortData_t& a, const brickSortData_t& b ) {
-                                linAlg::vec3_t currPtA{ 
-                                    ( a.x + 0.5f * brickLen ) / ( hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                    ( a.y + 0.5f * brickLen ) / ( hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                    ( a.z + 0.5f * brickLen ) / ( hiResDimOrig[2] ) * 2.0f - 1.0f };
-                                linAlg::vec3_t currPtB{ 
-                                    ( b.x + 0.5f * brickLen ) / ( hiResDimOrig[0] ) * 2.0f - 1.0f ,
-                                    ( b.y + 0.5f * brickLen ) / ( hiResDimOrig[1] ) * 2.0f - 1.0f ,
-                                    ( b.z + 0.5f * brickLen ) / ( hiResDimOrig[2] ) * 2.0f - 1.0f };
+                            std::begin(visibleBricksWithDists),
+                            std::end(visibleBricksWithDists),
+                            [&]( const brickSortData_t& a, const brickSortData_t& b ) {
 
-                                return linAlg::dist( camPos3_OS, currPtA ) < linAlg::dist( camPos3_OS, currPtB );
+                                auto clampFunc = []( float t, float a, float b ) {
+                                    if (t <= a) { return a; }
+                                    else if (t <= b) { return t; }
+                                    else { return b; }
+                                };
+                                const linAlg::vec3_t closestPtA{
+                                    clampFunc(refPt[0], a.x, a.x + brickLen ),
+                                    clampFunc(refPt[1], a.y, a.y + brickLen ),
+                                    clampFunc(refPt[2], a.z, a.z + brickLen ),
+                                };
+                                const linAlg::vec3_t closestPtB{
+                                    clampFunc(refPt[0], b.x, b.x + brickLen ),
+                                    clampFunc(refPt[1], b.y, b.y + brickLen ),
+                                    clampFunc(refPt[2], b.z, b.z + brickLen ),
+                                };
+
+                                linAlg::vec3_t diffA;
+                                linAlg::sub( diffA, refPt, closestPtA );
+                                linAlg::vec3_t diffB;
+                                linAlg::sub( diffB, refPt, closestPtB );
+
+                                return linAlg::dot( diffA, diffA ) < linAlg::dot( diffB, diffB );
                             } );
-                    #endif
 
                         //glDisable( GL_DEPTH_TEST );
                         glEnable( GL_DEPTH_TEST );
@@ -1586,7 +1543,6 @@ Status_t ApplicationDVR::run() {
                         }
                         glEnable( GL_DEPTH_TEST );
 
-                    #endif
                         //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
                     }
 
@@ -1595,9 +1551,10 @@ Status_t ApplicationDVR::run() {
                     }
                     else {
                         glEnable( GL_BLEND );
-                        glBlendEquation( GL_FUNC_ADD );
+                        //glBlendEquation( GL_FUNC_ADD );
                         glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
                     }
+                    glBlendEquation( GL_FUNC_ADD );
 
                 }
 
@@ -1687,14 +1644,14 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        mStbFont.renderStbFontText( -512.0f, -512.0f + 24.0f, "Left Top" );
-        mStbFont.renderStbFontText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
-        mStbFont.renderStbFontText( -512.0f,  512.0f -  4.0f, "Left Btm" );
-        mStbFont.renderStbFontText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
-        mStbFont.renderStbFontText(  0.0f,  0.0f, "Hello There" );
+        mStbFont.renderText( -512.0f, -512.0f + 24.0f, "Left Top" );
+        mStbFont.renderText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
+        mStbFont.renderText( -512.0f,  512.0f -  4.0f, "Left Btm" );
+        mStbFont.renderText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
+        mStbFont.renderText(  0.0f,  0.0f, "Hello There" );
 
-        mStbFont.renderStbFontText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
-        mStbFont.renderStbFontText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
+        mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
+        mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
 
 
 

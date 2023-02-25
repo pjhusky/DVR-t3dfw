@@ -85,6 +85,10 @@ namespace {
 
         pGuiUserData->editTransferFunction = ImGui::Button( "Edit Transfer Function", guiButtonSize() );
 
+        if ( ImGui::Button( "Reset Transfer Function", guiButtonSize() ) ) {
+            pGuiUserData->pSharedMem->put( "resetTF", "true" );
+        }
+
         // load TF
 
         if (ImGui::Button( "Load .tf File", guiButtonSize() ) && pGuiUserData->pSharedMem->get( "loadTF" ) == " " /*&& !pGuiUserData->loadFileTrigger*/) {
@@ -126,9 +130,6 @@ namespace {
             }
         }
 
-        if ( ImGui::Button( "Reset Transferfunction", guiButtonSize() ) ) {
-            pGuiUserData->pSharedMem->put( "resetTF", "true" );
-        }
     }
 }
 

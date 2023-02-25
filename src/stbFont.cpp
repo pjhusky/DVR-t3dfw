@@ -11,8 +11,7 @@ namespace {
     static GfxAPI::Shader               textShader;
 }
 
-void stbFont::initStbFontRendering()
-{
+void stbFont::initFontRendering() {
     fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Skinny__.ttf", "rb"));
     //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Stylish-Regular.ttf", "rb"));
     //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Spectral-Regular.ttf", "rb"));
@@ -44,7 +43,7 @@ void stbFont::initStbFontRendering()
     textShader.use( false );
 }
 
-void stbFont::renderStbFontText(float x, float y, const char* text) {
+void stbFont::renderText( float x, float y, const char* text ) {
     glDisable( GL_CULL_FACE );
 
     // NOPE assume orthographic projection with units = screen pixels, origin at top left

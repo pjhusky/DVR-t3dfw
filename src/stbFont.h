@@ -12,12 +12,12 @@ namespace GfxAPI {
 
 struct stbFont {
 
-    stbFont() { initStbFontRendering(); }
-    void renderStbFontText( float x, float y, const char* text );
+    stbFont() { initFontRendering(); }
+    void renderText( float x, float y, const char* text );
 
 private:
 
-    void initStbFontRendering();
+    void initFontRendering();
 
     unsigned char ttf_buffer[1<<24];
     unsigned char temp_bitmap[512*512];

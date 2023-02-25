@@ -263,7 +263,7 @@ namespace {
 
     void initStbFontRendering(void)
     {
-        fread(ttf_buffer, 1, 1<<20, fopen("c:/windows/fonts/times.ttf", "rb"));
+        fread(ttf_buffer, 1, 1<<20, fopen("./data/fonts/Skinny__.ttf", "rb"));
         stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
         // can free ttf_buffer at this point
         //// can free temp_bitmap at this point
@@ -288,7 +288,7 @@ namespace {
         gfxUtils::createShader( textShader, textShaderDesc );
         textShader.use( true );
         textShader.setInt( "u_Tex", 5 );
-        textShader.setVec4( "u_Color", { 0.5f, 1.0f, 0.1f, 0.5f} );
+        textShader.setVec4( "u_Color", { 0.99f, 0.99f, 0.99f, 0.75f} );
         textShader.use( false );
     }
 
@@ -306,14 +306,25 @@ namespace {
         
         textShader.use( true );
 
+        linAlg::mat4_t orthoMat;
+        //linAlg::loadPerspectiveMatrix( orthoMat, 0.0f, fbWidth,  )
+        //glViewport( 0, 0, 2400, 1800 );
+        //linAlg::loadPerspectiveMatrix( orthoMat, 512.0f, -512.0, -512.0f, 512.0f, -1.0f, 1.0f );
+        linAlg::loadOrthoMatrix( orthoMat, -512.0f, 512.0, 512.0f, -512.0f, -1.0f, 1.0f );
+        linAlg::mat4_t orthoMatT;
+        linAlg::transpose( orthoMatT, orthoMat );
+        textShader.setMat4( "u_trafoMatrix", orthoMat );
+
         glBindVertexArray( textQuadBuffer.vaoHandle );
         while (*text) {
             if (*text >= 32 && *text < 128) {
                 stbtt_aligned_quad q;
                 stbtt_GetBakedQuad( cdata, 512, 512, *text - 32, &x, &y, &q, 1 );//1=opengl & d3d10+,0=d3d9
                 
-                textShader.setVec4( "u_topL", { q.x0/512.0f, -q.y0/512.0f, q.s0, q.t0 } );
-                textShader.setVec4( "u_btmR", { q.x1/512.0f, -q.y1/512.0f, q.s1, q.t1 } );
+                //textShader.setVec4( "u_topL", { q.x0/512.0f, -q.y0/512.0f, q.s0, q.t0 } );
+                //textShader.setVec4( "u_btmR", { q.x1/512.0f, -q.y1/512.0f, q.s1, q.t1 } );
+                textShader.setVec4( "u_topL", { q.x0, q.y0, q.s0, q.t0 } );
+                textShader.setVec4( "u_btmR", { q.x1, q.y1, q.s1, q.t1 } );
 
                 glDrawElements( GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0 );
             }
@@ -525,7 +536,7 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 //    labelFileUrl += filename.root_name(); //std::filesystem::path::root_name( path );
 //    labelFileUrl += "Label.json";
         
-    const auto labelFileUrl = path.replace_extension( ".label.json" );
+    const auto labelFileUrl = path.replace_extension( ".labels.json" );
     if (std::filesystem::exists( labelFileUrl ) ) {
         loadLabels( labelFileUrl.string() );
     } else {
@@ -535,11 +546,70 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     return Status_t::OK();
 }
 
+namespace myJsonTypes {
+    //struct Position {
+    //    float x, y, z;
+    //};
+    using Position = std::array<float, 3>;
+
+    struct LabelEntryStruct {
+        std::string name;
+        std::vector<Position> positions;
+    };
+    using Labels = std::vector<LabelEntryStruct>;
+
+    void to_json(json& j, const LabelEntryStruct& data) {
+        //std::vector<Position> positions{ {0.0f, 1.0f, 2.0f}  };
+        //json j_vec(positions);
+
+        json positions = json(data.positions);
+        j = json{ {"name", data.name}, {"positions", positions } };
+    }
+
+    void from_json(const json& j, LabelEntryStruct& data) {
+        j.at("name").get_to(data.name);
+        //j.at("positions").get_to(data.positions);
+        const auto& positions = j.find( "positions" ).value();
+        for (const auto& pos : positions) {
+            std::cout << pos << std::endl;
+            data.positions.push_back( pos );
+        }
+    }
+
+    void to_json(json& j, const Labels& data) {
+        //std::vector<Position> positions{ {0.0f, 1.0f, 2.0f}  };
+        //json j_vec(positions);
+        j = json{ "labels", data };
+    }
+
+    void from_json(const json& j, Labels& data) {
+        //j.at("labels").get_to(data);
+        //data.reserve( j.size() );
+        const auto& labels = j.find( "labels" ).value();
+        for (const auto& it : labels) {
+            std::cout << it << '\n';
+            data.push_back( it );
+        }
+
+        //for (auto it = j.begin(); it != j.end(); ++it) {
+        //    std::cout << *it << '\n';
+        //    //data.push_back( *it );
+        //}
+    }
+
+} // namespace myJsonTypes
+
 Status_t ApplicationDVR::loadLabels( const std::string& fileUrl ) {
     
     std::ifstream f(fileUrl);
     try {
         json data = json::parse( f );
+        //const auto& jsonData = data;
+        //myJsonTypes::LabelStruct labelStructEntry;
+        //data.get_to( labelStructEntry );
+        auto readJsonLabelData = data.get<myJsonTypes::Labels>();
+        //std::cout << readJsonLabelData << std::endl;
+        printf( "heyho!\n" );
     } catch (json::exception& e) {
         printf( "json parse exception: %s\n", e.what() );
     }
@@ -1711,7 +1781,15 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        renderStbFontText( 0.0f, 0.0f, "Hello There" );
+        renderStbFontText( -512.0f, -512.0f + 24.0f, "Left Top" );
+        renderStbFontText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
+        renderStbFontText( -512.0f,  512.0f -  4.0f, "Left Btm" );
+        renderStbFontText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
+        renderStbFontText(  0.0f,  0.0f, "Hello There" );
+
+        renderStbFontText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
+        renderStbFontText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
+
 
 
 

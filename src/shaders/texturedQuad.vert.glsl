@@ -4,6 +4,8 @@ layout ( location = 0 ) in vec3 a_pos;
 
 out vec2 v_TexCoord;
 
+uniform mat4 u_trafoMatrix;
+
 uniform vec4 u_topL;
 uniform vec4 u_btmR;
 
@@ -13,11 +15,13 @@ out gl_PerVertex{
 
 void main() {
 
-    v_TexCoord = ( a_pos.xy * 0.5 + 0.5 );
-    vec2 scaledPos = mix( u_topL.xy, u_btmR.xy, v_TexCoord.xy );
-    vec2 scaledTC  = mix( u_topL.zw, u_btmR.zw, v_TexCoord.xy );
+
+    vec2 mixFactor = ( a_pos.xy * 0.5 + 0.5 );
+    vec2 scaledPos = mix( u_topL.xy, u_btmR.xy, mixFactor );
+    vec2 scaledTC  = mix( u_topL.zw, u_btmR.zw, mixFactor );
     v_TexCoord = scaledTC;
-    gl_Position = vec4( scaledPos.xy, -0.999999, 1.0 );
+
+    gl_Position = u_trafoMatrix * vec4( scaledPos.xy, -1.0, 1.0 );
     
 
 // #if ( RASTER_MODE == RASTER_MODE_QUAD )

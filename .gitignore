@@ -16,6 +16,7 @@ imgui.ini
 **/_.*
 **/_*_
 data/*
+!data/fonts
 **.zip
 **-\ Copy/
 **.png

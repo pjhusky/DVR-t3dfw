@@ -170,8 +170,8 @@ void main() {
         color.rgb = color.rgb + currBlendFactor * currColor;
         color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
-        //color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
-        color += colorAndAlpha;
+        color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
+        //color += colorAndAlpha;
     #elif ( DVR_MODE == MRI )
         if ( colorAndAlpha.a > color.a ) {
             color = colorAndAlpha;

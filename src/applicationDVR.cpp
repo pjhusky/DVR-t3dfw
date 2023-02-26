@@ -278,6 +278,7 @@ ApplicationDVR::ApplicationDVR(
     , mpTFProcess( nullptr )
     , mpSCProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
+    , mTtfMeshFont( "./data/fonts/Spectral-Regular.ttf" )
     , mGrabCursor( true ) {
 
     std::atexit( atExit );
@@ -324,8 +325,6 @@ ApplicationDVR::ApplicationDVR(
     const auto magFilter = GfxAPI::eFilterMode::box;
     const auto mipFilter = GfxAPI::eFilterMode::box;
     mpEmptySpaceTex2d->setFilterMode( minFilter, magFilter, mipFilter );
-
-    //mStbFont.initStbFontRendering();
 }
 
 ApplicationDVR::~ApplicationDVR() {
@@ -862,11 +861,11 @@ Status_t ApplicationDVR::run() {
     GfxAPI::Shader vol_ESS_Shader;
 
     mStlModelHandle = gfxUtils::createMeshGfxBuffers(
-        stlModel.coords().size() / 3,
+        static_cast<uint32_t>( stlModel.coords().size() / 3 ),
         stlModel.coords(),
-        stlModel.normals().size() / 3,
+        static_cast<uint32_t>( stlModel.normals().size() / 3 ),
         stlModel.normals(),
-        stlModel.indices().size(),
+        static_cast<uint32_t>( stlModel.indices().size() ),
         stlModel.indices() );
     
     LoadDVR_Shaders( visAlgo, DVR_GUI::eDebugVisMode::none, true, mesh_ESS_Shader, vol_ESS_Shader );
@@ -1414,10 +1413,15 @@ Status_t ApplicationDVR::run() {
                         hiResDim[1] = ((hiResDim[1] + (brickLen - 1)) / brickLen) * brickLen;
                         hiResDim[2] = ((hiResDim[2] + (brickLen - 1)) / brickLen) * brickLen;
 
+                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
+                        //    (float)(brickLen) / hiResDimOrig[0],
+                        //    (float)(brickLen) / hiResDimOrig[1],
+                        //    (float)(brickLen) / hiResDimOrig[2] } );
+
                         meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
-                            (float)(brickLen) / hiResDimOrig[0],
-                            (float)(brickLen) / hiResDimOrig[1],
-                            (float)(brickLen) / hiResDimOrig[2] } );
+                            (float)(brickLen) / ( hiResDimOrig[0] - 0 ),
+                            (float)(brickLen) / ( hiResDimOrig[1] - 0 ),
+                            (float)(brickLen) / ( hiResDimOrig[2] - 0 ) } );
 
 
                         visibleBricksWithDists.clear();
@@ -1559,10 +1563,15 @@ Status_t ApplicationDVR::run() {
                         glEnable( GL_DEPTH_TEST );
                     
                         for (auto& entry : visibleBricksWithDists) { // these should now render with correct brick-vis even without depth buffer
+                            //meshShader.setVec3( "u_volOffset", { // !!! <<<
+                            //    (float)entry.x / (hiResDimOrig[0]),
+                            //    (float)entry.y / (hiResDimOrig[1]),
+                            //    (float)entry.z / (hiResDimOrig[2]) } );
+
                             meshShader.setVec3( "u_volOffset", { // !!! <<<
-                                (float)entry.x / (hiResDimOrig[0]),
-                                (float)entry.y / (hiResDimOrig[1]),
-                                (float)entry.z / (hiResDimOrig[2]) } );
+                                (float)entry.x / (hiResDimOrig[0] - 0),
+                                (float)entry.y / (hiResDimOrig[1] - 0),
+                                (float)entry.z / (hiResDimOrig[2] - 0) } );
 
                             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                         }
@@ -1677,9 +1686,21 @@ Status_t ApplicationDVR::run() {
         mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
         mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
 
+        glCheckError();
 
+        //if (glGetError() != GL_NO_ERROR) {
+        //    printf( "GL error!\n" );
+        //}
 
+        mTtfMeshFont.renderText( -0.8f, 0.0f, _TEXT( "TTF Font" ) );
+       // mTtfMeshFont.renderText( -0.8f, 0.0f, _TEXT( "AB" ) );
+        //mTtfMeshFont.renderText( -0.9f, 0.0f, _TEXT( "ABC123" ) );
 
+        if (glGetError() != GL_NO_ERROR) {
+            printf( "GL error!\n" );
+        }
+
+        glCheckError();
 
         if (setNewRotationPivot > 0) {
             if (setNewRotationPivot > 1) {

@@ -217,7 +217,8 @@ void main() {
         color.rgb = color.rgb + currBlendFactor * currColor;
         color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
-        color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
+        //color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
+        color += colorAndAlpha;
     #elif ( DVR_MODE == MRI )
         if ( colorAndAlpha.a > color.a ) {
             color.a = colorAndAlpha.a;
@@ -240,7 +241,10 @@ void main() {
     }
 
     #if ( DVR_MODE == XRAY )
-        //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        //color.a = ( color.a - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        //color.rgb = ( color.rgb - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        //color.a /= ( lenInVolume / RAY_STEP_SIZE );
+        //color.rgb *= color.a;
         o_fragColor.rgb = color.rgb / ( lenInVolume / RAY_STEP_SIZE );
     #else
         o_fragColor.rgb = color.rgb * lightColor.rgb;        

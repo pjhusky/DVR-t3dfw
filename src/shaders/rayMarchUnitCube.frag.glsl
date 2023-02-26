@@ -174,8 +174,6 @@ void main() {
         color += colorAndAlpha;
     #elif ( DVR_MODE == MRI )
         if ( colorAndAlpha.a > color.a ) {
-            //color.a = colorAndAlpha.a;
-            //color.rgb = colorAndAlpha.rgb;
             color = colorAndAlpha;
         }
     #endif
@@ -191,19 +189,13 @@ void main() {
     }
 
     #if ( DVR_MODE == XRAY )
-        //color = ( color - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
+        color.a = ( color.a - u_minMaxScaleVal.x ) * u_minMaxScaleVal.z; // map volume-tex values to 0-1 after the loop
         o_fragColor.rgb = color.rgb / ( lenInVolume / RAY_STEP_SIZE );
 
         #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
             lenInVolume = max( 0.001, lenInVolume );
-//            o_fragColor.rgb = color.rgb / (lenInVolume / RAY_STEP_SIZE );
-//            o_fragColor.a = color.a / ( BRICK_BLOCK_DIM * lenInVolume / RAY_STEP_SIZE );
 
-            o_fragColor.rgb = color.rgb / 200.0;
-            //o_fragColor.rgb = color.rgb / color.a;
-
-            //o_fragColor.rgb = color.rgb / color.a;
-            //o_fragColor.a = color.a * (lenInVolume / RAY_STEP_SIZE ) / 200.0;
+            o_fragColor.rgb = color.rgb / 200.0; // divide by fixed amount
             o_fragColor.a = color.a;
 
             gl_FragDepth = 1.0;

@@ -13,16 +13,17 @@ struct ttfMeshFont {
     ttfMeshFont( const std::filesystem::path& fileUrl );
     ~ttfMeshFont();
 
-    void renderText( const float x, const float y, const TCHAR* pText );
+    void renderText2d( const float x, const float y, const TCHAR* pText );
+    void renderText3d( const float x, const float y, const TCHAR* pText );
 
 private:
 
     struct glyphData_t {
         ttf_glyph_t*                pGlyph;
         ttf_mesh_t*                 pMesh2d;
-        //ttf_mesh3d_t*               pMesh3d;
+        ttf_mesh3d_t*               pMesh3d;
         gfxUtils::bufferHandles_t   bufferHandle2d;
-        //gfxUtils::bufferHandles_t   bufferHandle3d;
+        gfxUtils::bufferHandles_t   bufferHandle3d;
     };
 
     const glyphData_t* choose_glyph( TCHAR symbol );

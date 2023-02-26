@@ -1692,13 +1692,14 @@ Status_t ApplicationDVR::run() {
         //    printf( "GL error!\n" );
         //}
 
-        mTtfMeshFont.renderText( -0.8f, 0.0f, _TEXT( "TTF Font" ) );
+        mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "TTF Font 2D, 123" ) );
+        mTtfMeshFont.renderText3d( -0.8f, 0.0f, _TEXT( "TTF Font 3D, 456" ) );
        // mTtfMeshFont.renderText( -0.8f, 0.0f, _TEXT( "AB" ) );
         //mTtfMeshFont.renderText( -0.9f, 0.0f, _TEXT( "ABC123" ) );
 
-        if (glGetError() != GL_NO_ERROR) {
-            printf( "GL error!\n" );
-        }
+        //if (glGetError() != GL_NO_ERROR) {
+        //    printf( "GL error!\n" );
+        //}
 
         glCheckError();
 

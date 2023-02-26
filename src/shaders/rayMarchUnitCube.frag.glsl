@@ -117,6 +117,9 @@ void main() {
     vec3 curr_sample_pos_noRand = curr_sample_pos + 0.5 * vol_step_ray; // ensure that even with random -0.5 offset we are inside the volume
     int iStep = 0;
     for ( float currStep = 0.0; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
+    //for ( float currStep = RAY_STEP_SIZE; currStep < lenInVolume; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
+    //for ( float currStep = RAY_STEP_SIZE; currStep < lenInVolume - RAY_STEP_SIZE; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
+    //for ( float currStep = 0.0; currStep < lenInVolume + RAY_STEP_SIZE; currStep += RAY_STEP_SIZE, curr_sample_pos_noRand += vol_step_ray ) {
 
         curr_sample_pos = curr_sample_pos_noRand + vol_step_ray * ( rnd01[iStep] - 0.5 );
         iStep++; iStep %= 3;
@@ -167,11 +170,13 @@ void main() {
         color.rgb = color.rgb + currBlendFactor * currColor;
         color.a   = color.a + currBlendFactor;
     #elif ( DVR_MODE == XRAY )
-        color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
+        //color += vec4( colorAndAlpha.rgb * colorAndAlpha.a, colorAndAlpha.a );
+        color += colorAndAlpha;
     #elif ( DVR_MODE == MRI )
         if ( colorAndAlpha.a > color.a ) {
-            color.a = colorAndAlpha.a;
-            color.rgb = colorAndAlpha.rgb;
+            //color.a = colorAndAlpha.a;
+            //color.rgb = colorAndAlpha.rgb;
+            color = colorAndAlpha;
         }
     #endif
 
@@ -191,8 +196,16 @@ void main() {
 
         #if ( USE_EMPTY_SPACE_SKIPPING != 0 )
             lenInVolume = max( 0.001, lenInVolume );
-            o_fragColor.rgb = color.rgb / (lenInVolume / RAY_STEP_SIZE );
-            o_fragColor.a = color.a / ( BRICK_BLOCK_DIM * lenInVolume / RAY_STEP_SIZE );
+//            o_fragColor.rgb = color.rgb / (lenInVolume / RAY_STEP_SIZE );
+//            o_fragColor.a = color.a / ( BRICK_BLOCK_DIM * lenInVolume / RAY_STEP_SIZE );
+
+            o_fragColor.rgb = color.rgb / 200.0;
+            //o_fragColor.rgb = color.rgb / color.a;
+
+            //o_fragColor.rgb = color.rgb / color.a;
+            //o_fragColor.a = color.a * (lenInVolume / RAY_STEP_SIZE ) / 200.0;
+            o_fragColor.a = color.a;
+
             gl_FragDepth = 1.0;
             return;
         #endif

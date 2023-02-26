@@ -91,7 +91,8 @@ workspace "T3DFW_DVR_Workspace"
 
 	filter {}
 
-	cdialect "C99"
+	--cdialect "C99"
+	cdialect "C17"
 	cppdialect "C++20"
 
 	
@@ -106,6 +107,8 @@ workspace "T3DFW_DVR_Workspace"
 		--	removeplatforms { "macOS" }
 
 		local allDefinesProject = { "_USE_MATH_DEFINES" }
+		--local allDefinesProject = { "_USE_MATH_DEFINES", "VERBOSE_GFX_DEBUG" }
+		
 		if _ACTION == "gmake2" then
 			table.insert( allDefinesProject, "UNIX" )
 		elseif string.match( _ACTION, 'vs*') then

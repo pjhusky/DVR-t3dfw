@@ -24,7 +24,10 @@
 #define RECIP_BRICK_BLOCK_DIM (1.0 / BRICK_BLOCK_DIM)
 
 #ifdef __cplusplus
-using vec4 = std::array<float, 4>;
+    using vec4 = std::array<float, 4>;
+#endif
+
+#ifdef __cplusplus
 struct
 #else
 layout (std140) uniform 

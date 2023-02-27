@@ -5,6 +5,7 @@ layout ( location = 0 ) in vec3 a_pos;
 out vec2 v_TexCoord;
 
 uniform mat4 u_trafoMatrix;
+uniform vec2 u_aspectRatios;
 
 uniform vec4 u_topL;
 uniform vec4 u_btmR;
@@ -21,7 +22,7 @@ void main() {
     vec2 scaledTC  = mix( u_topL.zw, u_btmR.zw, mixFactor );
     v_TexCoord = scaledTC;
 
-    gl_Position = u_trafoMatrix * vec4( scaledPos.xy, -1.0, 1.0 );
+    gl_Position = u_trafoMatrix * vec4( scaledPos.xy * u_aspectRatios, -1.0, 1.0 );
     
 
 // #if ( RASTER_MODE == RASTER_MODE_QUAD )

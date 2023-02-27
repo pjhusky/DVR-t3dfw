@@ -16,6 +16,8 @@ struct ttfMeshFont {
     void renderText2d( const float x, const float y, const linAlg::vec4_t& fontColor, const TCHAR* pText );
     void renderText3d( const float x, const float y, const float z, const linAlg::vec4_t& fontColor, const TCHAR* pText );
 
+    float getTextDisplayW( const TCHAR* pText );
+
     void setAspectRatios( const linAlg::vec2_t& xyRatios ) { mRatiosXY = xyRatios; }
 
 private:

@@ -332,7 +332,6 @@ void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4
 
 #elif 1 // doesn't render font in Release
 
-
     for (; *pText; ++pText) {
         if (*pText >= 32 && *pText < 128) {
             const auto& charGlyph = chooseGlyph( *pText );
@@ -349,6 +348,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4
             //textShader.setVec4( "u_btmR", { q.x1, q.y1, q.s1, q.t1 } );
         }
     }
+
 #endif
 
     glBindVertexArray( 0 );
@@ -397,4 +397,17 @@ void ttfMeshFont::renderText3d( const float x, const float y, const float z, con
 
     glBindVertexArray( 0 );
     pShader->use( false );
+}
+
+float ttfMeshFont::getTextDisplayW( const TCHAR* pText ) {
+    float textWidth = 0.0;
+    for (; *pText; ++pText) {
+        if (*pText >= 32 && *pText < 128) {
+            const auto& charGlyph = chooseGlyph( *pText );
+
+            if (charGlyph == nullptr) { textWidth += 1.0; continue; }
+            textWidth += charGlyph->pGlyph->advance;
+        }
+    }
+    return textWidth / 32.0f;
 }

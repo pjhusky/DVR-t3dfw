@@ -21,7 +21,7 @@ namespace {
 
             uniform mat4 u_mvpMatrix;
             uniform vec2 u_pos;
-            uniform float u_fontAdvance;
+            uniform vec2 u_fontAdvance_fontSize;
             uniform vec2 u_aspectRatio;
 
             //uniform vec4 u_topL;
@@ -34,8 +34,8 @@ namespace {
             void main() {
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.8+u_x)*0.1-0.8, 0.0 ), -1.0, 1.0 );
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.0+u_x)*0.1-0.0, 0.0 ), 0.5, 1.0 );
-                vec4 offset = vec4( u_fontAdvance, 0.0, 0.0, 0.0 ) + vec4( u_pos, 0.0, 0.0 );
-                gl_Position = u_mvpMatrix * vec4( ( a_pos / 32.0f + offset.xy ) / u_aspectRatio, 0.0, 1.0 );
+                vec4 offset = vec4( u_fontAdvance_fontSize.x, 0.0, 0.0, 0.0 ) + vec4( u_pos, 0.0, 0.0 );
+                gl_Position = u_mvpMatrix * vec4( ( a_pos / u_fontAdvance_fontSize.y + offset.xy ) / u_aspectRatio, 0.0, 1.0 );
             }
         );
         
@@ -198,6 +198,7 @@ ttfMeshFont::ttfMeshFont( const std::filesystem::path& fileUrl ) {
     //    printf( "GL error!\n" );
     //}
 
+    mFontSize = 32.0f;
 }
 
 ttfMeshFont::~ttfMeshFont() {
@@ -336,7 +337,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4
         if (*pText >= 32 && *pText < 128) {
             const auto& charGlyph = chooseGlyph( *pText );
             
-            pShader->setFloat( "u_fontAdvance", currX / 32.0f );
+            pShader->setVec2( "u_fontAdvance_fontSize", { currX / mFontSize, mFontSize } );
             
             if (charGlyph == nullptr) { currX += 1.0; continue; }
             currX += charGlyph->pGlyph->advance;
@@ -368,7 +369,7 @@ void ttfMeshFont::renderText3d( const float x, const float y, const float z, con
     linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
     //linAlg::loadOrthoMatrix( projMatrix, 0.0f, mRatiosXY[0], 0.0f, mRatiosXY[1], -1.0f, 1.0f );
     linAlg::mat4_t fontScaleMatrix;
-    linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
+    linAlg::loadScaleMatrix( fontScaleMatrix, {mFontSize, mFontSize, 1.0f, 1.0f} );
     linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
 
     //linAlg::loadIdentityMatrix( mvpMatrix );
@@ -409,5 +410,24 @@ float ttfMeshFont::getTextDisplayW( const TCHAR* pText ) {
             textWidth += charGlyph->pGlyph->advance;
         }
     }
-    return textWidth / 32.0f;
+    return textWidth / mFontSize;
+}
+
+linAlg::vec2_t ttfMeshFont::getTextDisplayMinMaxY( const TCHAR* pText ) {
+    linAlg::vec2_t minMaxY{0.0f, 0.0f};
+    float textH = 0.0;
+
+    for (; *pText; ++pText) {
+        if (*pText >= 32 && *pText < 128) {
+            const auto& charGlyph = chooseGlyph( *pText );
+
+            if (charGlyph == nullptr) { continue; }
+            minMaxY[0] = std::min( minMaxY[0], charGlyph->pGlyph->ybounds[0] );
+            minMaxY[1] = std::max( minMaxY[1], charGlyph->pGlyph->ybounds[1] );
+        }
+    }
+
+    minMaxY[0] /= mFontSize;
+    minMaxY[1] /= mFontSize;
+    return minMaxY;
 }

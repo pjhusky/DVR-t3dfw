@@ -1913,16 +1913,23 @@ Status_t ApplicationDVR::run() {
             //    .cornerRoundness = 0.01f,
             //    },
 
+            mTtfMeshFont.setRelFontSize( xAspect / 40.0f );
+
             const float startFactor = 0.1f;
             const float downOffsetFactor = 1.75f;
             //mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f - ( 0.1f * (0.5f * 0.005f) * 32.0f ), fontColor2d, _TEXT( "Font 2D Widget" ) );
             for (const auto& entry : roundRectDataCPU) {
                 const float textW = mTtfMeshFont.getTextDisplayW( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its width from the contained text
+                //const float textH = mTtfMeshFont.getTextDisplayH( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its height from the contained text
+                const linAlg::vec2_t textMinMaxY = mTtfMeshFont.getTextDisplayMinMaxY( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its height from the contained text
                 //const float fontStartX = (1.0f - startFactor) * entry.startPos[0] + startFactor * entry.endPos[0];
 
                 const float midXWidget = 0.5f * (entry.startPos[0] + entry.endPos[0]);
                 const float fontStartX = midXWidget - 0.5f * textW;
-                const float fontStartY = entry.startPos[1] - (downOffsetFactor * (entry.thickness) ) /*  / yAspect */;
+                
+                //const float fontStartY = entry.startPos[1] - (downOffsetFactor * (entry.thickness) ) /*  / yAspect */;
+                const float fontStartY = entry.startPos[1] - 0.5f * (textMinMaxY[1]+textMinMaxY[0]); // -0.5f * mTtfMeshFont.getRelFontSize();
+                
                 mTtfMeshFont.renderText2d( fontStartX, fontStartY, fontColor2d, _TEXT( "Font 2D Widget" ) );
             }
 

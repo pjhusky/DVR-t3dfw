@@ -16,7 +16,12 @@ struct ttfMeshFont {
     void renderText2d( const float x, const float y, const linAlg::vec4_t& fontColor, const TCHAR* pText );
     void renderText3d( const float x, const float y, const float z, const linAlg::vec4_t& fontColor, const TCHAR* pText );
 
+    void  setRelFontSize( const float fontSize ) { mFontSize = 1.0f / fontSize; }
+    float getRelFontSize() const { return 1.0f / mFontSize; }
+
     float getTextDisplayW( const TCHAR* pText );
+    linAlg::vec2_t getTextDisplayMinMaxY( const TCHAR* pText );
+
 
     void setAspectRatios( const linAlg::vec2_t& xyRatios ) { mRatiosXY = xyRatios; }
 
@@ -32,10 +37,13 @@ private:
 
     const glyphData_t* chooseGlyph( TCHAR symbol );
 
+
+    float                          mFontSize;
     linAlg::vec2_t                 mRatiosXY;
 
     ttf_t*                         mpFont;
     std::map< TCHAR, glyphData_t > mGlyphs;
+
 };
 
 #endif // _TTF_MESH_FONT_H_A5EBD2FE_F21F_40CD_93AC_D2FA7AD211F0

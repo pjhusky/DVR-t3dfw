@@ -1083,7 +1083,7 @@ Status_t ApplicationDVR::run() {
     DVR_GUI::LightParameters lightParams{
         .lightDir = linAlg::normalizeRet( linAlg::vec4_t{ 0.2f, 0.7f, -0.1f, 0.0f } ),
         .lightColor = linAlg::vec4_t{0.95f, 0.8f, 0.8f, 0.0f},
-        .ambient = 0.01f,
+        .ambient = 0.15f,
         .diffuse = 0.8f,
         .specular = 0.95f,
     };

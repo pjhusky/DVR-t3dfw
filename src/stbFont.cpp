@@ -2,7 +2,6 @@
 #include "stbFont.h"
 
 #include "gfxAPI/glad/include/glad/glad.h"
-
 #include "gfxAPI/apiAbstractions.h"
 #include "gfxAPI/texture.h"
 
@@ -11,8 +10,8 @@ namespace {
     static GfxAPI::Shader               textShader;
 }
 
-void stbFont::initFontRendering() {
-    fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Skinny__.ttf", "rb"));
+void stbFont::initFontRendering( const std::filesystem::path& fontPath ) {
+    fread(ttf_buffer, 1, 1<<24, fopen( fontPath.string().c_str(), "rb"));
     //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Stylish-Regular.ttf", "rb"));
     //fread(ttf_buffer, 1, 1<<24, fopen("./data/fonts/Spectral-Regular.ttf", "rb"));
     stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
@@ -43,14 +42,16 @@ void stbFont::initFontRendering() {
     textShader.use( false );
 }
 
-void stbFont::renderText( float x, float y, const char* text ) {
+void stbFont::renderText( float x, float y, const linAlg::vec4_t& color, const char* text ) {
     glDisable( GL_CULL_FACE );
 
     // NOPE assume orthographic projection with units = screen pixels, origin at top left
     // assume coords in NDC
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable( GL_BLEND );
+    glBlendEquation( GL_FUNC_ADD );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
 
     fontTex2d->bindToTexUnit( 5 );
 
@@ -64,6 +65,8 @@ void stbFont::renderText( float x, float y, const char* text ) {
     linAlg::mat4_t orthoMatT;
     linAlg::transpose( orthoMatT, orthoMat );
     textShader.setMat4( "u_trafoMatrix", orthoMat );
+    textShader.setVec4( "u_Color", color );
+    textShader.setVec2( "u_aspectRatios", mRatiosXY );
 
     glBindVertexArray( textQuadBuffer.vaoHandle );
     while (*text) {

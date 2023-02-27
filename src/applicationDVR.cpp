@@ -104,6 +104,22 @@ namespace {
         float           dummy1;
     };
 
+    // DEBUG - test runtime changes to data
+    std::vector<sdfArrow_t> arrowDataCPU{
+        {   .startPos       = { 0.9f,  0.8f  },
+            .endPos         = { 0.35f, 0.25f },
+            .shaftThickness = 0.005f,
+            .headThickness  = 0.005f + 0.01f,
+        },
+    };
+    const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
+    //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
+    GfxAPI::Vbo& sdfArrowsVbo() {
+        static GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
+        return sdfArrowsVbo;
+    }
+
+
     struct brickSortData_t {
         int32_t x, y, z;
         //float distToNearPlane;
@@ -941,15 +957,16 @@ Status_t ApplicationDVR::run() {
                 .cornerRoundness = 0.01f,
             },
         };
-        const std::vector<sdfArrow_t> arrowDataCPU{
-            {   .startPos       = { 0.9f,  0.8f  },
-                .endPos         = { 0.35f, 0.25f },
-                .shaftThickness = 0.005f,
-                .headThickness  = 0.005f + 0.01f,
-            },
-        };
         const int32_t numSdfRoundRects = static_cast<int32_t>( roundRectDataCPU.size() );
-        const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
+
+        //const std::vector<sdfArrow_t> arrowDataCPU{
+        //    {   .startPos       = { 0.9f,  0.8f  },
+        //        .endPos         = { 0.35f, 0.25f },
+        //        .shaftThickness = 0.005f,
+        //        .headThickness  = 0.005f + 0.01f,
+        //    },
+        //};
+        //const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
 
         // upload sdf round-rects and arrows used for text labels
         sdfShader.setIvec2( "u_num_RoundRects_Arrows", { numSdfRoundRects, numSdfArrows } );
@@ -959,11 +976,11 @@ Status_t ApplicationDVR::run() {
         memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsVbo.desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
         sdfRoundRectsVbo.unmap();
 
-        GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
-        sdfArrowsBT.attachVbo( &sdfArrowsVbo );
-        auto* const pSdfArrowsVbo = sdfArrowsVbo.map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsVbo.desc().numBytes );
-        sdfArrowsVbo.unmap();
+        //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
+        sdfArrowsBT.attachVbo( &sdfArrowsVbo() );
+        auto* const pSdfArrowsVbo = sdfArrowsVbo().map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsVbo().desc().numBytes );
+        sdfArrowsVbo().unmap();
 
         sdfShader.use( false );
     }
@@ -1787,6 +1804,13 @@ Status_t ApplicationDVR::run() {
         glEnable( GL_BLEND );
         glBlendEquation( GL_FUNC_ADD );
         glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+
+        arrowDataCPU[0].endPos[0] = 0.35f + sinf( frameNum * M_PI / 180.0f );
+        auto* const pSdfArrowsVbo = sdfArrowsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsBT.attachedVbo()->desc().numBytes );
+        sdfArrowsBT.attachedVbo()->unmap();
+
 
         sdfRoundRectsBT.bindToTexUnit( 0 );
         sdfArrowsBT.bindToTexUnit( 1 );

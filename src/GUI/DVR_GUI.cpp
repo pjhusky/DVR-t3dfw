@@ -326,62 +326,29 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
 }
 
 void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int32_t fbW, const int32_t fbH ) {
-    //separatorWithVpadding();
+
     ImGui::SetNextWindowPos( ImVec2{ 10.0f, static_cast<float>(fbH-120*ImGui::GetWindowDpiScale()) }, ImGuiCond_FirstUseEver );
     if (ImGui::Begin( lightingWindowName, nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
 
-        //    static bool firstRunDofGuiParams = true;
-        //    if (firstRunDofGuiParams) { ImGui::SetNextItemOpen( true ); firstRunDofGuiParams = false; }
-        //    if (ImGui::TreeNode( "Light Parameters" )) {
-
-        //const std::array<float, 4> dir3{1.0f,0.0f,0.0f,0.0f};
         static vgm::Vec3* dir3 = reinterpret_cast<vgm::Vec3*>( pGuiUserData->lightParams.lightDir.data() );
         *dir3 = vgm::normalize( *dir3 );
-        //vgm::Vec3 tmpDir3 = dir3;
-        //const float widgetSize = 180;
-        //const float widget3dSize = ImGui::GetTextLineHeight() * 5.5f;
         const float widget3dSize = ImGui::GetTextLineHeight() * 7.0f;
 
-        //ImGui::GetTextLineHeightWithSpacing();
-        //ImGui::SetNextItemWidth( 420 );
-
         const float step = 0.01f;
-        //ImGui::DragFloat3( "Light Dir", &tmpDir3.x, step, ImGuiSliderFlags_NoInput );
-        //ImGui::DragFloat3( labelPrefix( "Light Dir" ).c_str(), &dir3.x, step, ImGuiSliderFlags_NoInput );
         if (ImGui::DragFloat3( "Direction", &dir3->x, step, -1.0f, 1.0f, "%.2f", ImGuiSliderFlags_NoInput )) {
             pGuiUserData->lightParamsChanged = true;
         }
-        //const auto capturedWidth = ImGui::GetItemRectSize().x;
 
         ImGui::SameLine();
-        //const auto capturedWidth = ImGui::GetWindowContentRegionWidth();
 
-        //ImFont::DisplayOffset.y = 0;
-
-        // ImGui::gizmo3D( std::string( "##" ).append( "light Direction" ).c_str(), tmpDir3, widgetSize, imguiGizmo::modeDirection );
-        // if (!std::isinf(tmpDir3.x) && !std::isnan(tmpDir3.x) &&
-        //     !std::isinf(tmpDir3.y) && !std::isnan(tmpDir3.y) &&
-        //     !std::isinf(tmpDir3.z) && !std::isnan(tmpDir3.z) ) { dir3 = tmpDir3; }
-        // else { printf("ouch!!!\n"); }
-        //const auto capturedWidth2 = ImGui::CalcItemWidth();
         if (ImGui::gizmo3D( std::string( "##" ).append( "Direction" ).c_str(), *dir3, widget3dSize, imguiGizmo::modeDirection )) {
             pGuiUserData->lightParamsChanged = true;
         }
-        //const auto capturedWidth2 = ImGui::GetItemRectSize().x;
-
 
         auto guiCursorPosY = ImGui::GetCursorPosY();
         auto guiCursorPosYOff = guiCursorPosY;
-        //guiCursorPosYOff -= ImGui::GetTextLineHeight()*4.2f;
         guiCursorPosYOff -= ImGui::GetTextLineHeight() * 5.7f;
         ImGui::SetCursorPosY( guiCursorPosYOff );
-
-        //static std::array<float, 3> lightColor{ .5f, 0.5f, 0.5f };
-        //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoPicker );
-        //ImGui::ColorEdit3( "Diffuse Color", diffColor.data(), ImGuiColorEditFlags_NoInputs );
-        //ImGui::ColorEdit3( "Ambient ", diffColor.data() );
-        //ImGui::ColorEdit3( "Diffuse ", diffColor.data() );
-        //ImGui::ColorEdit3( "Specular", diffColor.data() );
 
         if (ImGui::ColorEdit3( "Color", pGuiUserData->lightParams.lightColor.data() )) {
             pGuiUserData->lightParamsChanged = true;
@@ -392,20 +359,9 @@ void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const in
         guiCursorPosYOff += ImGui::GetTextLineHeight() * 0.2f;
         ImGui::SetCursorPosY( guiCursorPosYOff );
 
-        //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
-        //ImGui::SetNextItemWidth( capturedWidth );
-        //static bool firstRunDofGuiParams = true;
-        //if ( firstRunDofGuiParams ) { ImGui::SetNextItemOpen(true); firstRunDofGuiParams = false; }        
-        //if (ImGui::TreeNode( "Intensities" )) {
-
-
         const float capturedWidth = guiButtonSize().x - ImGui::CalcTextSize( "Ambient ", NULL, true ).x - ImGui::GetCursorPosX();
-        //ImGui::BeginGroup();
-        //ImGui::Text( "Intensities" );
 
-        //ImGui::SetNextItemWidth( capturedWidth - capturedWidth2 );
         ImGui::SetNextItemWidth( capturedWidth );
-        //ImGui::SliderFloat( labelPrefix( "Ambient" ).c_str(), &ambient, 0.0f, 1.0f, "%.2f" );
         if (ImGui::SliderFloat( "Ambient ", &pGuiUserData->lightParams.ambient, 0.0f, 1.0f, "%.2f" )) {
             pGuiUserData->lightParamsChanged = true;
         }
@@ -419,12 +375,6 @@ void DVR_GUI::LightMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const in
         if (ImGui::SliderFloat( "Specular", &pGuiUserData->lightParams.specular, 0.0f, 1.0f, "%.2f" )) {
             pGuiUserData->lightParamsChanged = true;
         }
-        //ImGui::EndGroup();
-        //ImGui::TreePop();
-        //}
-
-        //ImGui::TreePop();
-        //}
     }
     ImGui::End();
 }

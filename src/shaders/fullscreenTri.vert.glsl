@@ -50,7 +50,8 @@ void main() {
 
     int x =  4 * (gl_VertexID / 2) - 1;
     int y = -4 * (gl_VertexID % 2) + 1;
-    v_TexCoord = vec2( gl_VertexID / 2, 1 - gl_VertexID % 2 ) * 2.0f;
+    //v_TexCoord = vec2( gl_VertexID / 2, 1 - gl_VertexID % 2 ) * 2.0f;
+    v_TexCoord = vec2( x * 0.5 + 0.5, y * 0.5 + 0.5 );
     gl_Position = vec4( x, y, -0.999999, 1.0 );
 
 // #endif

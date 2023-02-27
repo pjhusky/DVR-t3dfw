@@ -438,6 +438,58 @@ ApplicationDVR::~ApplicationDVR() {
     mpSCProcess = nullptr;
 }
 
+namespace jsonLabels {
+    using Position = std::array<float, 3>;
+
+    struct LabelEntryStruct {
+        std::string name;
+        std::vector<Position> positions;
+    };
+    using Labels = std::vector<LabelEntryStruct>;
+
+    void to_json(json& j, const LabelEntryStruct& data) {
+        json positions = json(data.positions);
+        j = json{ {"name", data.name}, {"positions", positions } };
+    }
+
+    void from_json(const json& j, LabelEntryStruct& data) {
+        j.at("name").get_to(data.name);
+        const auto& positions = j.find( "positions" ).value();
+        for (const auto& pos : positions) {
+            //std::cout << pos << std::endl;
+            data.positions.push_back( pos );
+        }
+    }
+
+    void to_json(json& j, const Labels& data) {
+        j = json{ "labels", data };
+    }
+
+    void from_json(const json& j, Labels& data) {
+        const auto& labels = j.find( "labels" ).value();
+        for (const auto& it : labels) {
+            //std::cout << it << '\n';
+            data.push_back( it );
+        }
+    }
+} // namespace myJsonTypes
+
+template<typename T>
+Status_t ApplicationDVR::loadLabels( const std::string& fileUrl, T& parsedType ) {
+
+    std::ifstream f(fileUrl);
+    try {
+        json data = json::parse( f );
+        //auto readJsonLabelData = data.get<myJsonTypes::Labels>();
+        parsedType = data.get<T>();
+        std::cout << data << std::endl;
+    } catch (json::exception& e) {
+        printf( "json parse exception: %s\n", e.what() );
+    }
+
+    return Status_t::OK();
+}
+
 Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradientMode ) {
     mDataFileUrl = fileUrl;
 
@@ -498,8 +550,9 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 //    labelFileUrl += "Label.json";
         
     const auto labelFileUrl = path.replace_extension( ".labels.json" );
+    jsonLabels::Labels parsedJsonLabels;
     if (std::filesystem::exists( labelFileUrl ) ) {
-        loadLabels( labelFileUrl.string() );
+        loadLabels( labelFileUrl.string(), parsedJsonLabels );
     } else {
         printf( "Label file '%s' does not exist\n", labelFileUrl.string().c_str() );
     }
@@ -507,76 +560,6 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
     return Status_t::OK();
 }
 
-namespace myJsonTypes {
-    //struct Position {
-    //    float x, y, z;
-    //};
-    using Position = std::array<float, 3>;
-
-    struct LabelEntryStruct {
-        std::string name;
-        std::vector<Position> positions;
-    };
-    using Labels = std::vector<LabelEntryStruct>;
-
-    void to_json(json& j, const LabelEntryStruct& data) {
-        //std::vector<Position> positions{ {0.0f, 1.0f, 2.0f}  };
-        //json j_vec(positions);
-
-        json positions = json(data.positions);
-        j = json{ {"name", data.name}, {"positions", positions } };
-    }
-
-    void from_json(const json& j, LabelEntryStruct& data) {
-        j.at("name").get_to(data.name);
-        //j.at("positions").get_to(data.positions);
-        const auto& positions = j.find( "positions" ).value();
-        for (const auto& pos : positions) {
-            std::cout << pos << std::endl;
-            data.positions.push_back( pos );
-        }
-    }
-
-    void to_json(json& j, const Labels& data) {
-        //std::vector<Position> positions{ {0.0f, 1.0f, 2.0f}  };
-        //json j_vec(positions);
-        j = json{ "labels", data };
-    }
-
-    void from_json(const json& j, Labels& data) {
-        //j.at("labels").get_to(data);
-        //data.reserve( j.size() );
-        const auto& labels = j.find( "labels" ).value();
-        for (const auto& it : labels) {
-            std::cout << it << '\n';
-            data.push_back( it );
-        }
-
-        //for (auto it = j.begin(); it != j.end(); ++it) {
-        //    std::cout << *it << '\n';
-        //    //data.push_back( *it );
-        //}
-    }
-
-} // namespace myJsonTypes
-
-Status_t ApplicationDVR::loadLabels( const std::string& fileUrl ) {
-    
-    std::ifstream f(fileUrl);
-    try {
-        json data = json::parse( f );
-        //const auto& jsonData = data;
-        //myJsonTypes::LabelStruct labelStructEntry;
-        //data.get_to( labelStructEntry );
-        auto readJsonLabelData = data.get<myJsonTypes::Labels>();
-        //std::cout << readJsonLabelData << std::endl;
-        printf( "heyho!\n" );
-    } catch (json::exception& e) {
-        printf( "json parse exception: %s\n", e.what() );
-    }
-
-    return Status_t::OK();
-}
 
 void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
                                                 linAlg::vec3_t& rotPivotPosWS, 

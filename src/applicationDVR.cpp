@@ -6,18 +6,12 @@
 // * # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
 // * SharedMemIPC sharedMem{ "DVR_shared_memory" }; ==> define the name "DVR_shared_memory" in one location, accessible to each file that needs to access the shared mem
 
+// change BG color (gradient / texture also possible...)
 
 // schaff ich jetzt NICHT!!!
-// - empty space skipping
-//      set up additive blending in the framebuffer
-//      render small boxes front2back - immer alle small boxes, ABER jede dieser boxen repräsentiert ein texel einer groben 3D texture die das max der transparency-mapped densities ist
-//      kann schon im VS mit einem single tex access die gesamte box "offscreen" lenken bzw. collapsen lassen ==> FS wird gar nicht erst invoked
-//
 // - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
 
 
-// debug vis empty space skipping
-// GUI toggle switch empty space skipping
 
 
 // * Documentation:
@@ -44,6 +38,8 @@
 #include "gfxAPI/rbo.h"
 #include "gfxAPI/fbo.h"
 #include "gfxAPI/ubo.h"
+#include "gfxAPI/vbo.h"
+#include "gfxAPI/bufferTexture.h"
 #include "gfxAPI/checkErrorGL.h"
 
 
@@ -90,6 +86,23 @@ using json = nlohmann::json;
 using namespace ArcBall;
 
 namespace {
+
+    struct alignas(linAlg::vec4_t) sdfRoundRect_t {
+        linAlg::vec2_t  startPos; 
+        linAlg::vec2_t  endPos;
+        float           thickness;
+        float           cornerRoundness;
+        float           dummy0;
+        float           dummy1;
+    };
+    struct alignas(linAlg::vec4_t) sdfArrow_t {
+        linAlg::vec2_t  startPos; 
+        linAlg::vec2_t  endPos;
+        float           shaftThickness;
+        float           headThickness;
+        float           dummy0;
+        float           dummy1;
+    };
 
     struct brickSortData_t {
         int32_t x, y, z;
@@ -247,7 +260,6 @@ namespace {
         linAlg::loadPerspectiveFovYMatrix( projMatrix, fovY_deg, ratio, n, f );
     }
 
-    
 } // namespace
 
 
@@ -275,9 +287,12 @@ ApplicationDVR::ApplicationDVR(
     , mpVol_RT_Rbo( nullptr )
     , mpVol_RT_Fbo( nullptr )
     , mpLight_Ubo( nullptr )
+    //, mpSDF_Ubo( nullptr )
     , mpTFProcess( nullptr )
     , mpSCProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
+    //, mStbFont( "./data/fonts/Skinny__.ttf" )
+    , mStbFont( "./data/fonts/Spectral-Regular.ttf" )
     , mTtfMeshFont( "./data/fonts/Spectral-Regular.ttf" )
     , mGrabCursor( true ) {
 
@@ -293,6 +308,11 @@ ApplicationDVR::ApplicationDVR(
     const GfxAPI::Ubo::Desc lightUboDesc{
         .numBytes = sizeof(DVR_GUI::LightParameters),
     };
+    mpLight_Ubo = new GfxAPI::Ubo( lightUboDesc );
+
+    //const GfxAPI::Ubo::Desc sdfUboDesc{
+    //    .numBytes = sizeof(SDF_Data_t),
+    //};
     mpLight_Ubo = new GfxAPI::Ubo( lightUboDesc );
 
     mSharedMem.put( "DVR_WatchdogTime_shouldRun", "true" );
@@ -884,6 +904,70 @@ Status_t ApplicationDVR::run() {
     fullscreenTriShader.setInt( "u_Tex", 0 );
     fullscreenTriShader.use( false );
 
+    printf( "creating SDF shader\n" ); fflush( stdout );
+    GfxAPI::Shader sdfShader;
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > sdfShaderDesc{
+        std::make_pair( "./src/shaders/fullscreenTri.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
+        std::make_pair( "./src/shaders/sdf.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
+    };
+    gfxUtils::createShader( sdfShader, sdfShaderDesc );
+    sdfShader.use( true );
+    sdfShader.setInt( "u_roundRectsTB", 0 );
+    sdfShader.setInt( "u_arrowsTB", 1 );
+    sdfShader.use( false );
+    //{
+    //    const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
+    //    const auto sdfShaderIdx = static_cast<uint32_t>(sdfShader.programHandle());
+    //    uint32_t sdfShaderLightParamsUboIdx = glGetUniformBlockIndex( sdfShaderIdx, "LightParameters" );
+    //    glUniformBlockBinding( sdfShaderIdx, sdfShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
+    //    glBindBufferRange( GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>(mpSDF_Ubo->handle()), 0, mpSDF_Ubo->desc().numBytes );
+    //}
+    GfxAPI::BufferTexture sdfRoundRectsBT{ {} };
+    GfxAPI::BufferTexture sdfArrowsBT{ {} };
+    
+    { // actually, perform this on each data load when new labels become available!
+        sdfShader.use( true );
+
+        // this data will come from json label file (and will start out in OS, not already NDC-ish as here...
+        const std::vector<sdfRoundRect_t> roundRectDataCPU{
+            {   .startPos        = { 0.7f, 0.8f },
+                .endPos          = { 1.1f, 0.8f },
+                .thickness       = 0.005f,
+                .cornerRoundness = 0.01f,
+            },
+            {   .startPos        = { 0.1f, 0.2f },
+                .endPos          = { 0.4f, 0.2f },
+                .thickness       = 0.005f,
+                .cornerRoundness = 0.01f,
+            },
+        };
+        const std::vector<sdfArrow_t> arrowDataCPU{
+            {   .startPos       = { 0.9f,  0.8f  },
+                .endPos         = { 0.35f, 0.25f },
+                .shaftThickness = 0.005f,
+                .headThickness  = 0.005f + 0.01f,
+            },
+        };
+        const int32_t numSdfRoundRects = static_cast<int32_t>( roundRectDataCPU.size() );
+        const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
+
+        // upload sdf round-rects and arrows used for text labels
+        sdfShader.setIvec2( "u_num_RoundRects_Arrows", { numSdfRoundRects, numSdfArrows } );
+        GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
+        sdfRoundRectsBT.attachVbo( &sdfRoundRectsVbo );
+        auto* const pSdfRoundRectsVbo = sdfRoundRectsVbo.map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsVbo.desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
+        sdfRoundRectsVbo.unmap();
+
+        GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
+        sdfArrowsBT.attachVbo( &sdfArrowsVbo );
+        auto* const pSdfArrowsVbo = sdfArrowsVbo.map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsVbo.desc().numBytes );
+        sdfArrowsVbo.unmap();
+
+        sdfShader.use( false );
+    }
+
 
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
 
@@ -1386,22 +1470,42 @@ Status_t ApplicationDVR::run() {
                         
                     }
 
+                #if 1
                     if (visAlgo == DVR_GUI::eVisAlgo::mri) {
                         glClearColor( 0.0, 0.0, 0.0, 0.0 );
+                        //glClearColor( 0.0, 0.0, 0.0, 1.0 );
                         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+                        glBlendEquation(GL_MAX);
+                        glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR ); // Hadwiger Vol Book, p57
+
+                        //glBlendEquation( GL_FUNC_REVERSE_SUBTRACT );
+                        //glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR );
+
                         //glBlendEquation(GL_MAX);
-                        //glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR ); // Hadwiger Vol Book, p57
+                        //glBlendEquationSeparate( GL_FUNC_ADD, GL_MAX );
+                        ////glBlendFuncSeparate( GL_SRC_COLOR, GL_ONE, GL_SRC_ALPHA, GL_ONE ); // Hadwiger Vol Book, p57
+                        //glBlendFunc( GL_ONE, GL_ONE );
+
+
+                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_ONE_MINUS_SRC_ALPHA); // F2B
+                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
+                        //glBlendFuncSeparate(GL_DST_COLOR, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
+                        //glBlendFuncSeparate(GL_ONE, GL_ONE, GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA); // F2B
+                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
 
                         //glBlendEquation(GL_FUNC_ADD);
-                        glBlendEquation(GL_MAX);
-                        glBlendFunc( GL_SRC_ALPHA, GL_DST_ALPHA );
+                        
+                        //glBlendEquation(GL_MAX);
+                        //glBlendFunc( GL_SRC_ALPHA, GL_DST_ALPHA );
+
                         //glBlendFunc( GL_ONE, GL_ONE );
                         //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
                         //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA );
 
                         //glBlendFunc( GL_DST_ALPHA, GL_SRC_ALPHA );
                     }
+                #endif
 
 
                     {
@@ -1677,14 +1781,48 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        mStbFont.renderText( -512.0f, -512.0f + 24.0f, "Left Top" );
-        mStbFont.renderText( -512.0f, -512.0f + 24.0f + 32.0f, "Left Top Drunter" );
-        mStbFont.renderText( -512.0f,  512.0f -  4.0f, "Left Btm" );
-        mStbFont.renderText( -512.0f,  512.0f -  4.0f - 32.0f, "Left Btm Drueber" );
-        mStbFont.renderText(  0.0f,  0.0f, "Hello There" );
+    #if 1
+        glDisable( GL_DEPTH_TEST );
+        glDepthMask( GL_FALSE );
+        glEnable( GL_BLEND );
+        glBlendEquation( GL_FUNC_ADD );
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-        mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, "Right Top" );
-        mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, "Right Btm" );
+        sdfRoundRectsBT.bindToTexUnit( 0 );
+        sdfArrowsBT.bindToTexUnit( 1 );
+        sdfShader.use( true );
+        {
+            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
+            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
+            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
+            sdfShader.setVec2( "u_scaleRatio", {xAspect, yAspect} );
+        }
+        glBindVertexArray( mScreenTriHandle.vaoHandle );
+        glDrawArrays( GL_TRIANGLES, 0, 3 );
+        sdfShader.use( false );
+        sdfRoundRectsBT.unbindFromTexUnit();
+        sdfArrowsBT.unbindFromTexUnit();
+    #endif
+
+        glCheckError();
+
+        {
+            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
+            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
+            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
+            //mStbFont.setAspectRatios( { xAspect, yAspect } );
+            mStbFont.setAspectRatios( { 1.0f, 1.0f } );
+        }
+
+        constexpr linAlg::vec4_t fontColor{ 0.3f, 0.9f, 0.7f, 0.5f };
+        mStbFont.renderText( -512.0f, -512.0f + 24.0f, fontColor, "Left Top" );
+        mStbFont.renderText( -512.0f, -512.0f + 24.0f + 32.0f, fontColor, "Left Top Drunter" );
+        mStbFont.renderText( -512.0f,  512.0f -  4.0f, fontColor, "Left Btm" );
+        mStbFont.renderText( -512.0f,  512.0f -  4.0f - 32.0f, fontColor, "Left Btm Drueber" );
+        mStbFont.renderText(  0.0f,  0.0f, fontColor, "Hello There" );
+
+        mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, fontColor, "Right Top" );
+        mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, fontColor, "Right Btm" );
 
         glCheckError();
 
@@ -1692,10 +1830,31 @@ Status_t ApplicationDVR::run() {
         //    printf( "GL error!\n" );
         //}
 
-        mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "TTF Font 2D, 123" ) );
-        mTtfMeshFont.renderText3d( -0.8f, 0.0f, _TEXT( "TTF Font 3D, 456" ) );
-       // mTtfMeshFont.renderText( -0.8f, 0.0f, _TEXT( "AB" ) );
-        //mTtfMeshFont.renderText( -0.9f, 0.0f, _TEXT( "ABC123" ) );
+    #if 1
+        {
+            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
+            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
+            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
+            mTtfMeshFont.setAspectRatios( { xAspect * 0.5f * fbWidth, yAspect * 0.5f * fbHeight } );
+            //mTtfMeshFont.setAspectRatios( { 1.0f, 1.0f } );
+        }
+
+        glEnable( GL_DEPTH_TEST );
+        //glDisable( GL_DEPTH_TEST );
+        glDepthMask( GL_TRUE );
+
+        glDisable( GL_BLEND );
+        glDisable( GL_CULL_FACE );
+        //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "TTF Font 2D, 123" ) );
+        mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
+
+
+        //mTtfMeshFont.renderText3d( -0.8f, 0.0f, _TEXT( "TTF Font 3D, 456" ) );
+        mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
+    #endif
+
+        glEnable( GL_DEPTH_TEST );
+        glDepthMask( GL_TRUE );
 
         //if (glGetError() != GL_NO_ERROR) {
         //    printf( "GL error!\n" );

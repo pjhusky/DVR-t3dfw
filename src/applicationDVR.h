@@ -96,6 +96,7 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Fbo*                    mpVol_RT_Fbo;
 
     GfxAPI::Ubo*                    mpLight_Ubo;
+    //GfxAPI::Ubo*                    mpSDF_Ubo;
 
     std::vector< std::array<uint16_t,2> > mVolLoResData;
     std::vector<uint8_t> mEmptySpaceTableData;

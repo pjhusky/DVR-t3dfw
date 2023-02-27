@@ -20,10 +20,11 @@ namespace {
             //layout ( location = 1 ) in vec2 a_norm;
 
             uniform mat4 u_mvpMatrix;
-            uniform float u_x;
+            uniform vec2 u_pos;
+            uniform float u_fontAdvance;
 
-            uniform vec4 u_topL;
-            uniform vec4 u_btmR;
+            //uniform vec4 u_topL;
+            //uniform vec4 u_btmR;
 
             out gl_PerVertex{
                 vec4 gl_Position;
@@ -32,7 +33,8 @@ namespace {
             void main() {
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.8+u_x)*0.1-0.8, 0.0 ), -1.0, 1.0 );
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.0+u_x)*0.1-0.0, 0.0 ), 0.5, 1.0 );
-                gl_Position = u_mvpMatrix * vec4( a_pos, 0.5, 1.0 );
+                vec4 offset = vec4( u_fontAdvance, 0.0, 0.0, 0.0 ) + vec4( u_pos, 0.0, 0.0 );
+                gl_Position = u_mvpMatrix * ( vec4( a_pos, 0.0, 1.0 ) + offset );
             }
         );
         
@@ -40,8 +42,10 @@ namespace {
         // FRAGMENT SHADER
         const char* fragmentShaderSrc = GLSL(
             out vec4 o_Color;
+            uniform vec4 u_fontColor;
             void main() {
-                o_Color = vec4( 0.5, 1.0, 0.1, 1.0 );
+                //o_Color = vec4( 0.5, 1.0, 0.1, 1.0 );
+                o_Color = u_fontColor;
             }
         );
 
@@ -71,7 +75,8 @@ namespace {
             //layout ( location = 1 ) in vec3 a_norm;
 
             uniform mat4 u_mvpMatrix;
-            uniform float u_x;
+            uniform vec3 u_pos;
+            uniform vec3 u_fontAdvance;
 
             uniform vec4 u_topL;
             uniform vec4 u_btmR;
@@ -82,7 +87,8 @@ namespace {
 
             void main() {
                 //vec4 pos = vec4( a_pos * vec3( 0.1, 0.1, 1.0 ) + vec3( (-0.8 + u_x) * 0.1 - 0.8, 0.4, 0.0 ), 1.0 );
-                gl_Position = u_mvpMatrix * vec4( a_pos, 1.0 );
+                vec4 offset = vec4( u_fontAdvance + u_pos, 0.0 );
+                gl_Position = u_mvpMatrix * ( vec4( a_pos, 1.0 ) + offset );
                 //gl_Position.z = 0.5;
                 //gl_Position = u_mvpMatrix * pos;
             }
@@ -91,8 +97,10 @@ namespace {
         // FRAGMENT SHADER
         const char* fragmentShaderSrc = GLSL(
             out vec4 o_Color;
+            uniform vec4 u_fontColor;
             void main() {
-                o_Color = vec4( 0.9, 0.1, 0.5, 1.0 );
+                //o_Color = vec4( 0.9, 0.1, 0.5, 1.0 );
+                o_Color = u_fontColor;
             }
         );
 
@@ -260,7 +268,7 @@ const ttfMeshFont::glyphData_t* ttfMeshFont::chooseGlyph(TCHAR symbol) {
     return &mGlyphs.find( symbol )->second;
 }
 
-void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText ) {
+void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4_t& fontColor, const TCHAR* pText ) {
     //glTranslatef(width / 2, height / 10, 0);
     //glScalef(0.9f * height, 0.9f * height, 1.0f);
     //glScalef(1.0f, 1.0f, 0.1f);
@@ -282,14 +290,17 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
     linAlg::mat4_t mvpMatrix;
     linAlg::mat4_t projMatrix;
     linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
+    //linAlg::loadOrthoMatrix( projMatrix, 0.0f, mRatiosXY[0], 0.0f, mRatiosXY[1], -1.0f, 1.0f );
     linAlg::mat4_t fontScaleMatrix;
     linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
     linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
 
     //linAlg::loadIdentityMatrix( mvpMatrix );
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
+    pShader->setVec4( "u_fontColor", fontColor );
+    pShader->setVec2( "u_pos", {x,y} );
 
-    float currX = x;
+    float currX = 0;
 
 #if 0
 
@@ -318,11 +329,12 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
 
 #elif 1 // doesn't render font in Release
 
+
     for (; *pText; ++pText) {
         if (*pText >= 32 && *pText < 128) {
             const auto& charGlyph = chooseGlyph( *pText );
             
-            pShader->setFloat( "u_x", currX );
+            pShader->setFloat( "u_fontAdvance", currX );
             
             if (charGlyph == nullptr) { currX += 1.0; continue; }
             currX += charGlyph->pGlyph->advance;
@@ -342,7 +354,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
 }
 
 
-void ttfMeshFont::renderText3d( const float x, const float y, const TCHAR* pText ) {
+void ttfMeshFont::renderText3d( const float x, const float y, const float z, const linAlg::vec4_t& fontColor, const TCHAR* pText ) {
     glDisable( GL_CULL_FACE );
 
     auto* pShader = getOrCreateShader3d();
@@ -351,14 +363,17 @@ void ttfMeshFont::renderText3d( const float x, const float y, const TCHAR* pText
     linAlg::mat4_t mvpMatrix;
     linAlg::mat4_t projMatrix;
     linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
+    //linAlg::loadOrthoMatrix( projMatrix, 0.0f, mRatiosXY[0], 0.0f, mRatiosXY[1], -1.0f, 1.0f );
     linAlg::mat4_t fontScaleMatrix;
     linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
     linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
 
     //linAlg::loadIdentityMatrix( mvpMatrix );
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
+    pShader->setVec4( "u_fontColor", fontColor );
+    pShader->setVec3( "u_pos", {x,y,z} );
 
-    float currX = x;
+    float currX = 0;
 
     //glPolygonMode(GL_FRONT_AND_BACK,  GL_FILL);
 
@@ -366,7 +381,7 @@ void ttfMeshFont::renderText3d( const float x, const float y, const TCHAR* pText
         if (*pText >= 32 && *pText < 128) {
             const auto& charGlyph = chooseGlyph( *pText );
 
-            pShader->setFloat( "u_x", currX );
+            pShader->setVec3( "u_fontAdvance", { currX, 0.0f, 0.0f } );
 
             if (charGlyph == nullptr) { currX += 1.0; continue; }
             currX += charGlyph->pGlyph->advance;

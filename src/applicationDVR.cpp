@@ -1805,7 +1805,7 @@ Status_t ApplicationDVR::run() {
         glBlendEquation( GL_FUNC_ADD );
         glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-
+        // update sdf gui-elements draw data
         arrowDataCPU[0].endPos[0] = 0.35f + sinf( frameNum * M_PI / 180.0f );
         auto* const pSdfArrowsVbo = sdfArrowsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
         memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsBT.attachedVbo()->desc().numBytes );
@@ -1860,6 +1860,7 @@ Status_t ApplicationDVR::run() {
             const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
             const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
             mTtfMeshFont.setAspectRatios( { xAspect * 0.5f * fbWidth, yAspect * 0.5f * fbHeight } );
+            //mTtfMeshFont.setAspectRatios( { xAspect * fbWidth, yAspect * fbHeight } );
             //mTtfMeshFont.setAspectRatios( { 1.0f, 1.0f } );
         }
 
@@ -1869,12 +1870,19 @@ Status_t ApplicationDVR::run() {
 
         glDisable( GL_BLEND );
         glDisable( GL_CULL_FACE );
-        //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "TTF Font 2D, 123" ) );
-        mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
+        constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
+        mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
+        //mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
+        //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
 
+        const float startFactor = 0.1f;
+        mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f, fontColor2d, _TEXT( "Font 2D Widget" ) );
+        
 
-        //mTtfMeshFont.renderText3d( -0.8f, 0.0f, _TEXT( "TTF Font 3D, 456" ) );
-        mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
+        constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
+        //mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+        mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+        //mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
     #endif
 
         glEnable( GL_DEPTH_TEST );

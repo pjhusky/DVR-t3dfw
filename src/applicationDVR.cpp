@@ -11,6 +11,7 @@
 // schaff ich jetzt NICHT!!!
 // - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
 
+// Reset TF geht nur wenn der TF Prozeß auch rennt - also quasi ohne Funktion sonst
 
 
 
@@ -1857,6 +1858,7 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
+    #if 0
         {
             const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
             const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
@@ -1874,6 +1876,7 @@ Status_t ApplicationDVR::run() {
 
         mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, fontColor, "Right Top" );
         mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, fontColor, "Right Btm" );
+    #endif
 
         glCheckError();
 
@@ -1900,7 +1903,7 @@ Status_t ApplicationDVR::run() {
             glDisable( GL_CULL_FACE );
             constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
             //mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
-            mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
+            //mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
             //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
 
             //const std::vector<sdfRoundRect_t> roundRectDataCPU{
@@ -1914,15 +1917,19 @@ Status_t ApplicationDVR::run() {
             const float downOffsetFactor = 1.75f;
             //mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f - ( 0.1f * (0.5f * 0.005f) * 32.0f ), fontColor2d, _TEXT( "Font 2D Widget" ) );
             for (const auto& entry : roundRectDataCPU) {
-                const float fontStartX = (1.0f - startFactor) * entry.startPos[0] + startFactor * entry.endPos[0];
+                const float textW = mTtfMeshFont.getTextDisplayW( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its width from the contained text
+                //const float fontStartX = (1.0f - startFactor) * entry.startPos[0] + startFactor * entry.endPos[0];
+
+                const float midXWidget = 0.5f * (entry.startPos[0] + entry.endPos[0]);
+                const float fontStartX = midXWidget - 0.5f * textW;
                 const float fontStartY = entry.startPos[1] - (downOffsetFactor * (entry.thickness) ) /*  / yAspect */;
                 mTtfMeshFont.renderText2d( fontStartX, fontStartY, fontColor2d, _TEXT( "Font 2D Widget" ) );
             }
 
-            constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
-            //mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-            mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-            //mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
+            //constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
+            ////mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+            //mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+            ////mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
         }
     #endif
 

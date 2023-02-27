@@ -30,7 +30,9 @@ namespace {
             };
 
             void main() {
-                gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.8+u_x)*0.1-0.8, 0.0 ), -1.0, 1.0 );
+                //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.8+u_x)*0.1-0.8, 0.0 ), -1.0, 1.0 );
+                //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.0+u_x)*0.1-0.0, 0.0 ), 0.5, 1.0 );
+                gl_Position = u_mvpMatrix * vec4( a_pos, 0.5, 1.0 );
             }
         );
         
@@ -79,7 +81,10 @@ namespace {
             };
 
             void main() {
-                gl_Position = u_mvpMatrix * vec4( a_pos * vec3(0.1, 0.1, 1.0) + vec3( (-0.8+u_x)*0.1-0.8, 0.4, 0.0 ), 1.0 );
+                //vec4 pos = vec4( a_pos * vec3( 0.1, 0.1, 1.0 ) + vec3( (-0.8 + u_x) * 0.1 - 0.8, 0.4, 0.0 ), 1.0 );
+                gl_Position = u_mvpMatrix * vec4( a_pos, 1.0 );
+                //gl_Position.z = 0.5;
+                //gl_Position = u_mvpMatrix * pos;
             }
         );
 
@@ -87,7 +92,7 @@ namespace {
         const char* fragmentShaderSrc = GLSL(
             out vec4 o_Color;
             void main() {
-                o_Color = vec4( 0.5, 1.0, 0.1, 1.0 );
+                o_Color = vec4( 0.9, 0.1, 0.5, 1.0 );
             }
         );
 
@@ -193,7 +198,7 @@ ttfMeshFont::~ttfMeshFont() {
     //delete mpFont;
 }
 
-const ttfMeshFont::glyphData_t* ttfMeshFont::choose_glyph(TCHAR symbol) {
+const ttfMeshFont::glyphData_t* ttfMeshFont::chooseGlyph(TCHAR symbol) {
     // find a glyph in the font file
 
     const auto glyphQueryResult = mGlyphs.find( symbol );
@@ -273,9 +278,15 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
 
     auto* pShader = getOrCreateShader2d();
     pShader->use( true );
+
     linAlg::mat4_t mvpMatrix;
-    //linAlg::loadOrthoMatrix( mvpMatrix, -512.0f, 512.0f, -512.0f, 512.0f, 0.1f, 10000.0f );
-    linAlg::loadIdentityMatrix( mvpMatrix );
+    linAlg::mat4_t projMatrix;
+    linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
+    linAlg::mat4_t fontScaleMatrix;
+    linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
+    linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
+
+    //linAlg::loadIdentityMatrix( mvpMatrix );
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
 
     float currX = x;
@@ -285,7 +296,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
     std::vector<const glyphData_t*> glyphs;
     for (; *pText; ++pText) {
         if (*pText >= 32 && *pText < 128) {
-            const auto *charGlyph = choose_glyph( *pText );
+            const auto *charGlyph = chooseGlyph( *pText );
             //if (charGlyph == nullptr) { continue; }
             glyphs.push_back( charGlyph );
         }
@@ -309,7 +320,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const TCHAR* pText
 
     for (; *pText; ++pText) {
         if (*pText >= 32 && *pText < 128) {
-            const auto& charGlyph = choose_glyph( *pText );
+            const auto& charGlyph = chooseGlyph( *pText );
             
             pShader->setFloat( "u_x", currX );
             
@@ -336,23 +347,30 @@ void ttfMeshFont::renderText3d( const float x, const float y, const TCHAR* pText
 
     auto* pShader = getOrCreateShader3d();
     pShader->use( true );
+
     linAlg::mat4_t mvpMatrix;
-    //linAlg::loadOrthoMatrix( mvpMatrix, -512.0f, 512.0f, -512.0f, 512.0f, 0.1f, 10000.0f );
-    linAlg::loadIdentityMatrix( mvpMatrix );
+    linAlg::mat4_t projMatrix;
+    linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
+    linAlg::mat4_t fontScaleMatrix;
+    linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
+    linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
+
+    //linAlg::loadIdentityMatrix( mvpMatrix );
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
 
     float currX = x;
 
+    //glPolygonMode(GL_FRONT_AND_BACK,  GL_FILL);
+
     for (; *pText; ++pText) {
         if (*pText >= 32 && *pText < 128) {
-            const auto& charGlyph = choose_glyph( *pText );
+            const auto& charGlyph = chooseGlyph( *pText );
 
             pShader->setFloat( "u_x", currX );
 
             if (charGlyph == nullptr) { currX += 1.0; continue; }
             currX += charGlyph->pGlyph->advance;
 
-            glPolygonMode(GL_FRONT_AND_BACK,  GL_FILL);
             glBindVertexArray( charGlyph->bufferHandle3d.vaoHandle );
             glDrawElements( GL_TRIANGLES, charGlyph->pMesh3d->nfaces * 3, GL_UNSIGNED_INT, nullptr );
         }

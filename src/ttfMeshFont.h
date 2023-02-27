@@ -16,6 +16,8 @@ struct ttfMeshFont {
     void renderText2d( const float x, const float y, const TCHAR* pText );
     void renderText3d( const float x, const float y, const TCHAR* pText );
 
+    void setAspectRatios( const linAlg::vec2_t& xyRatios ) { mRatiosXY = xyRatios; }
+
 private:
 
     struct glyphData_t {
@@ -26,7 +28,9 @@ private:
         gfxUtils::bufferHandles_t   bufferHandle3d;
     };
 
-    const glyphData_t* choose_glyph( TCHAR symbol );
+    const glyphData_t* chooseGlyph( TCHAR symbol );
+
+    linAlg::vec2_t                 mRatiosXY;
 
     ttf_t*                         mpFont;
     std::map< TCHAR, glyphData_t > mGlyphs;

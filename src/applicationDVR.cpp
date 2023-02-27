@@ -88,7 +88,7 @@ using namespace ArcBall;
 namespace {
 
     struct alignas(linAlg::vec4_t) sdfRoundRect_t {
-        linAlg::vec2_t  startPos; 
+        linAlg::vec2_t  startPos;
         linAlg::vec2_t  endPos;
         float           thickness;
         float           cornerRoundness;
@@ -96,7 +96,7 @@ namespace {
         float           dummy1;
     };
     struct alignas(linAlg::vec4_t) sdfArrow_t {
-        linAlg::vec2_t  startPos; 
+        linAlg::vec2_t  startPos;
         linAlg::vec2_t  endPos;
         float           shaftThickness;
         float           headThickness;
@@ -105,6 +105,25 @@ namespace {
     };
 
     // DEBUG - test runtime changes to data
+    std::vector<sdfRoundRect_t> roundRectDataCPU{
+        {.startPos = { 0.7f, 0.8f },
+            .endPos = { 1.1f, 0.8f },
+            .thickness = 0.005f,
+            .cornerRoundness = 0.01f,
+        },
+        {.startPos = { 0.1f, 0.2f },
+            .endPos = { 0.4f, 0.2f },
+            .thickness = 0.005f,
+            .cornerRoundness = 0.01f,
+        },
+    };
+    const int32_t numSdfRoundRects = static_cast<int32_t>(roundRectDataCPU.size());
+    //GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
+    static GfxAPI::Vbo& sdfRoundRectsVbo() {
+        static GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>(numSdfRoundRects * sizeof( sdfRoundRect_t )) } };
+        return sdfRoundRectsVbo;
+    }
+
     std::vector<sdfArrow_t> arrowDataCPU{
         {   .startPos       = { 0.9f,  0.8f  },
             .endPos         = { 0.35f, 0.25f },
@@ -114,7 +133,7 @@ namespace {
     };
     const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
     //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
-    GfxAPI::Vbo& sdfArrowsVbo() {
+    static GfxAPI::Vbo& sdfArrowsVbo() {
         static GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
         return sdfArrowsVbo;
     }
@@ -945,19 +964,19 @@ Status_t ApplicationDVR::run() {
         sdfShader.use( true );
 
         // this data will come from json label file (and will start out in OS, not already NDC-ish as here...
-        const std::vector<sdfRoundRect_t> roundRectDataCPU{
-            {   .startPos        = { 0.7f, 0.8f },
-                .endPos          = { 1.1f, 0.8f },
-                .thickness       = 0.005f,
-                .cornerRoundness = 0.01f,
-            },
-            {   .startPos        = { 0.1f, 0.2f },
-                .endPos          = { 0.4f, 0.2f },
-                .thickness       = 0.005f,
-                .cornerRoundness = 0.01f,
-            },
-        };
-        const int32_t numSdfRoundRects = static_cast<int32_t>( roundRectDataCPU.size() );
+        //const std::vector<sdfRoundRect_t> roundRectDataCPU{
+        //    {   .startPos        = { 0.7f, 0.8f },
+        //        .endPos          = { 1.1f, 0.8f },
+        //        .thickness       = 0.005f,
+        //        .cornerRoundness = 0.01f,
+        //    },
+        //    {   .startPos        = { 0.1f, 0.2f },
+        //        .endPos          = { 0.4f, 0.2f },
+        //        .thickness       = 0.005f,
+        //        .cornerRoundness = 0.01f,
+        //    },
+        //};
+        //const int32_t numSdfRoundRects = static_cast<int32_t>( roundRectDataCPU.size() );
 
         //const std::vector<sdfArrow_t> arrowDataCPU{
         //    {   .startPos       = { 0.9f,  0.8f  },
@@ -970,11 +989,11 @@ Status_t ApplicationDVR::run() {
 
         // upload sdf round-rects and arrows used for text labels
         sdfShader.setIvec2( "u_num_RoundRects_Arrows", { numSdfRoundRects, numSdfArrows } );
-        GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
-        sdfRoundRectsBT.attachVbo( &sdfRoundRectsVbo );
-        auto* const pSdfRoundRectsVbo = sdfRoundRectsVbo.map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsVbo.desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
-        sdfRoundRectsVbo.unmap();
+        //GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
+        sdfRoundRectsBT.attachVbo( &sdfRoundRectsVbo() );
+        auto* const pSdfRoundRectsVbo = sdfRoundRectsVbo().map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsVbo().desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
+        sdfRoundRectsVbo().unmap();
 
         //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
         sdfArrowsBT.attachVbo( &sdfArrowsVbo() );
@@ -1811,6 +1830,14 @@ Status_t ApplicationDVR::run() {
         memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsBT.attachedVbo()->desc().numBytes );
         sdfArrowsBT.attachedVbo()->unmap();
 
+        roundRectDataCPU[1].startPos[0] = 0.1f + 0.5f * cosf( frameNum * M_PI / 180.0f );
+        roundRectDataCPU[1].endPos[0] = 0.4f + 0.5f * cosf( frameNum * M_PI / 180.0f );
+        roundRectDataCPU[1].startPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
+        roundRectDataCPU[1].endPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
+        auto* const pSdfRoundRectsVbo = sdfRoundRectsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
+        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsBT.attachedVbo()->desc().numBytes );
+        sdfRoundRectsBT.attachedVbo()->unmap();
+
 
         sdfRoundRectsBT.bindToTexUnit( 0 );
         sdfArrowsBT.bindToTexUnit( 1 );
@@ -1859,30 +1886,44 @@ Status_t ApplicationDVR::run() {
             const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
             const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
             const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
-            mTtfMeshFont.setAspectRatios( { xAspect * 0.5f * fbWidth, yAspect * 0.5f * fbHeight } );
+            mTtfMeshFont.setAspectRatios( { xAspect, yAspect } );
+            //mTtfMeshFont.setAspectRatios( { xAspect * 0.5f * fbWidth, yAspect * 0.5f * fbHeight } );
             //mTtfMeshFont.setAspectRatios( { xAspect * fbWidth, yAspect * fbHeight } );
             //mTtfMeshFont.setAspectRatios( { 1.0f, 1.0f } );
+
+
+            glEnable( GL_DEPTH_TEST );
+            //glDisable( GL_DEPTH_TEST );
+            glDepthMask( GL_TRUE );
+
+            glDisable( GL_BLEND );
+            glDisable( GL_CULL_FACE );
+            constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
+            //mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
+            mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
+            //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
+
+            //const std::vector<sdfRoundRect_t> roundRectDataCPU{
+            //    {   .startPos        = { 0.7f, 0.8f },
+            //    .endPos          = { 1.1f, 0.8f },
+            //    .thickness       = 0.005f,
+            //    .cornerRoundness = 0.01f,
+            //    },
+
+            const float startFactor = 0.1f;
+            const float downOffsetFactor = 1.75f;
+            //mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f - ( 0.1f * (0.5f * 0.005f) * 32.0f ), fontColor2d, _TEXT( "Font 2D Widget" ) );
+            for (const auto& entry : roundRectDataCPU) {
+                const float fontStartX = (1.0f - startFactor) * entry.startPos[0] + startFactor * entry.endPos[0];
+                const float fontStartY = entry.startPos[1] - (downOffsetFactor * (entry.thickness) ) /*  / yAspect */;
+                mTtfMeshFont.renderText2d( fontStartX, fontStartY, fontColor2d, _TEXT( "Font 2D Widget" ) );
+            }
+
+            constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
+            //mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+            mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
+            //mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
         }
-
-        glEnable( GL_DEPTH_TEST );
-        //glDisable( GL_DEPTH_TEST );
-        glDepthMask( GL_TRUE );
-
-        glDisable( GL_BLEND );
-        glDisable( GL_CULL_FACE );
-        constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
-        mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
-        //mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
-        //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
-
-        const float startFactor = 0.1f;
-        mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f, fontColor2d, _TEXT( "Font 2D Widget" ) );
-        
-
-        constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
-        //mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-        mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-        //mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
     #endif
 
         glEnable( GL_DEPTH_TEST );

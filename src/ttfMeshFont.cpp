@@ -22,6 +22,7 @@ namespace {
             uniform mat4 u_mvpMatrix;
             uniform vec2 u_pos;
             uniform float u_fontAdvance;
+            uniform vec2 u_aspectRatio;
 
             //uniform vec4 u_topL;
             //uniform vec4 u_btmR;
@@ -34,7 +35,7 @@ namespace {
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.8+u_x)*0.1-0.8, 0.0 ), -1.0, 1.0 );
                 //gl_Position = u_mvpMatrix * vec4( a_pos * vec2(0.1, 0.1) + vec2( (-0.0+u_x)*0.1-0.0, 0.0 ), 0.5, 1.0 );
                 vec4 offset = vec4( u_fontAdvance, 0.0, 0.0, 0.0 ) + vec4( u_pos, 0.0, 0.0 );
-                gl_Position = u_mvpMatrix * ( vec4( a_pos, 0.0, 1.0 ) + offset );
+                gl_Position = u_mvpMatrix * vec4( ( a_pos / 32.0f + offset.xy ) / u_aspectRatio, 0.0, 1.0 );
             }
         );
         
@@ -77,6 +78,7 @@ namespace {
             uniform mat4 u_mvpMatrix;
             uniform vec3 u_pos;
             uniform vec3 u_fontAdvance;
+            uniform vec2 u_aspectRatio;
 
             uniform vec4 u_topL;
             uniform vec4 u_btmR;
@@ -288,17 +290,18 @@ void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4
     pShader->use( true );
 
     linAlg::mat4_t mvpMatrix;
-    linAlg::mat4_t projMatrix;
-    linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
+    //linAlg::mat4_t projMatrix;
+    //linAlg::loadOrthoMatrix( projMatrix, -mRatiosXY[0], mRatiosXY[0], -mRatiosXY[1], mRatiosXY[1], -1.0f, 1.0f );
     //linAlg::loadOrthoMatrix( projMatrix, 0.0f, mRatiosXY[0], 0.0f, mRatiosXY[1], -1.0f, 1.0f );
-    linAlg::mat4_t fontScaleMatrix;
-    linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
-    linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
+    //linAlg::mat4_t fontScaleMatrix;
+    //linAlg::loadScaleMatrix( fontScaleMatrix, {32.0f, 32.0f, 1.0f, 1.0f} );
+    //linAlg::multMatrix( mvpMatrix, projMatrix, fontScaleMatrix );
 
-    //linAlg::loadIdentityMatrix( mvpMatrix );
+    linAlg::loadIdentityMatrix( mvpMatrix );
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
     pShader->setVec4( "u_fontColor", fontColor );
     pShader->setVec2( "u_pos", {x,y} );
+    pShader->setVec2( "u_aspectRatio", mRatiosXY );
 
     float currX = 0;
 
@@ -334,7 +337,7 @@ void ttfMeshFont::renderText2d( const float x, const float y, const linAlg::vec4
         if (*pText >= 32 && *pText < 128) {
             const auto& charGlyph = chooseGlyph( *pText );
             
-            pShader->setFloat( "u_fontAdvance", currX );
+            pShader->setFloat( "u_fontAdvance", currX / 32.0f );
             
             if (charGlyph == nullptr) { currX += 1.0; continue; }
             currX += charGlyph->pGlyph->advance;
@@ -372,6 +375,7 @@ void ttfMeshFont::renderText3d( const float x, const float y, const float z, con
     pShader->setMat4( "u_mvpMatrix", mvpMatrix );
     pShader->setVec4( "u_fontColor", fontColor );
     pShader->setVec3( "u_pos", {x,y,z} );
+    pShader->setVec2( "u_aspectRatio", mRatiosXY );
 
     float currX = 0;
 

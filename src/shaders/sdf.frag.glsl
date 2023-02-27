@@ -10,6 +10,23 @@ uniform ivec2 u_num_RoundRects_Arrows;
 
 uniform vec2 u_scaleRatio;
 
+// Oriented Box - distance 2D (iq):  https://www.shadertoy.com/view/stcfzn
+// Arrow - distance (iq) https://www.shadertoy.com/view/slj3Dd
+/*
+changes 
+...
+    p *= 0.5;
+    p += 0.5;
+...
+    // distance
+    //float d = sdArrow(p, a, b, w1, w2);
+    float s = 0.01;
+    float d = sdArrow( p, vec2( 0.1, 0.4), vec2( 0.8, 0.4), s, s+0.015 );
+
+*/
+
+// SDF Box - Numerically Robust: https://www.shadertoy.com/view/cts3W2
+
 vec2 skew(vec2 v)
 {
 	return vec2(-v.y, v.x);

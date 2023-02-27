@@ -236,6 +236,7 @@ workspace "T3DFW_DVR_Workspace"
 			"**.frag",
 			"**.geom",
 			"**.vert",
+			"data/**.labels.json"
 		}
 		removefiles { "t3dfw/**" }
 		-- excludes { "t3dfw/**" }

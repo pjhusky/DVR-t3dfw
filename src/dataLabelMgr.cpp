@@ -53,6 +53,13 @@ dataLabelMgr::~dataLabelMgr() {
 
 void dataLabelMgr::addLabel( const dataLabel& dataLabel ) {
     mScreenLabels.push_back( dataLabel );
+
+    // fixup text label width to match printed text (that appears centered)
+    mScreenLabels.back().roundRect().endPos[0] = mScreenLabels.back().roundRect().startPos[0];
+    mScreenLabels.back().roundRect().endPos[0] += 1.25f * mTtfMeshFont.getTextDisplayW( mScreenLabels.back().labelText().c_str() );
+    for (auto& arrow : mScreenLabels.back().arrowScreenAttribs()) {
+        arrow.startPos[0] = 0.5f * (mScreenLabels.back().roundRect().endPos[0] + mScreenLabels.back().roundRect().startPos[0]);
+    }
 }
 
 void dataLabelMgr::removeAllLabels() {
@@ -62,6 +69,8 @@ void dataLabelMgr::removeAllLabels() {
 void dataLabelMgr::bakeAddedLabels() {
     //GfxAPI::BufferTexture sdfRoundRectsBT{ {} };
     //GfxAPI::BufferTexture sdfArrowsBT{ {} };
+
+
 
 #if 1
     { // actually, perform this on each data load when new labels become available!
@@ -176,7 +185,7 @@ void dataLabelMgr::drawScreen( const int32_t fbW, const int32_t fbH, uint64_t fr
     if (!mScreenLabels.empty()){
         //arrowDataCPU[0].endPos[0] = 0.35f + sinf( frameNum * M_PI / 180.0f );
         bool alreadyChanged = false;
-        mSdfArrowsBT.attachVbo( mpSdfArrowsVbo );
+        //mSdfArrowsBT.attachVbo( mpSdfArrowsVbo );
         //auto* const pSdfArrowsVbo = mSdfArrowsVbo.map( GfxAPI::eMapMode::writeOnly );
         uint8_t* const pSdfArrowsVbo = reinterpret_cast<uint8_t*>( mpSdfArrowsVbo->map( GfxAPI::eMapMode::writeOnly ) );
         //memcpy( pSdfArrowsVbo, arrowDataCPU.data(), mSdfArrowsVbo.desc().numBytes );
@@ -202,6 +211,17 @@ void dataLabelMgr::drawScreen( const int32_t fbW, const int32_t fbH, uint64_t fr
         mScreenLabels[1].roundRect().startPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
         mScreenLabels[1].roundRect().endPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
 
+        mScreenLabels[1].roundRect().endPos[0] = mScreenLabels[1].roundRect().startPos[0];
+        mScreenLabels[1].roundRect().endPos[0] += 1.25f * mTtfMeshFont.getTextDisplayW( mScreenLabels[1].labelText().c_str() );
+        for (auto& arrow : mScreenLabels[1].arrowScreenAttribs()) {
+            arrow.startPos[0] = 0.5f * (mScreenLabels[1].roundRect().endPos[0] + mScreenLabels[1].roundRect().startPos[0]);
+            arrow.startPos[1] = 0.5f * (mScreenLabels[1].roundRect().endPos[1] + mScreenLabels[1].roundRect().startPos[1]);
+
+            arrow.endPos[0] = arrow.startPos[0] + 0.2f;
+            arrow.endPos[1] = arrow.startPos[1] + 0.2f;
+        }
+
+
         uint8_t* const pSdfRoundRectsVbo = reinterpret_cast<uint8_t*>(mpSdfRoundRectsVbo->map( GfxAPI::eMapMode::writeOnly ));
         //memcpy( pSdfRoundRectsVbo, mScreenLabels .data(), mSdfRoundRectsVbo.desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
         // bad mem layout!!! instead of one big memcpy, need to perform one memcpy per label
@@ -214,6 +234,18 @@ void dataLabelMgr::drawScreen( const int32_t fbW, const int32_t fbH, uint64_t fr
             }
         }
         mpSdfRoundRectsVbo->unmap();
+
+        uint8_t* const pSdfArrowsVbo = reinterpret_cast<uint8_t*>( mpSdfArrowsVbo->map( GfxAPI::eMapMode::writeOnly ) );
+        {
+            uint32_t byteOffset = 0;
+            uint32_t chunkByteSize = sizeof( dataLabel::sdfArrow_t );
+            for (auto& entry : mScreenLabels) {
+                memcpy( pSdfArrowsVbo + byteOffset, entry.arrowScreenAttribs().data(), chunkByteSize * entry.arrowScreenAttribs().size() );
+                byteOffset += chunkByteSize * entry.arrowScreenAttribs().size();
+            }
+        }
+        mpSdfArrowsVbo->unmap();
+
     }
 
 #endif

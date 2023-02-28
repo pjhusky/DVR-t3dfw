@@ -13,6 +13,9 @@
 
 // Reset TF geht nur wenn der TF Prozeß auch rennt - also quasi ohne Funktion sonst
 
+// raster-render algo hat korrekte trafos für arrow-endpos; 
+//  NOTE: data def im JSOn ist [-1;+1] statt [0; volDim]^3
+
 // * Documentation:
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume

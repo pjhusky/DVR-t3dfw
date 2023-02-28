@@ -181,7 +181,9 @@ void dataLabelMgr::drawScreen( const linAlg::mat4_t& mvpMatrix, const int32_t fb
     auto* const pSdfRoundRectsVbo = sdfRoundRectsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
     memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsBT.attachedVbo()->desc().numBytes );
     sdfRoundRectsBT.attachedVbo()->unmap();
-#else
+#elif 1
+
+#if 0 // just some debug animations
     if (!mScreenLabels.empty()){
         //arrowDataCPU[0].endPos[0] = 0.35f + sinf( frameNum * M_PI / 180.0f );
         bool alreadyChanged = false;
@@ -238,7 +240,36 @@ void dataLabelMgr::drawScreen( const linAlg::mat4_t& mvpMatrix, const int32_t fb
                 idx++;
             }
         }
+    #else // actual position updates
 
+    for (uint32_t i = 0; i < mScreenLabels.size(); i++) {
+        mScreenLabels[i].roundRect().startPos[0] = 0.1f + 0.5f * cosf( i+frameNum * M_PI / 180.0f );
+        mScreenLabels[i].roundRect().endPos[0] = 0.4f + 0.5f * cosf( i+frameNum * M_PI / 180.0f );
+        mScreenLabels[i].roundRect().startPos[1] = 0.2f + 0.25f * sinf( i+frameNum * M_PI / 180.0f );
+        mScreenLabels[i].roundRect().endPos[1] = 0.2f + 0.25f * sinf( i+frameNum * M_PI / 180.0f );
+
+        mScreenLabels[i].roundRect().endPos[0] = mScreenLabels[i].roundRect().startPos[0];
+        mScreenLabels[i].roundRect().endPos[0] += 1.25f * mTtfMeshFont.getTextDisplayW( mScreenLabels[i].labelText().c_str() );
+
+
+        const float iaspectRatio = static_cast<float>(fbW) / static_cast<float>(fbH);
+        const float ixAspect = (iaspectRatio > 1.0f) ? iaspectRatio : 1.0f;
+        const float iyAspect = (iaspectRatio > 1.0f) ? 1.0f : 1.0f / iaspectRatio;
+
+        uint32_t idx = 0;
+        for (auto& arrow : mScreenLabels[i].arrowScreenAttribs()) {
+            arrow.startPos[0] = 0.5f * (mScreenLabels[i].roundRect().endPos[0] + mScreenLabels[i].roundRect().startPos[0]);
+            arrow.startPos[1] = 0.5f * (mScreenLabels[i].roundRect().endPos[1] + mScreenLabels[i].roundRect().startPos[1]);
+
+            linAlg::vec4_t pos{ mScreenLabels[i].arrowDataPos3D()[idx][0], mScreenLabels[i].arrowDataPos3D()[idx][1], mScreenLabels[i].arrowDataPos3D()[idx][2], 1.0f };
+                
+            linAlg::applyTransformationToPoint( mvpMatrix, &pos, 1 );
+            arrow.endPos[0] = (pos[0] / pos[3]) * ixAspect;
+            arrow.endPos[1] = (pos[1] / pos[3]) * iyAspect;
+
+            idx++;
+        }
+    #endif
 
 
         uint8_t* const pSdfRoundRectsVbo = reinterpret_cast<uint8_t*>(mpSdfRoundRectsVbo->map( GfxAPI::eMapMode::writeOnly ));

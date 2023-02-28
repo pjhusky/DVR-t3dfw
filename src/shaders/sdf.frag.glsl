@@ -138,7 +138,7 @@ void main() {
         vec4 positions = texelFetch( u_arrowsTB, i * 2 + 0 );
         vec2 startPos = positions.xy;
         vec2 endPos = positions.zw;
-        vec4 attribs = texelFetch( u_roundRectsTB, i * 2 + 1 );
+        vec4 attribs = texelFetch( u_arrowsTB, i * 2 + 1 );
         float shaftThickness = attribs.x;
         float headThickness = attribs.y;
         float currDist = sdArrow( p, startPos, endPos, shaftThickness, headThickness );
@@ -146,6 +146,7 @@ void main() {
     }
 
     d = step ( 0.0025, d ); // the bigger than 0, the "smoother" the (combined) shapes
+    //d = smoothstep ( 0.0025, 1.0, d );
     if ( d > 0.0 ) {
         discard;
         return;

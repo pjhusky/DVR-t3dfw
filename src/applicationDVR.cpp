@@ -8,13 +8,13 @@
 
 // change BG color (gradient / texture also possible...)
 
-// schaff ich jetzt NICHT!!!
+// no doable within time limit:
 // - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
 
-// Reset TF geht nur wenn der TF Prozeß auch rennt - also quasi ohne Funktion sonst
+// Reset TF only has an effect when TF process is currently running (time-coupling!)
 
-// raster-render algo hat korrekte trafos für arrow-endpos; 
-//  NOTE: data def im JSOn ist [-1;+1] statt [0; volDim]^3
+// raster-render algo has correct MVP matrix for arrow-endpositions pointing to data - need to fix-up the other render algo to match this (an initial scaling transformation)
+//  NOTE: data def in JSOn is in the range [-1;+1], not in the range [0; volDim]^3
 
 // * Documentation:
 // early-ray termination, weil front-2-back compositing

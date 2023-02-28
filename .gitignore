@@ -23,6 +23,7 @@ data/*
 !DVR_sample.png
 !DVR_sample_2.png
 !data/**.png
+!data/**.labels.json
 **.tif*
 **.bin
 **.jpg

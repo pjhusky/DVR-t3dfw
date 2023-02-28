@@ -9,8 +9,6 @@
 
 #include "tiny-process-library/process.hpp"
 #include "sharedMemIPC.h"
-#include "stbFont.h"
-#include "ttfMeshFont.h"
 
 #include "GUI/DVR_GUI.h"
 
@@ -33,6 +31,8 @@ namespace ArcBall {
 namespace FileLoader {
     struct VolumeData;
 }
+
+struct dataLabelMgr;
 
 struct GLFWwindow;
 
@@ -98,7 +98,6 @@ struct ApplicationDVR : public iApplication {
     GfxAPI::Fbo*                    mpVol_RT_Fbo;
 
     GfxAPI::Ubo*                    mpLight_Ubo;
-    //GfxAPI::Ubo*                    mpSDF_Ubo;
 
     std::vector< std::array<uint16_t,2> > mVolLoResData;
     std::vector<uint8_t> mEmptySpaceTableData;
@@ -125,8 +124,7 @@ struct ApplicationDVR : public iApplication {
 
     SharedMemIPC                    mSharedMem;
 
-    stbFont                         mStbFont;
-    ttfMeshFont                     mTtfMeshFont;
+    dataLabelMgr&                 mDataLabelMgr; 
 
     std::thread*                    mpWatchdogThread;
 

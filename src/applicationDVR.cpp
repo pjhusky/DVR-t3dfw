@@ -13,8 +13,6 @@
 
 // Reset TF geht nur wenn der TF Prozeß auch rennt - also quasi ohne Funktion sonst
 
-
-
 // * Documentation:
 // early-ray termination, weil front-2-back compositing
 // empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
@@ -45,14 +43,15 @@
 
 
 #include "applicationDVR_common.h"
-
 #include "applicationDVR.h"
+#include "dataLabelMgr.h"
 
 #include "fileLoaders/volumeData.h"
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
 #include "arcBall/arcBallControls.h"
 
+#include "utf8Utils.h" // solve C++17 UTF deprecation
 
 #include <math.h>
 #include <float.h>
@@ -69,7 +68,6 @@
 #include "external/jsonForModernCpp/single_include/nlohmann/json.hpp"
 using json = nlohmann::json;
 
-#include "stbFont.h"
 
 #include <algorithm>
 #include <execution>
@@ -81,77 +79,19 @@ using json = nlohmann::json;
 
 #include "src/shaders/dvrCommonDefines.h.glsl"
 
-//#include <concurrent_vector.h>
 #include <omp.h>
 
 using namespace ArcBall;
 
 namespace {
 
-    struct alignas(linAlg::vec4_t) sdfRoundRect_t {
-        linAlg::vec2_t  startPos;
-        linAlg::vec2_t  endPos;
-        float           thickness;
-        float           cornerRoundness;
-        float           dummy0;
-        float           dummy1;
-    };
-    struct alignas(linAlg::vec4_t) sdfArrow_t {
-        linAlg::vec2_t  startPos;
-        linAlg::vec2_t  endPos;
-        float           shaftThickness;
-        float           headThickness;
-        float           dummy0;
-        float           dummy1;
-    };
-
-    // DEBUG - test runtime changes to data
-    std::vector<sdfRoundRect_t> roundRectDataCPU{
-        {.startPos = { 0.7f, 0.8f },
-            .endPos = { 1.1f, 0.8f },
-            .thickness = 0.005f,
-            .cornerRoundness = 0.01f,
-        },
-        {.startPos = { 0.1f, 0.2f },
-            .endPos = { 0.4f, 0.2f },
-            .thickness = 0.005f,
-            .cornerRoundness = 0.01f,
-        },
-    };
-    const int32_t numSdfRoundRects = static_cast<int32_t>(roundRectDataCPU.size());
-    //GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
-    static GfxAPI::Vbo& sdfRoundRectsVbo() {
-        static GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>(numSdfRoundRects * sizeof( sdfRoundRect_t )) } };
-        return sdfRoundRectsVbo;
-    }
-
-    std::vector<sdfArrow_t> arrowDataCPU{
-        {   .startPos       = { 0.9f,  0.8f  },
-            .endPos         = { 0.35f, 0.25f },
-            .shaftThickness = 0.005f,
-            .headThickness  = 0.005f + 0.01f,
-        },
-    };
-    const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
-    //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
-    static GfxAPI::Vbo& sdfArrowsVbo() {
-        static GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
-        return sdfArrowsVbo;
-    }
-
-
     struct brickSortData_t {
         int32_t x, y, z;
-        //float distToNearPlane;
-        //float distFromViewRay;
     };
     static std::vector<brickSortData_t> visibleBricksWithDists;
     static std::mutex visibleBricksWithDists_mutex;
     
-    //static Concurrency::concurrent_vector<brickSortData_t> visibleBricksWithDists;
-
     static std::vector< std::vector< brickSortData_t > > threadBsd; 
-
 
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
     //static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::backfaceCubeRaster;
@@ -176,7 +116,6 @@ namespace {
     static linAlg::vec3_t rotPivotPosOS{ 0.0f, 0.0f, 0.0f };
     static linAlg::vec3_t rotPivotPosWS{ 0.0f, 0.0f, 0.0f };
 
-    //static linAlg::vec4_t prevSphereCenterES{ 0.0f, 0.0f, 0.0f, 1.0f };
     static linAlg::vec3_t prevRefPtES{ 0.0f, 0.0f, 0.0f };
 
     linAlg::mat3x4_t prevModelMatrix3x4;
@@ -327,9 +266,7 @@ ApplicationDVR::ApplicationDVR(
     , mpTFProcess( nullptr )
     , mpSCProcess( nullptr )
     , mSharedMem( ApplicationDVR_common::sharedMemId )
-    //, mStbFont( "./data/fonts/Skinny__.ttf" )
-    , mStbFont( "./data/fonts/Spectral-Regular.ttf" )
-    , mTtfMeshFont( "./data/fonts/Spectral-Regular.ttf" )
+    , mDataLabelMgr( dataLabelMgr::instance() )
     , mGrabCursor( true ) {
 
     std::atexit( atExit );
@@ -548,11 +485,78 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 //    auto t1 = std::filesystem::absolute( path.root_directory() );
 //    labelFileUrl += filename.root_name(); //std::filesystem::path::root_name( path );
 //    labelFileUrl += "Label.json";
-        
+    
+    mDataLabelMgr.removeAllLabels();
     const auto labelFileUrl = path.replace_extension( ".labels.json" );
     jsonLabels::Labels parsedJsonLabels;
     if (std::filesystem::exists( labelFileUrl ) ) {
         loadLabels( labelFileUrl.string(), parsedJsonLabels );
+
+        for (const auto& jsonLabel : parsedJsonLabels) {
+            dataLabel::arrowAttribsSOA arrowAttribsVector;
+
+            for (const auto arrowJsonLabelPos : jsonLabel.positions) {
+                arrowAttribsVector.screenAttribs.push_back(
+                    {
+                        .startPos = { 0.9f,  0.8f  },
+                        .endPos = { 0.35f, 0.25f },
+                        .shaftThickness = 0.005f,
+                        .headThickness = 0.005f + 0.01f,
+                    } );
+                
+                arrowAttribsVector.dataPos3D.push_back( arrowJsonLabelPos );
+                
+            }
+
+            const dataLabel label{ 
+                utf8Utils::utf8_decode(jsonLabel.name),
+                {   .startPos = { 0.7f, 0.8f },
+                    .endPos = { 1.1f, 0.8f },
+                    .thickness = 0.005f,
+                    .cornerRoundness = 0.01f, 
+                },
+                arrowAttribsVector
+            };
+            mDataLabelMgr.addLabel( label );
+        }
+    #if 0
+        // DEBUG - test runtime changes to data
+        std::vector<dataLabel::roundRectAttribs> roundRectDataCPU{
+            {.startPos = { 0.7f, 0.8f },
+            .endPos = { 1.1f, 0.8f },
+            .thickness = 0.005f,
+            .cornerRoundness = 0.01f,
+            },
+            {.startPos = { 0.1f, 0.2f },
+            .endPos = { 0.4f, 0.2f },
+            .thickness = 0.005f,
+            .cornerRoundness = 0.01f,
+        },
+        };
+        const int32_t numSdfRoundRects = static_cast<int32_t>(roundRectDataCPU.size());
+        //GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
+        static GfxAPI::Vbo& sdfRoundRectsVbo() {
+            static GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>(numSdfRoundRects * sizeof( dataLabel::roundRectAttribs )) } };
+            return sdfRoundRectsVbo;
+        }
+
+        std::vector<dataLabel::arrowAttribs> arrowDataCPU{
+            {   .startPos       = { 0.9f,  0.8f  },
+            .endPos         = { 0.35f, 0.25f },
+            .shaftThickness = 0.005f,
+            .headThickness  = 0.005f + 0.01f,
+            },
+        };
+        const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
+        //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
+        static GfxAPI::Vbo& sdfArrowsVbo() {
+            static GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( dataLabel::arrowAttribs ) ) } };
+            return sdfArrowsVbo;
+        }
+    #endif
+
+        mDataLabelMgr.bakeAddedLabels();
+
     } else {
         printf( "Label file '%s' does not exist\n", labelFileUrl.string().c_str() );
     }
@@ -923,70 +927,7 @@ Status_t ApplicationDVR::run() {
     fullscreenTriShader.setInt( "u_Tex", 0 );
     fullscreenTriShader.use( false );
 
-    printf( "creating SDF shader\n" ); fflush( stdout );
-    GfxAPI::Shader sdfShader;
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > sdfShaderDesc{
-        std::make_pair( "./src/shaders/fullscreenTri.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
-        std::make_pair( "./src/shaders/sdf.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), // X-ray of x-y planes
-    };
-    gfxUtils::createShader( sdfShader, sdfShaderDesc );
-    sdfShader.use( true );
-    sdfShader.setInt( "u_roundRectsTB", 0 );
-    sdfShader.setInt( "u_arrowsTB", 1 );
-    sdfShader.use( false );
-    //{
-    //    const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
-    //    const auto sdfShaderIdx = static_cast<uint32_t>(sdfShader.programHandle());
-    //    uint32_t sdfShaderLightParamsUboIdx = glGetUniformBlockIndex( sdfShaderIdx, "LightParameters" );
-    //    glUniformBlockBinding( sdfShaderIdx, sdfShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
-    //    glBindBufferRange( GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>(mpSDF_Ubo->handle()), 0, mpSDF_Ubo->desc().numBytes );
-    //}
-    GfxAPI::BufferTexture sdfRoundRectsBT{ {} };
-    GfxAPI::BufferTexture sdfArrowsBT{ {} };
-    
-    { // actually, perform this on each data load when new labels become available!
-        sdfShader.use( true );
 
-        // this data will come from json label file (and will start out in OS, not already NDC-ish as here...
-        //const std::vector<sdfRoundRect_t> roundRectDataCPU{
-        //    {   .startPos        = { 0.7f, 0.8f },
-        //        .endPos          = { 1.1f, 0.8f },
-        //        .thickness       = 0.005f,
-        //        .cornerRoundness = 0.01f,
-        //    },
-        //    {   .startPos        = { 0.1f, 0.2f },
-        //        .endPos          = { 0.4f, 0.2f },
-        //        .thickness       = 0.005f,
-        //        .cornerRoundness = 0.01f,
-        //    },
-        //};
-        //const int32_t numSdfRoundRects = static_cast<int32_t>( roundRectDataCPU.size() );
-
-        //const std::vector<sdfArrow_t> arrowDataCPU{
-        //    {   .startPos       = { 0.9f,  0.8f  },
-        //        .endPos         = { 0.35f, 0.25f },
-        //        .shaftThickness = 0.005f,
-        //        .headThickness  = 0.005f + 0.01f,
-        //    },
-        //};
-        //const int32_t numSdfArrows = static_cast<int32_t>( arrowDataCPU.size() );
-
-        // upload sdf round-rects and arrows used for text labels
-        sdfShader.setIvec2( "u_num_RoundRects_Arrows", { numSdfRoundRects, numSdfArrows } );
-        //GfxAPI::Vbo sdfRoundRectsVbo{ {.numBytes = static_cast<uint32_t>( numSdfRoundRects * sizeof( sdfRoundRect_t ) ) } };
-        sdfRoundRectsBT.attachVbo( &sdfRoundRectsVbo() );
-        auto* const pSdfRoundRectsVbo = sdfRoundRectsVbo().map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsVbo().desc().numBytes /*roundRectDataCPU.size() * sizeof( sdfRoundRect_t )*/ );
-        sdfRoundRectsVbo().unmap();
-
-        //GfxAPI::Vbo sdfArrowsVbo{ {.numBytes = static_cast<uint32_t>( numSdfArrows * sizeof( sdfArrow_t ) ) } };
-        sdfArrowsBT.attachVbo( &sdfArrowsVbo() );
-        auto* const pSdfArrowsVbo = sdfArrowsVbo().map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsVbo().desc().numBytes );
-        sdfArrowsVbo().unmap();
-
-        sdfShader.use( false );
-    }
 
 
     GLFWwindow *const pWindow = reinterpret_cast< GLFWwindow *const >( mContextOpenGL.window() );
@@ -1801,127 +1742,15 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-    #if 1
-        glDisable( GL_DEPTH_TEST );
-        glDepthMask( GL_FALSE );
-        glEnable( GL_BLEND );
-        glBlendEquation( GL_FUNC_ADD );
-        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-        // update sdf gui-elements draw data
-        arrowDataCPU[0].endPos[0] = 0.35f + sinf( frameNum * M_PI / 180.0f );
-        auto* const pSdfArrowsVbo = sdfArrowsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfArrowsVbo, arrowDataCPU.data(), sdfArrowsBT.attachedVbo()->desc().numBytes );
-        sdfArrowsBT.attachedVbo()->unmap();
-
-        roundRectDataCPU[1].startPos[0] = 0.1f + 0.5f * cosf( frameNum * M_PI / 180.0f );
-        roundRectDataCPU[1].endPos[0] = 0.4f + 0.5f * cosf( frameNum * M_PI / 180.0f );
-        roundRectDataCPU[1].startPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
-        roundRectDataCPU[1].endPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
-        auto* const pSdfRoundRectsVbo = sdfRoundRectsBT.attachedVbo()->map( GfxAPI::eMapMode::writeOnly );
-        memcpy( pSdfRoundRectsVbo, roundRectDataCPU.data(), sdfRoundRectsBT.attachedVbo()->desc().numBytes );
-        sdfRoundRectsBT.attachedVbo()->unmap();
-
-
-        sdfRoundRectsBT.bindToTexUnit( 0 );
-        sdfArrowsBT.bindToTexUnit( 1 );
-        sdfShader.use( true );
-        {
-            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
-            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
-            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
-            sdfShader.setVec2( "u_scaleRatio", {xAspect, yAspect} );
-        }
-        glBindVertexArray( mScreenTriHandle.vaoHandle );
-        glDrawArrays( GL_TRIANGLES, 0, 3 );
-        sdfShader.use( false );
-        sdfRoundRectsBT.unbindFromTexUnit();
-        sdfArrowsBT.unbindFromTexUnit();
-    #endif
 
         glCheckError();
 
-    #if 0
-        {
-            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
-            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
-            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
-            //mStbFont.setAspectRatios( { xAspect, yAspect } );
-            mStbFont.setAspectRatios( { 1.0f, 1.0f } );
-        }
-
-        constexpr linAlg::vec4_t fontColor{ 0.3f, 0.9f, 0.7f, 0.5f };
-        mStbFont.renderText( -512.0f, -512.0f + 24.0f, fontColor, "Left Top" );
-        mStbFont.renderText( -512.0f, -512.0f + 24.0f + 32.0f, fontColor, "Left Top Drunter" );
-        mStbFont.renderText( -512.0f,  512.0f -  4.0f, fontColor, "Left Btm" );
-        mStbFont.renderText( -512.0f,  512.0f -  4.0f - 32.0f, fontColor, "Left Btm Drueber" );
-        mStbFont.renderText(  0.0f,  0.0f, fontColor, "Hello There" );
-
-        mStbFont.renderText(  512.0f - 8.0f * 16.0f, -512.0f + 24.0f, fontColor, "Right Top" );
-        mStbFont.renderText(  512.0f - 8.0f * 16.0f,  512.0f -  4.0f, fontColor, "Right Btm" );
-    #endif
-
-        glCheckError();
 
         //if (glGetError() != GL_NO_ERROR) {
         //    printf( "GL error!\n" );
         //}
 
-    #if 1
-        {
-            const float aspectRatio = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
-            const float xAspect = (aspectRatio > 1.0f) ? aspectRatio : 1.0f;
-            const float yAspect = (aspectRatio > 1.0f) ? 1.0f : 1.0f / aspectRatio;
-            mTtfMeshFont.setAspectRatios( { xAspect, yAspect } );
-            //mTtfMeshFont.setAspectRatios( { xAspect * 0.5f * fbWidth, yAspect * 0.5f * fbHeight } );
-            //mTtfMeshFont.setAspectRatios( { xAspect * fbWidth, yAspect * fbHeight } );
-            //mTtfMeshFont.setAspectRatios( { 1.0f, 1.0f } );
-
-
-            glEnable( GL_DEPTH_TEST );
-            //glDisable( GL_DEPTH_TEST );
-            glDepthMask( GL_TRUE );
-
-            glDisable( GL_BLEND );
-            glDisable( GL_CULL_FACE );
-            constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
-            //mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
-            //mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
-            //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );
-
-            //const std::vector<sdfRoundRect_t> roundRectDataCPU{
-            //    {   .startPos        = { 0.7f, 0.8f },
-            //    .endPos          = { 1.1f, 0.8f },
-            //    .thickness       = 0.005f,
-            //    .cornerRoundness = 0.01f,
-            //    },
-
-            mTtfMeshFont.setRelFontSize( xAspect / 40.0f );
-
-            const float startFactor = 0.1f;
-            const float downOffsetFactor = 1.75f;
-            //mTtfMeshFont.renderText2d( ( 1.0f - startFactor ) * 0.7f + startFactor * 1.1f, 0.8f - ( 0.1f * (0.5f * 0.005f) * 32.0f ), fontColor2d, _TEXT( "Font 2D Widget" ) );
-            for (const auto& entry : roundRectDataCPU) {
-                const float textW = mTtfMeshFont.getTextDisplayW( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its width from the contained text
-                //const float textH = mTtfMeshFont.getTextDisplayH( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its height from the contained text
-                const linAlg::vec2_t textMinMaxY = mTtfMeshFont.getTextDisplayMinMaxY( _TEXT( "Font 2D Widget" ) ); // actually the widget should set its height from the contained text
-                //const float fontStartX = (1.0f - startFactor) * entry.startPos[0] + startFactor * entry.endPos[0];
-
-                const float midXWidget = 0.5f * (entry.startPos[0] + entry.endPos[0]);
-                const float fontStartX = midXWidget - 0.5f * textW;
-                
-                //const float fontStartY = entry.startPos[1] - (downOffsetFactor * (entry.thickness) ) /*  / yAspect */;
-                const float fontStartY = entry.startPos[1] - 0.5f * (textMinMaxY[1]+textMinMaxY[0]); // -0.5f * mTtfMeshFont.getRelFontSize();
-                
-                mTtfMeshFont.renderText2d( fontStartX, fontStartY, fontColor2d, _TEXT( "Font 2D Widget" ) );
-            }
-
-            //constexpr linAlg::vec4_t fontColor3d{ 0.9f, 0.2f, 0.1f, 0.5f };
-            ////mTtfMeshFont.renderText3d( 0.8f, 0.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-            //mTtfMeshFont.renderText3d( -3.0f, -8.0f, 0.0f, fontColor3d, _TEXT( "TTF Font 3D, 456" ) );
-            ////mTtfMeshFont.renderText3d( 0.0f, 0.0f, _TEXT( "B" ) );
-        }
-    #endif
+        mDataLabelMgr.drawScreen( fbWidth, fbHeight, frameNum );
 
         glEnable( GL_DEPTH_TEST );
         glDepthMask( GL_TRUE );

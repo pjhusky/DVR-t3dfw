@@ -1165,6 +1165,9 @@ Status_t ApplicationDVR::run() {
         linAlg::vec4_t boundingSphere;
         linAlg::vec3_t volDimRatio{ 1.0f, 1.0f, 1.0f };
 
+        linAlg::mat4_t labelDisplayFixupScaleMatrix;
+        linAlg::loadIdentityMatrix( labelDisplayFixupScaleMatrix );
+
         {
 
             constexpr float modelScaleFactor = 1.0f;
@@ -1184,10 +1187,13 @@ Status_t ApplicationDVR::run() {
                 volDimRatio = linAlg::vec3_t{ dimX / maxDim, dimY / maxDim, dimZ / maxDim };
                 
                 if (rayMarchAlgo == DVR_GUI::eRayMarchAlgo::backfaceCubeRaster) {
-                    // DEBUG!!!
-                    //volDimRatio = volDimRatio * 0.5f;
+                    
                     linAlg::loadScaleMatrix( scaleMatrix, volDimRatio ); // unit cube approach
-                    //linAlg::loadIdentityMatrix( scaleMatrix );
+                    
+                } else { // for label display we need to apply the above non-identity scale matrix
+                    linAlg::mat3x4_t fixupMatrix3x4;
+                    linAlg::loadScaleMatrix( fixupMatrix3x4, volDimRatio ); // unit cube approach
+                    linAlg::castMatrix(labelDisplayFixupScaleMatrix, fixupMatrix3x4);
                 }
             }
         
@@ -1751,8 +1757,11 @@ Status_t ApplicationDVR::run() {
         //if (glGetError() != GL_NO_ERROR) {
         //    printf( "GL error!\n" );
         //}
-
-        mDataLabelMgr.drawScreen( mMvpMatrix, fbWidth, fbHeight, frameNum );
+        {
+            linAlg::mat4_t scalePatchMvpMatrix;
+            linAlg::multMatrix( scalePatchMvpMatrix, mMvpMatrix, labelDisplayFixupScaleMatrix );
+            mDataLabelMgr.drawScreen( scalePatchMvpMatrix, fbWidth, fbHeight, frameNum );
+        }
 
         glEnable( GL_DEPTH_TEST );
         glDepthMask( GL_TRUE );

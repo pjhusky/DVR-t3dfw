@@ -45,6 +45,8 @@ struct dataLabel {
     uint32_t numArrows() const { return mArrows.screenAttribs.size(); }
     std::vector<sdfArrow_t>& arrowScreenAttribs() { return mArrows.screenAttribs; }
     const std::vector<sdfArrow_t>& arrowScreenAttribs() const { return mArrows.screenAttribs; }
+    std::vector<linAlg::vec3_t>& arrowDataPos3D() { return mArrows.dataPos3D; }
+    const std::vector<linAlg::vec3_t>& arrowDataPos3D() const { return mArrows.dataPos3D; }
 
 private:
     labelText_t                 mLabelText;

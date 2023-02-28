@@ -159,7 +159,7 @@ void dataLabelMgr::bakeAddedLabels() {
 
 }
 
-void dataLabelMgr::drawScreen( const int32_t fbW, const int32_t fbH, uint64_t frameNum ) {
+void dataLabelMgr::drawScreen( const linAlg::mat4_t& mvpMatrix, const int32_t fbW, const int32_t fbH, uint64_t frameNum ) {
 
 #if 1
     glDisable( GL_DEPTH_TEST );
@@ -206,20 +206,39 @@ void dataLabelMgr::drawScreen( const int32_t fbW, const int32_t fbH, uint64_t fr
     }
 
     if (mScreenLabels.size() >= 2) {
-        mScreenLabels[1].roundRect().startPos[0] = 0.1f + 0.5f * cosf( frameNum * M_PI / 180.0f );
-        mScreenLabels[1].roundRect().endPos[0] = 0.4f + 0.5f * cosf( frameNum * M_PI / 180.0f );
-        mScreenLabels[1].roundRect().startPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
-        mScreenLabels[1].roundRect().endPos[1] = 0.2f + 0.25f * sinf( frameNum * M_PI / 180.0f );
+        for (uint32_t i = 1; i <= 2; i++) {
+            mScreenLabels[i].roundRect().startPos[0] = 0.1f + 0.5f * cosf( i+frameNum * M_PI / 180.0f );
+            mScreenLabels[i].roundRect().endPos[0] = 0.4f + 0.5f * cosf( i+frameNum * M_PI / 180.0f );
+            mScreenLabels[i].roundRect().startPos[1] = 0.2f + 0.25f * sinf( i+frameNum * M_PI / 180.0f );
+            mScreenLabels[i].roundRect().endPos[1] = 0.2f + 0.25f * sinf( i+frameNum * M_PI / 180.0f );
 
-        mScreenLabels[1].roundRect().endPos[0] = mScreenLabels[1].roundRect().startPos[0];
-        mScreenLabels[1].roundRect().endPos[0] += 1.25f * mTtfMeshFont.getTextDisplayW( mScreenLabels[1].labelText().c_str() );
-        for (auto& arrow : mScreenLabels[1].arrowScreenAttribs()) {
-            arrow.startPos[0] = 0.5f * (mScreenLabels[1].roundRect().endPos[0] + mScreenLabels[1].roundRect().startPos[0]);
-            arrow.startPos[1] = 0.5f * (mScreenLabels[1].roundRect().endPos[1] + mScreenLabels[1].roundRect().startPos[1]);
+            mScreenLabels[i].roundRect().endPos[0] = mScreenLabels[i].roundRect().startPos[0];
+            mScreenLabels[i].roundRect().endPos[0] += 1.25f * mTtfMeshFont.getTextDisplayW( mScreenLabels[i].labelText().c_str() );
 
-            arrow.endPos[0] = arrow.startPos[0] + 0.2f;
-            arrow.endPos[1] = arrow.startPos[1] + 0.2f;
+
+            const float iaspectRatio = static_cast<float>(fbW) / static_cast<float>(fbH);
+            const float ixAspect = (iaspectRatio > 1.0f) ? iaspectRatio : 1.0f;
+            const float iyAspect = (iaspectRatio > 1.0f) ? 1.0f : 1.0f / iaspectRatio;
+
+            uint32_t idx = 0;
+            for (auto& arrow : mScreenLabels[i].arrowScreenAttribs()) {
+                arrow.startPos[0] = 0.5f * (mScreenLabels[i].roundRect().endPos[0] + mScreenLabels[i].roundRect().startPos[0]);
+                arrow.startPos[1] = 0.5f * (mScreenLabels[i].roundRect().endPos[1] + mScreenLabels[i].roundRect().startPos[1]);
+
+                //arrow.endPos[0] = arrow.startPos[0] + 0.2f;
+                //arrow.endPos[1] = arrow.startPos[1] + 0.2f;
+
+                linAlg::vec4_t pos{ mScreenLabels[i].arrowDataPos3D()[idx][0], mScreenLabels[i].arrowDataPos3D()[idx][1], mScreenLabels[i].arrowDataPos3D()[idx][2], 1.0f };
+                linAlg::mat4_t trafoMat = mvpMatrix;
+                //linAlg::inverse( trafoMat, mvpMatrix );
+                linAlg::applyTransformationToPoint( trafoMat, &pos, 1 );
+                arrow.endPos[0] = (pos[0] / pos[3]) * ixAspect;
+                arrow.endPos[1] = (pos[1] / pos[3]) * iyAspect;
+
+                idx++;
+            }
         }
+
 
 
         uint8_t* const pSdfRoundRectsVbo = reinterpret_cast<uint8_t*>(mpSdfRoundRectsVbo->map( GfxAPI::eMapMode::writeOnly ));

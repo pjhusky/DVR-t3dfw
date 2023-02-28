@@ -22,7 +22,7 @@ struct dataLabelMgr final : public Singleton<dataLabelMgr> {
     void addLabel( const dataLabel& dataLabel );
     void removeAllLabels();
     void bakeAddedLabels();
-    void drawScreen( const int32_t fbW, const int32_t fbH, uint64_t frameNum );
+    void drawScreen( const linAlg::mat4_t& mvpMatrix, const int32_t fbW, const int32_t fbH, uint64_t frameNum );
 
 private:
     //dataLabelMgr( token ); // could be public this way...?

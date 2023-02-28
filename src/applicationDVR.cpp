@@ -1162,7 +1162,6 @@ Status_t ApplicationDVR::run() {
         linAlg::vec4_t boundingSphere;
         linAlg::vec3_t volDimRatio{ 1.0f, 1.0f, 1.0f };
 
-        //???
         {
 
             constexpr float modelScaleFactor = 1.0f;
@@ -1750,7 +1749,7 @@ Status_t ApplicationDVR::run() {
         //    printf( "GL error!\n" );
         //}
 
-        mDataLabelMgr.drawScreen( fbWidth, fbHeight, frameNum );
+        mDataLabelMgr.drawScreen( mMvpMatrix, fbWidth, fbHeight, frameNum );
 
         glEnable( GL_DEPTH_TEST );
         glDepthMask( GL_TRUE );

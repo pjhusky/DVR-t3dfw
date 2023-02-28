@@ -30,6 +30,8 @@
 // NOTE: raster shader => if a large amount of bricks remains visible, the ESS variant will be slower than the brute-force method
 //       shall we switch to noESS in that case?
 
+// NOTE - currently there is no label editing implemented, and the file name of the label definitions is hardcoded (same name as .dat file that stores the volume)
+
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
 #endif

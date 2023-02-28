@@ -29,7 +29,7 @@
 // ESS will automatically toggle off when cam/objects stop moving and we don't currently visualize bricks 
 // NOTE: raster shader => if a large amount of bricks remains visible, the ESS variant will be slower than the brute-force method
 //       shall we switch to noESS in that case?
-
+// NOTE: pre-filtering accelerated with OpenMP (parallel for loops)
 // NOTE - currently there is no label editing implemented, and the file name of the label definitions is hardcoded (same name as .dat file that stores the volume)
 
 #ifndef _USE_MATH_DEFINES
@@ -505,8 +505,8 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
                     {
                         .startPos = { 0.9f,  0.8f  },
                         .endPos = { 0.35f, 0.25f },
-                        .shaftThickness = 0.005f,
-                        .headThickness = 0.005f + 0.01f,
+                        .shaftThickness = 0.004f,
+                        .headThickness = 0.004f + 0.01f,
                     } );
                 
                 arrowAttribsVector.dataPos3D.push_back( arrowJsonLabelPos );
@@ -810,7 +810,7 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
     mVolLoResData.clear();
     mVolLoResData.resize( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] );
 
-#pragma omp parallel for schedule(dynamic, 1)		// OpenMP 
+#pragma omp parallel for /*collapse(3)*/ schedule(dynamic, 1)		// OpenMP 
     for (int32_t z = 0; z < volDataDim[2]; z += volBrickDim[2]) { // error C3016: 'z': index variable in OpenMP 'for' statement must have signed integral type
         for (int32_t y = 0; y < volDataDim[1]; y += volBrickDim[1]) {
             for (int32_t x = 0; x < volDataDim[0]; x += volBrickDim[0]) {
@@ -1021,6 +1021,7 @@ Status_t ApplicationDVR::run() {
     std::fill( frameDurations.begin(), frameDurations.end(), 1.0f / 60.0f );
 
     bool useEmptySpaceSkipping = true;
+    bool showLabels = false;
     auto debugVisMode = DVR_GUI::eDebugVisMode::none;
 
     bool prevDidMove = false;
@@ -1547,7 +1548,7 @@ Status_t ApplicationDVR::run() {
                         //       shall we switch to noESS in that case?
 
                         //int threadId;
-                    #pragma omp parallel for schedule(dynamic, 1) //private(threadId)		// OpenMP 
+                    #pragma omp parallel for /*collapse(3)*/ schedule(dynamic, 1) //private(threadId)		// OpenMP 
                     //#pragma omp parallel for shared(k, visibleBricksWithDists)
                         for (int32_t z = 0; z < hiResDim[2]; z += brickLen) {
                             for (int32_t y = 0; y < hiResDim[1]; y += brickLen) {
@@ -1759,7 +1760,7 @@ Status_t ApplicationDVR::run() {
         //if (glGetError() != GL_NO_ERROR) {
         //    printf( "GL error!\n" );
         //}
-        {
+        if ( showLabels ) {
             linAlg::mat4_t scalePatchMvpMatrix;
             linAlg::multMatrix( scalePatchMvpMatrix, mMvpMatrix, labelDisplayFixupScaleMatrix );
             mDataLabelMgr.drawScreen( scalePatchMvpMatrix, fbWidth, fbHeight, frameNum );
@@ -1821,6 +1822,7 @@ Status_t ApplicationDVR::run() {
                 .pVisAlgoIdx = pVisAlgoIdx,
                 .pDebugVisModeIdx = pDebugVisModeIdx,
                 .useEmptySpaceSkipping = useEmptySpaceSkipping,
+                .showLabels = showLabels,
                 .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,

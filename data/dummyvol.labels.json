@@ -1,0 +1,59 @@
+{
+  "labels": [
+    {
+      "name": "CENTER",
+      "positions": [
+        [ -0.0001, 0.0001, 0.0 ]
+      ]
+    },
+    {
+      "name": "M M M",
+      "positions": [
+        [ -1.0, -1.0, -1.0 ]
+      ]
+    },
+    {
+      "name": "M M P",
+      "positions": [
+        [ -1.0, -1.0, 1.0 ]
+      ]
+    },
+    {
+      "name": "M P M",
+      "positions": [
+        [ -1.0, 1.0, -1.0 ]
+      ]
+    },
+    {
+      "name": "M P P",
+      "positions": [
+        [ -1.0, 1.0, 1.0 ]
+      ]
+    },
+    {
+      "name": "P M M",
+      "positions": [
+        [ 1.0, -1.0, -1.0 ]
+      ]
+    },
+    {
+      "name": "P M P",
+      "positions": [
+        [ 1.0, -1.0, 1.0 ]
+      ]
+    },
+    {
+      "name": "P P M",
+      "positions": [
+        [ 1.0, 1.0, -1.0 ]
+      ]
+    },
+    {
+      "name": "P P P",
+      "positions": [
+        [ 1.0, 1.0, 1.0 ]
+      ]
+    }
+
+  ]
+}

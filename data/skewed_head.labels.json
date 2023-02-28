@@ -1,31 +1,29 @@
 {
   "labels": [
     {
-      "name": "SH Eyes",
+      "name": "Left eye",
       "positions": [
-        [ 0.4, -0.1, -0.2 ],
-        [ 0.5, -0.2, 0.2 ]
+        [ -0.325, -0.55, 0.5 ]
       ]
     },
     {
-      "name": "SH Rust",
+      "name": "Right Eye",
       "positions": [
-        [ -1.0, -1.0, -1.0 ]
+        [ 0.45, -0.55, 0.5 ]
       ]
     },
     {
-      "name": "SH Dust",
+      "name": "Nostrils",
       "positions": [
-        [ 1.0, 1.0, 1.0 ]
+        [ -0.06, -0.82, 0.27 ],
+        [  0.16, -0.82, 0.27 ]
       ]
     },
     {
-      "name": "SH Dust2",
+      "name": "Wisdom Tooth",
       "positions": [
-        [ 1.0,  1.0, -1.0 ],
-        [ 1.0, -1.0, -1.0 ]
+        [ 0.36, -0.55, -0.4 ]
       ]
     }
-
   ]
 }

@@ -33,6 +33,7 @@ struct DVR_GUI {
         int* pVisAlgoIdx;
         int* pDebugVisModeIdx;
         bool& useEmptySpaceSkipping;
+        bool& showLabels;
         int* pRayMarchAlgoIdx;
         bool& loadFileTrigger;
         bool& resetTrafos;

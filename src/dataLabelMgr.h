@@ -30,6 +30,8 @@ private:
     dataLabelMgr();
     ~dataLabelMgr();
 
+    void simulateForcesForLabelPlacement();
+
     std::vector< dataLabel >    mScreenLabels;
     stbFont                     mStbFont; // remove later
     ttfMeshFont                 mTtfMeshFont;

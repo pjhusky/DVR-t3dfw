@@ -249,6 +249,14 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
             pGuiUserData->resetTrafos = true;
         }
 
+        separatorWithVpadding();
+
+        ImGui::Checkbox( "Show Labels", &pGuiUserData->showLabels );
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("\nShow Labels\nUses same filelocation and filename as the volume data set, just substituting the extensions for '*.labels.json')");
+        }
+
+
         if (*(pGuiUserData->pGradientModeIdx) >= 0) {
             separatorWithVpadding();
 

@@ -1,33 +1,3 @@
-// ### TODO ###
-
-// * more than 1 Levoy iso surface?
-// * per-surface material (diffuse|specular) settings => make skin iso-surface more diffuse, and bone iso-surface more specular 
-// * printVec raus-refaktoren
-// * # ON-GOING # ... auch merge der beiden shader (box exit pos vs. calc exit pos) shader make more use of common functions - refactoring
-// * SharedMemIPC sharedMem{ "DVR_shared_memory" }; ==> define the name "DVR_shared_memory" in one location, accessible to each file that needs to access the shared mem
-
-// change BG color (gradient / texture also possible...)
-
-// no doable within time limit:
-// - CSG operations (either permanent within the 3D texture, or temporary as in a stencil trick)
-
-// Reset TF only has an effect when TF process is currently running (time-coupling!)
-
-
-// * Documentation:
-// empty-space skipping "light" => only sample volume not empty space around it, but no more hierarchies "inside" the volume
-// TF load-save als convenience feature
-// jittered sampling mit TC - macht außerdem smooth TF transitions beim TF-laden auch smooth gradient-calc switch
-// UI renders in lock-step with renderer - not ideal but easier to manage with ImGui...
-// shader recompilation (with glslValidator preprocessing) working, but locked to Windows atm
-//      - NOTE-TO-SELF: launch glslValidator.exe with "cmd /C ..." so that '>' piping of stdout to file works 
-// bei SW arch kann ich das mit zwei prozessen für 2 opengl windows anmerken und daß sie über shared mem kommunizieren (quasi named pipes?)
-//      - volume data preproc mittels OpenMP thread-parallel
-// ESS will automatically toggle off when cam/objects stop moving and we don't currently visualize bricks 
-// NOTE: raster shader => if a large amount of bricks remains visible, the ESS variant will be slower than the brute-force method
-//       shall we switch to noESS in that case?
-// NOTE: pre-filtering accelerated with OpenMP (parallel for loops)
-// NOTE - currently there is no label editing implemented, and the file name of the label definitions is hardcoded (same name as .dat file that stores the volume)
 
 #ifndef _USE_MATH_DEFINES
     #define _USE_MATH_DEFINES
@@ -44,14 +14,15 @@
 #include "gfxAPI/checkErrorGL.h"
 
 
-#include "applicationDVR_common.h"
-#include "applicationDVR.h"
+#include "applicationCSG_common.h"
+#include "applicationCSG.h"
 #include "dataLabelMgr.h"
 
 #include "fileLoaders/volumeData.h"
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
-#include "arcBall/arcBallControls.h"
+//#include "arcBall/arcBallControls.h"
+#include "freeFlyCamera/freeFlyCam.h"
 
 #include "utf8Utils.h" // solve C++17 UTF deprecation
 
@@ -83,7 +54,7 @@ using json = nlohmann::json;
 
 #include <omp.h>
 
-using namespace ArcBall;
+//using namespace ArcBall;
 
 namespace {
 
@@ -111,30 +82,32 @@ namespace {
     constexpr float zoomSpeedBase = 1.5f;
     float zoomSpeed = zoomSpeedBase;
 
+    linAlg::vec3_t translationDelta{ 0.0f, 0.0f, 0.0f };
+
     static linAlg::vec2_t surfaceIsoAndThickness{ 0.5f, 8.0f / 4096.0f };
 
-    static linAlg::vec3_t pivotCompensationES{ 0.0f, 0.0f, 0.0f };
-    static linAlg::vec3_t rotPivotOffset{ 0.0f, 0.0f, 0.0f };
-    static linAlg::vec3_t rotPivotPosOS{ 0.0f, 0.0f, 0.0f };
-    static linAlg::vec3_t rotPivotPosWS{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t pivotCompensationES{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t rotPivotOffset{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t rotPivotPosOS{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t rotPivotPosWS{ 0.0f, 0.0f, 0.0f };
 
-    static linAlg::vec3_t prevRefPtES{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t prevRefPtES{ 0.0f, 0.0f, 0.0f };
 
-    linAlg::mat3x4_t prevModelMatrix3x4;
-    linAlg::mat3x4_t prevViewMatrix3x4;
+    //linAlg::mat3x4_t prevModelMatrix3x4;
+    //linAlg::mat3x4_t prevViewMatrix3x4;
 
-    constexpr static float initialCamZoomDist = 2.75f;
-    constexpr static float initialCamZoomDistTestSuite = 2.0f;
-    static float camZoomDist = 0.0f;
-    static float targetCamZoomDist = initialCamZoomDist;
+    //constexpr static float initialCamZoomDist = 2.75f;
+    //constexpr static float initialCamZoomDistTestSuite = 2.0f;
+    //static float camZoomDist = 0.0f;
+    //static float targetCamZoomDist = initialCamZoomDist;
 
-    static linAlg::vec3_t targetPanDeltaVector{ 0.0f, 0.0f, 0.0f };
-    static linAlg::vec3_t panVector{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t targetPanDeltaVector{ 0.0f, 0.0f, 0.0f };
+    //static linAlg::vec3_t panVector{ 0.0f, 0.0f, 0.0f };
 
     static constexpr float camSpeedFact = 1.0f; // should be a certain fraction of the bounding sphere radius
     static float frameDelta = 0.016f; // TODO: actually calculate frame duration in the main loop
 
-    static constexpr linAlg::vec4_t greenScreenColor{ 0.0f, 1.0f, 1.0f, 1.0f };
+    //static constexpr linAlg::vec4_t greenScreenColor{ 0.0f, 1.0f, 1.0f, 1.0f };
 
 
     static bool pressedOrRepeat( GLFWwindow *const pWindow, const int32_t key ) {
@@ -156,27 +129,27 @@ namespace {
         if ( pressedOrRepeat( pWindow, GLFW_KEY_LEFT_SHIFT ) )  { camSpeed *= 5.0f; zoomSpeed *= 4.0f; }
         if ( pressedOrRepeat( pWindow, GLFW_KEY_RIGHT_SHIFT ) ) { camSpeed *= 0.1f; zoomSpeed *= 0.25f; }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { targetCamZoomDist -= camSpeed * frameDelta; }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_S ))    { targetCamZoomDist += camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_W ))    { /* targetCamZoomDist -= camSpeed * frameDelta; */ translationDelta[2] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_S ))    { /* targetCamZoomDist += camSpeed * frameDelta; */ translationDelta[2] += camSpeed * frameDelta; }
 
         // if (pressedOrRepeat( pWindow, GLFW_KEY_LEFT )) { key_dx -= 10.0f * camSpeed * frameDelta; }
         // if (pressedOrRepeat( pWindow, GLFW_KEY_RIGHT)) { key_dx += 10.0f * camSpeed * frameDelta; }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_R )) { targetPanDeltaVector[1] -= camSpeed * frameDelta; }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_F )) { targetPanDeltaVector[1] += camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_R )) { /* targetPanDeltaVector[1] -= camSpeed * frameDelta; */ translationDelta[1] += camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_F )) { /* targetPanDeltaVector[1] += camSpeed * frameDelta; */ translationDelta[1] -= camSpeed * frameDelta; }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_A )) { targetPanDeltaVector[0] += camSpeed * frameDelta; }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_D )) { targetPanDeltaVector[0] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_A )) { /* targetPanDeltaVector[0] += camSpeed * frameDelta; */ translationDelta[0] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_D )) { /* targetPanDeltaVector[0] -= camSpeed * frameDelta; */ translationDelta[0] += camSpeed * frameDelta; }
 
-        constexpr static float pivotSpeed = 4.0f;
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_6 )) { rotPivotOffset[0] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_4 )) { rotPivotOffset[0] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //constexpr static float pivotSpeed = 4.0f;
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_6 )) { rotPivotOffset[0] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_4 )) { rotPivotOffset[0] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_9 )) { rotPivotOffset[1] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_3 )) { rotPivotOffset[1] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_9 )) { rotPivotOffset[1] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_3 )) { rotPivotOffset[1] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
 
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_8 )) { rotPivotOffset[2] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
-        if (pressedOrRepeat( pWindow, GLFW_KEY_KP_2 )) { rotPivotOffset[2] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_8 )) { rotPivotOffset[2] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
+        //if (pressedOrRepeat( pWindow, GLFW_KEY_KP_2 )) { rotPivotOffset[2] -= camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
 
         // if (pressedOrRepeat( pWindow, GLFW_KEY_O )) { testTiltRadAngle += camSpeed * frameDelta * pivotSpeed; }
         // if (pressedOrRepeat( pWindow, GLFW_KEY_P )) { testTiltRadAngle -= camSpeed * frameDelta * pivotSpeed; }
@@ -242,11 +215,11 @@ namespace {
 
 extern "C" {
     static void atExit() { 
-        SharedMemIPC( ApplicationDVR_common::sharedMemId ).put( "stopTransferFunctionApp", "true" ); 
+        SharedMemIPC( ApplicationCSG_common::sharedMemId ).put( "stopTransferFunctionApp", "true" ); 
     }
 }
 
-ApplicationDVR::ApplicationDVR(
+ApplicationCSG::ApplicationCSG(
     const GfxAPI::ContextOpenGL& contextOpenGL )
     : mContextOpenGL( contextOpenGL ) 
     , mDataFileUrl( "" )
@@ -267,7 +240,7 @@ ApplicationDVR::ApplicationDVR(
     //, mpSDF_Ubo( nullptr )
     , mpTFProcess( nullptr )
     , mpSCProcess( nullptr )
-    , mSharedMem( ApplicationDVR_common::sharedMemId )
+    , mSharedMem( ApplicationCSG_common::sharedMemId )
     , mDataLabelMgr( dataLabelMgr::instance() )
     , mGrabCursor( true ) {
 
@@ -322,7 +295,7 @@ ApplicationDVR::ApplicationDVR(
     mpEmptySpaceTex2d->setFilterMode( minFilter, magFilter, mipFilter );
 }
 
-ApplicationDVR::~ApplicationDVR() {
+ApplicationCSG::~ApplicationCSG() {
     delete mpData;
     mpData = nullptr;
     
@@ -414,7 +387,7 @@ namespace jsonLabels {
 } // namespace myJsonTypes
 
 template<typename T>
-Status_t ApplicationDVR::loadLabels( const std::string& fileUrl, T& parsedType ) {
+Status_t ApplicationCSG::loadLabels( const std::string& fileUrl, T& parsedType ) {
 
     std::ifstream f(fileUrl);
     try {
@@ -429,7 +402,7 @@ Status_t ApplicationDVR::loadLabels( const std::string& fileUrl, T& parsedType )
     return Status_t::OK();
 }
 
-Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradientMode ) {
+Status_t ApplicationCSG::load( const std::string& fileUrl, const int32_t gradientMode ) {
     mDataFileUrl = fileUrl;
 
     delete mpData;
@@ -567,7 +540,7 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 }
 
 
-void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
+void ApplicationCSG::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
                                                 linAlg::vec3_t& rotPivotPosWS, 
                                                 const int32_t& fbWidth, const int32_t& fbHeight, 
                                                 const float currMouseX, const float currMouseY ) {
@@ -673,7 +646,7 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     printf( "\n" );
 }
 
-void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
+void ApplicationCSG::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
                                         const DVR_GUI::eDebugVisMode debugVisMode, 
                                         const bool useEmptySpaceSkipping, 
                                         GfxAPI::Shader& meshShader, 
@@ -768,7 +741,7 @@ void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     }
 }
 
-void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader ) {
+void ApplicationCSG::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& volShader ) {
     glCheckError();
     const auto& minMaxDensity = mpData->getMinMaxDensity();
 
@@ -881,11 +854,14 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 
 }
 
-Status_t ApplicationDVR::run() {
-    ArcBallControls arcBallControl;
-    const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
-    arcBallControl.setDampingFactor( 0.845f );
+Status_t ApplicationCSG::run() {
+    //ArcBallControls arcBallControl;
+    //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
+    //arcBallControl.setDampingFactor( 0.845f );
     
+    FreeFlyCam freeFlyCamInstance;
+
+
     // handle window resize
     int32_t fbWidth, fbHeight;
     glfwGetFramebufferSize( reinterpret_cast< GLFWwindow* >( mContextOpenGL.window() ), &fbWidth, &fbHeight);
@@ -959,8 +935,8 @@ Status_t ApplicationDVR::run() {
     linAlg::vec3_t axis_mx{ 0.0f, 1.0f, 0.0f }; // initial model rotation
     linAlg::vec3_t axis_my{ 1.0f, 0.0f, 0.0f }; // initial model rotation
 
-    float camTiltRadAngle = 0.0f;
-    float targetCamTiltRadAngle = camTiltRadAngle;
+    //float camTiltRadAngle = 0.0f;
+    //float targetCamTiltRadAngle = camTiltRadAngle;
 
     float prevMouseX, prevMouseY;
     float currMouseX, currMouseY;
@@ -984,7 +960,7 @@ Status_t ApplicationDVR::run() {
     tryStartTransferFunctionApp(); // start TF process
 
     { // colors
-        const GfxAPI::Texture::Desc_t texDesc = ApplicationDVR_common::densityColorsTexDesc();
+        const GfxAPI::Texture::Desc_t texDesc = ApplicationCSG_common::densityColorsTexDesc();
         delete mpDensityColorsTex2d;
         mpDensityColorsTex2d = new GfxAPI::Texture;
         mpDensityColorsTex2d->create( texDesc );
@@ -1078,6 +1054,8 @@ Status_t ApplicationDVR::run() {
 
         zoomSpeed = zoomSpeedBase;
 
+        translationDelta = { 0.0f, 0.0f, 0.0f };
+
         glfwPollEvents();
         processInput( pWindow );
         glfwGetCursorPos( pWindow, &dCurrMouseX, &dCurrMouseY );
@@ -1092,10 +1070,11 @@ Status_t ApplicationDVR::run() {
 
 
         
-        if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
-        if (fabsf( targetCamTiltRadAngle - camTiltRadAngle ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
-        if (fabsf( targetPanDeltaVector[0] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
-        if (fabsf( targetPanDeltaVector[1] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        //if (fabsf( camZoomDist - targetCamZoomDist ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        //if (fabsf( targetCamTiltRadAngle - camTiltRadAngle ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        //if (fabsf( targetPanDeltaVector[0] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        //if (fabsf( targetPanDeltaVector[1] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+        if (linAlg::dot( translationDelta, translationDelta ) > std::numeric_limits<float>::min()) { didMove = true; }
         if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
 
 
@@ -1112,55 +1091,54 @@ Status_t ApplicationDVR::run() {
             leftMouseButton_down = false;
         }
 
-        arcBallControl.setActive( !guiWantsMouseCapture );
+        //arcBallControl.setActive( !guiWantsMouseCapture );
 
-        if (rightMouseButtonPressed) {
-            //printf( "RMB pressed!\n" );
-            targetCamZoomDist -= mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
-            targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
-        }
-        if (middleMouseButtonPressed) {
-            //printf( "MMB pressed!\n" );
-            targetPanDeltaVector[0] += mouse_dx * frameDelta * mouseSensitivity;
-            targetPanDeltaVector[1] -= mouse_dy * frameDelta * mouseSensitivity;
-        }
+        //if (rightMouseButtonPressed) {
+        //    //printf( "RMB pressed!\n" );
+        //    targetCamZoomDist -= mouse_dy / ( fbHeight * mouseSensitivity * 0.5f );
+        //    targetCamTiltRadAngle -= mouse_dx / (fbWidth * mouseSensitivity * 0.5f);
+        //}
+        //if (middleMouseButtonPressed) {
+        //    //printf( "MMB pressed!\n" );
+        //    targetPanDeltaVector[0] += mouse_dx * frameDelta * mouseSensitivity;
+        //    targetPanDeltaVector[1] -= mouse_dy * frameDelta * mouseSensitivity;
+        //}
 
         glCheckError();
 
-        linAlg::mat3_t rolledRefFrameMatT;
-        {
-            linAlg::mat3x4_t camRollMat;
-            linAlg::loadRotationZMatrix( camRollMat, camTiltRadAngle );
+        //linAlg::mat3_t rolledRefFrameMatT;
+        //{
+        //    linAlg::mat3x4_t camRollMat;
+        //    linAlg::loadRotationZMatrix( camRollMat, camTiltRadAngle );
 
-            linAlg::mat3_t rolledRefFrameMat;
-            linAlg::vec3_t refX;
-            linAlg::castVector( refX, camRollMat[0] );
-            linAlg::vec3_t refY;
-            linAlg::castVector( refY, camRollMat[1] );
-            linAlg::vec3_t refZ;
-            linAlg::castVector( refZ, camRollMat[2] );
-            rolledRefFrameMat[0] = refX;
-            rolledRefFrameMat[1] = refY;
-            rolledRefFrameMat[2] = refZ;
+        //    linAlg::mat3_t rolledRefFrameMat;
+        //    linAlg::vec3_t refX;
+        //    linAlg::castVector( refX, camRollMat[0] );
+        //    linAlg::vec3_t refY;
+        //    linAlg::castVector( refY, camRollMat[1] );
+        //    linAlg::vec3_t refZ;
+        //    linAlg::castVector( refZ, camRollMat[2] );
+        //    rolledRefFrameMat[0] = refX;
+        //    rolledRefFrameMat[1] = refY;
+        //    rolledRefFrameMat[2] = refZ;
 
-            linAlg::transpose( rolledRefFrameMatT, rolledRefFrameMat );
+        //    linAlg::transpose( rolledRefFrameMatT, rolledRefFrameMat );
 
-            //linAlg::loadIdentityMatrix( rolledRefFrameMatT ); //!!!! REMOVE AGAIN
-            arcBallControl.setRefFrameMat( rolledRefFrameMatT );
-            //!!! arcBallControl.setCamTiltRadAngle( testTiltRadAngle );
-        }
+        //    //arcBallControl.setRefFrameMat( rolledRefFrameMatT );
+        //}
 
+        //arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
         //arcBallControl.setRotationPivotOffset( rotPivotPosWS );
-        arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
-        arcBallControl.setRotationPivotOffset( rotPivotPosWS );
 
-        const float arc_dead = arcBallControl.getDeadZone();
-        const float arc_dx = arcBallControl.getTargetMovement_dx();
-        const float arc_dy = arcBallControl.getTargetMovement_dy();
-        const bool arc_isUpdating = ( arc_dx >= 10.0f * arc_dead || arc_dy >= 10.0f * arc_dead );
-        didMove = didMove || arc_isUpdating;
+        freeFlyCamInstance.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
 
-        const linAlg::mat3x4_t& arcRotMat = arcBallControl.getRotationMatrix();
+        //const float arc_dead = arcBallControl.getDeadZone();
+        //const float arc_dx = arcBallControl.getTargetMovement_dx();
+        //const float arc_dy = arcBallControl.getTargetMovement_dy();
+        //const bool arc_isUpdating = ( arc_dx >= 10.0f * arc_dead || arc_dy >= 10.0f * arc_dead );
+        //didMove = didMove || arc_isUpdating;
+
+        //const linAlg::mat3x4_t& arcRotMat = arcBallControl.getRotationMatrix();
 
         linAlg::vec4_t boundingSphere;
         linAlg::vec3_t volDimRatio{ 1.0f, 1.0f, 1.0f };
@@ -1204,17 +1182,19 @@ Status_t ApplicationDVR::run() {
                 boundingSphereCenter_Translation_ModelMatrix,
                 linAlg::vec3_t{ -boundingSphere[0], -boundingSphere[1], -boundingSphere[2] } );
 
-            linAlg::mat3x4_t rotX180deg_ModelMatrix;
-            linAlg::loadRotationXMatrix( rotX180deg_ModelMatrix, static_cast<float>( M_PI ) );
+            //linAlg::mat3x4_t rotX180deg_ModelMatrix;
+            //linAlg::loadRotationXMatrix( rotX180deg_ModelMatrix, static_cast<float>( M_PI ) );
 
-            mModelMatrix3x4 = arcRotMat * rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
+            //mModelMatrix3x4 = arcRotMat * rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
+            mModelMatrix3x4 = boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
+            //mModelMatrix3x4 = boundingSphereCenter_Translation_ModelMatrix;
 
             // ### VIEW MATRIX ###
 
-            linAlg::vec3_t zAxis{ 0.0f, 0.0f, 1.0f };
-            linAlg::loadRotationZMatrix( tiltRotMat, camTiltRadAngle );
+            //linAlg::vec3_t zAxis{ 0.0f, 0.0f, 1.0f };
+            //linAlg::loadRotationZMatrix( tiltRotMat, camTiltRadAngle );
 
-        #if 1 // works (up to small jumps when resetting pivot anker pos); uses transform from last frame (seems to be okay as well)
+        #if 0 // works (up to small jumps when resetting pivot anker pos); uses transform from last frame (seems to be okay as well)
             linAlg::mat3x4_t pivotTranslationMatrix;
             auto pivotTranslationPos = linAlg::vec3_t{ -rotPivotPosWS[0], -rotPivotPosWS[1], -rotPivotPosWS[2] };
             linAlg::loadTranslationMatrix( pivotTranslationMatrix, pivotTranslationPos );
@@ -1224,35 +1204,35 @@ Status_t ApplicationDVR::run() {
             tiltRotMat = invPivotTranslationMatrix * tiltRotMat * pivotTranslationMatrix;
         #endif
 
-            mViewMatrix3x4 = tiltRotMat;
+            //mViewMatrix3x4 = tiltRotMat;
 
-            if (arcBallControlInteractionSettings.smooth) {
-                panVector[0] += targetPanDeltaVector[0];
-                panVector[1] += targetPanDeltaVector[1];
-            } else {
-                panVector[0] += targetPanDeltaVector[0] / ( panDamping );
-                panVector[1] += targetPanDeltaVector[1] / ( panDamping );
-                targetPanDeltaVector[0] = 0.0f;
-                targetPanDeltaVector[1] = 0.0f;
-            }
-            const float viewDist = camZoomDist;
-            linAlg::vec3_t panVec3{ panVector[0], panVector[1], -boundingSphere[3] * viewDist + panVector[2] };
-            //linAlg::vec3_t panVec3{ panVector[0] - tiltRotMat[0][3], panVector[1] - tiltRotMat[1][3], -boundingSphere[3] * viewDist - tiltRotMat[2][3] };
-            
-            linAlg::mat3x4_t panMat;
-            linAlg::loadTranslationMatrix( panMat, panVec3 );
+            //if (arcBallControlInteractionSettings.smooth) {
+            //    panVector[0] += targetPanDeltaVector[0];
+            //    panVector[1] += targetPanDeltaVector[1];
+            //} else {
+            //    panVector[0] += targetPanDeltaVector[0] / ( panDamping );
+            //    panVector[1] += targetPanDeltaVector[1] / ( panDamping );
+            //    targetPanDeltaVector[0] = 0.0f;
+            //    targetPanDeltaVector[1] = 0.0f;
+            //}
+            //const float viewDist = camZoomDist;
+            //linAlg::vec3_t panVec3{ panVector[0], panVector[1], -boundingSphere[3] * viewDist + panVector[2] };
+            ////linAlg::vec3_t panVec3{ panVector[0] - tiltRotMat[0][3], panVector[1] - tiltRotMat[1][3], -boundingSphere[3] * viewDist - tiltRotMat[2][3] };
+            //
+            //linAlg::mat3x4_t panMat;
+            //linAlg::loadTranslationMatrix( panMat, panVec3 );
            
-            mViewMatrix3x4 = panMat * mViewMatrix3x4;
+            //mViewMatrix3x4 = panMat * mViewMatrix3x4;
 
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
+            //linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
 
-            linAlg::castMatrix(mModelViewMatrix, mvMat3x4);
+            //linAlg::castMatrix(mModelViewMatrix, mvMat3x4);
 
         //??? 
         }
 
         // update mvp matrix
-        linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+        //linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
 
         handleScreenResize(
             reinterpret_cast< GLFWwindow* >( mContextOpenGL.window() ),
@@ -1313,22 +1293,22 @@ Status_t ApplicationDVR::run() {
             //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
         }
 
-        if (setNewRotationPivot == 1) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
-            linAlg::vec3_t currRefPtES{ 0.0f, 0.0f, 0.0f };
-            linAlg::applyTransformationToPoint( mViewMatrix3x4, &currRefPtES, 1 );
-            auto compensationVec = currRefPtES - prevRefPtES;
-            panVector = panVector - compensationVec; // persist changes to future frames
+        //if (setNewRotationPivot == 1) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
+        //    linAlg::vec3_t currRefPtES{ 0.0f, 0.0f, 0.0f };
+        //    linAlg::applyTransformationToPoint( mViewMatrix3x4, &currRefPtES, 1 );
+        //    auto compensationVec = currRefPtES - prevRefPtES;
+        //    panVector = panVector - compensationVec; // persist changes to future frames
 
-            // apply only compensation difference vector in this frame on top of the previously calculated transform
-            linAlg::mat3x4_t compensationMat3x4;
-            linAlg::loadTranslationMatrix( compensationMat3x4, -1.0f * compensationVec );
-            mViewMatrix3x4 = compensationMat3x4 * mViewMatrix3x4; // fixed up view matrix
+        //    // apply only compensation difference vector in this frame on top of the previously calculated transform
+        //    linAlg::mat3x4_t compensationMat3x4;
+        //    linAlg::loadTranslationMatrix( compensationMat3x4, -1.0f * compensationVec );
+        //    mViewMatrix3x4 = compensationMat3x4 * mViewMatrix3x4; // fixed up view matrix
 
-            // update matrices that depend on view matrix to have a consistently fixed-up transform
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
-            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
-            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
-        }
+        //    // update matrices that depend on view matrix to have a consistently fixed-up transform
+        //    linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
+        //    linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
+        //    linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+        //}
 
         // TODO: draw screen-aligned quad to lauch one ray per pixel
         //       dual view on transformation: inverse model-view transform should place cam frame such that it sees the model as usual, but now model is in origin and axis aligned
@@ -1336,6 +1316,13 @@ Status_t ApplicationDVR::run() {
 
 
         mpDensityColorsTex2d->bindToTexUnit( 7 );
+
+        linAlg::mat4_t freeFlyCamViewMatrix;
+        linAlg::castMatrix( freeFlyCamViewMatrix, freeFlyCamInstance.getViewMatrix() );
+        mModelViewMatrix = freeFlyCamViewMatrix;
+        //mMvpMatrix = mProjMatrix * freeFlyCamViewMatrix;
+        linAlg::multMatrix( mMvpMatrix, mProjMatrix, freeFlyCamViewMatrix );
+
 
         if (!mDataFileUrl.empty()) {
 
@@ -1772,14 +1759,14 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        if (setNewRotationPivot > 0) {
-            if (setNewRotationPivot > 1) {
-                prevRefPtES = { 0.0f, 0.0f, 0.0f };
-                linAlg::applyTransformationToPoint( mViewMatrix3x4, &prevRefPtES, 1 );
-                setRotationPivotPos( rotPivotPosOS, rotPivotPosWS, fbWidth, fbHeight, currMouseX, currMouseY );
-            } 
-            setNewRotationPivot--;
-        }
+        //if (setNewRotationPivot > 0) {
+        //    if (setNewRotationPivot > 1) {
+        //        prevRefPtES = { 0.0f, 0.0f, 0.0f };
+        //        linAlg::applyTransformationToPoint( mViewMatrix3x4, &prevRefPtES, 1 );
+        //        setRotationPivotPos( rotPivotPosOS, rotPivotPosWS, fbWidth, fbHeight, currMouseX, currMouseY );
+        //    } 
+        //    setNewRotationPivot--;
+        //}
 
 
         {
@@ -1935,7 +1922,7 @@ Status_t ApplicationDVR::run() {
                 fixupShaders( mesh_ESS_Shader, vol_ESS_Shader );
                 fixupShaders( mesh_noESS_Shader, vol_noESS_Shader );
 
-                resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
+                //resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
 
                 loadFileTrigger = false;
                 didMove = true;
@@ -1950,7 +1937,7 @@ Status_t ApplicationDVR::run() {
 
             if (resetTrafos) {
                 printf( "reset Trafos!\n" );
-                resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
+                //resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
                 resetTrafos = false;
                 didMove = true;
             }
@@ -1976,14 +1963,14 @@ Status_t ApplicationDVR::run() {
 
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
-        targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
+        //targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
         //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
-        camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
-        mouseWheelOffset = 0.0f;
+        //camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
+        //mouseWheelOffset = 0.0f;
 
-        camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
+        //camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
 
-        linAlg::scale( targetPanDeltaVector, (1.0f - panDamping) );
+        //linAlg::scale( targetPanDeltaVector, (1.0f - panDamping) );
 
         prevMouseX = currMouseX;
         prevMouseY = currMouseY;
@@ -2011,7 +1998,7 @@ Status_t ApplicationDVR::run() {
     return Status_t::OK();
 }
 
-void ApplicationDVR::tryStartTransferFunctionApp() {
+void ApplicationCSG::tryStartTransferFunctionApp() {
 
     if ( mpData != nullptr ) {
         const auto& texDim =  mpDensityTex3d->desc().texDim;
@@ -2030,7 +2017,7 @@ void ApplicationDVR::tryStartTransferFunctionApp() {
     }
 }
 
-void ApplicationDVR::tryStartShaderCompilerApp() {
+void ApplicationCSG::tryStartShaderCompilerApp() {
 
     int exitStatus;
     if (mpSCProcess == nullptr || mpSCProcess->try_get_exit_status( exitStatus )) {
@@ -2041,24 +2028,24 @@ void ApplicationDVR::tryStartShaderCompilerApp() {
     mpSCProcess->get_exit_status();
 }
 
-void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
-    arcBallControl.resetTrafos();
-    camTiltRadAngle = 0.0f;
-    targetCamTiltRadAngle = 0.0f;
-    panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotPosOS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotPosWS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    camZoomDist = 0.0f;
-    targetCamZoomDist = initialCamZoomDist;
-}
+//void ApplicationCSG::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
+//    arcBallControl.resetTrafos();
+//    camTiltRadAngle = 0.0f;
+//    targetCamTiltRadAngle = 0.0f;
+//    panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+//    targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+//    rotPivotPosOS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+//    rotPivotPosWS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+//    rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+//    camZoomDist = 0.0f;
+//    targetCamZoomDist = initialCamZoomDist;
+//}
 
-void ApplicationDVR::resetTF() {
+void ApplicationCSG::resetTF() {
     mSharedMem.put( "resetTF", "true" );
 }
 
-void ApplicationDVR::handleScreenResize( 
+void ApplicationCSG::handleScreenResize( 
     GLFWwindow *const pWindow,
     linAlg::mat4_t& projMatrix, 
     int32_t& prevFbWidth,

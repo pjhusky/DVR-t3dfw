@@ -7,6 +7,12 @@
 #include <tchar.h>
 #include <filesystem>
 
+#if defined( DVR_APP )
+    #include "applicationDVR_common.h"
+#elif defined( CSG_APP )
+    #include "applicationCSG_common.h"
+#endif
+
 #include "applicationTransferFunction.h"
 #include "stringUtils.h"
 
@@ -177,7 +183,12 @@ ApplicationTransferFunction::ApplicationTransferFunction(
     , mpDensityHistogramTex2d( nullptr )
     , mpIsovalMarkerTex2d( nullptr )
     //, mpColorPickerProcess( nullptr )
-    , mSharedMem( "DVR_shared_memory" )
+    //, mSharedMem( "DVR_shared_memory" )
+#if defined( DVR_APP )
+    , mSharedMem( ApplicationDVR_common::sharedMemId )
+#elif defined( CSG_APP )
+    , mSharedMem( ApplicationCSG_common::sharedMemId )
+#endif
     , mGrabCursor( true )
     , mCheckWatchdog( checkWatchdog ) {
 

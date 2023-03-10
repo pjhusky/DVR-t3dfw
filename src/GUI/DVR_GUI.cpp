@@ -244,6 +244,15 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
 
         separatorWithVpadding();
 
+        //ImGui::Text( "Gradient Calculation Method" );
+        //static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
+        //for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
+        //    ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
+        //}
+
+        ImGui::Checkbox( "Use Free Fly Cam", &pGuiUserData->useFreeFlyCam );
+
+
         if (ImGui::Button( "Reset Transformations", guiButtonSize() ) && !pGuiUserData->resetTrafos) {
             printf( "reset trafos button clicked\n" );
             pGuiUserData->resetTrafos = true;

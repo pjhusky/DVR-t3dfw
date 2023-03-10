@@ -52,6 +52,7 @@
 #include "fileLoaders/stlModel.h" // used for the unit-cube
 
 #include "arcBall/arcBallControls.h"
+#include "freeFlyCamera/freeFlyCam.h"
 
 #include "utf8Utils.h" // solve C++17 UTF deprecation
 
@@ -111,6 +112,8 @@ namespace {
     constexpr float zoomSpeedBase = 1.5f;
     float zoomSpeed = zoomSpeedBase;
 
+    linAlg::vec3_t translationDelta{ 0.0f, 0.0f, 0.0f };
+
     static linAlg::vec2_t surfaceIsoAndThickness{ 0.5f, 8.0f / 4096.0f };
 
     static linAlg::vec3_t pivotCompensationES{ 0.0f, 0.0f, 0.0f };
@@ -162,11 +165,21 @@ namespace {
         // if (pressedOrRepeat( pWindow, GLFW_KEY_LEFT )) { key_dx -= 10.0f * camSpeed * frameDelta; }
         // if (pressedOrRepeat( pWindow, GLFW_KEY_RIGHT)) { key_dx += 10.0f * camSpeed * frameDelta; }
 
+        if (pressedOrRepeat( pWindow, GLFW_KEY_W )) { translationDelta[2] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_S )) { translationDelta[2] += camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_R )) { translationDelta[1] += camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_F )) { translationDelta[1] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_A )) { translationDelta[0] -= camSpeed * frameDelta; }
+        if (pressedOrRepeat( pWindow, GLFW_KEY_D )) { translationDelta[0] += camSpeed * frameDelta; }
+
+
+
         if (pressedOrRepeat( pWindow, GLFW_KEY_R )) { targetPanDeltaVector[1] -= camSpeed * frameDelta; }
         if (pressedOrRepeat( pWindow, GLFW_KEY_F )) { targetPanDeltaVector[1] += camSpeed * frameDelta; }
 
         if (pressedOrRepeat( pWindow, GLFW_KEY_A )) { targetPanDeltaVector[0] += camSpeed * frameDelta; }
         if (pressedOrRepeat( pWindow, GLFW_KEY_D )) { targetPanDeltaVector[0] -= camSpeed * frameDelta; }
+
 
         constexpr static float pivotSpeed = 4.0f;
         if (pressedOrRepeat( pWindow, GLFW_KEY_KP_6 )) { rotPivotOffset[0] += camSpeed * frameDelta * pivotSpeed; printVec( "piv", rotPivotOffset ); }
@@ -886,6 +899,9 @@ Status_t ApplicationDVR::run() {
     const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
     arcBallControl.setDampingFactor( 0.845f );
     
+    FreeFlyCam freeFlyCamControl;
+    freeFlyCamControl.setPosition( { 0.0f, 0.0f, 4.5f } );
+
     // handle window resize
     int32_t fbWidth, fbHeight;
     glfwGetFramebufferSize( reinterpret_cast< GLFWwindow* >( mContextOpenGL.window() ), &fbWidth, &fbHeight);
@@ -1021,6 +1037,7 @@ Status_t ApplicationDVR::run() {
     bool showLabels = false;
     auto debugVisMode = DVR_GUI::eDebugVisMode::none;
 
+    bool useFreeFlyCam = false;
     bool prevDidMove = false;
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
@@ -1077,6 +1094,7 @@ Status_t ApplicationDVR::run() {
         }
 
         zoomSpeed = zoomSpeedBase;
+        translationDelta = { 0.0f, 0.0f, 0.0f };
 
         glfwPollEvents();
         processInput( pWindow );
@@ -1096,6 +1114,9 @@ Status_t ApplicationDVR::run() {
         if (fabsf( targetCamTiltRadAngle - camTiltRadAngle ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
         if (fabsf( targetPanDeltaVector[0] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
         if (fabsf( targetPanDeltaVector[1] ) > FLT_EPSILON * 1000.0f ) { didMove = true; }
+
+        if (linAlg::dot( translationDelta, translationDelta ) > std::numeric_limits<float>::min()) { didMove = true; }
+
         if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
 
 
@@ -1113,6 +1134,7 @@ Status_t ApplicationDVR::run() {
         }
 
         arcBallControl.setActive( !guiWantsMouseCapture );
+        freeFlyCamControl.setActive( !guiWantsMouseCapture );
 
         if (rightMouseButtonPressed) {
             //printf( "RMB pressed!\n" );
@@ -1154,6 +1176,9 @@ Status_t ApplicationDVR::run() {
         arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
         arcBallControl.setRotationPivotOffset( rotPivotPosWS );
 
+        freeFlyCamControl.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
+
+
         const float arc_dead = arcBallControl.getDeadZone();
         const float arc_dx = arcBallControl.getTargetMovement_dx();
         const float arc_dy = arcBallControl.getTargetMovement_dy();
@@ -1161,6 +1186,9 @@ Status_t ApplicationDVR::run() {
         didMove = didMove || arc_isUpdating;
 
         const linAlg::mat3x4_t& arcRotMat = arcBallControl.getRotationMatrix();
+
+        linAlg::mat3x4_t modelMatrixNoArcBall;
+        linAlg::loadIdentityMatrix( modelMatrixNoArcBall );
 
         linAlg::vec4_t boundingSphere;
         linAlg::vec3_t volDimRatio{ 1.0f, 1.0f, 1.0f };
@@ -1207,7 +1235,11 @@ Status_t ApplicationDVR::run() {
             linAlg::mat3x4_t rotX180deg_ModelMatrix;
             linAlg::loadRotationXMatrix( rotX180deg_ModelMatrix, static_cast<float>( M_PI ) );
 
-            mModelMatrix3x4 = arcRotMat * rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
+            modelMatrixNoArcBall = rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
+
+            mModelMatrix3x4 = arcRotMat * modelMatrixNoArcBall;
+
+            
 
             // ### VIEW MATRIX ###
 
@@ -1326,6 +1358,13 @@ Status_t ApplicationDVR::run() {
 
             // update matrices that depend on view matrix to have a consistently fixed-up transform
             linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
+            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
+            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+        }
+
+        if ( useFreeFlyCam ) {
+            mViewMatrix3x4 = freeFlyCamControl.getViewMatrix();
+            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4;// *mModelMatrix3x4;
             linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
             linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
         }
@@ -1830,6 +1869,7 @@ Status_t ApplicationDVR::run() {
                 .surfaceIsoColor = isoColor,
                 .lightParams = lightParams,
                 .lightParamsChanged = lightParamsChanged,
+                .useFreeFlyCam = useFreeFlyCam,
             };
             
 

@@ -44,6 +44,7 @@ struct DVR_GUI {
         std::array<float, 3>   surfaceIsoColor;
         LightParameters& lightParams;
         bool& lightParamsChanged;
+        bool& useFreeFlyCam;
     };
 
     enum class eVisAlgo: int {

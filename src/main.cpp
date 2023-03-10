@@ -197,8 +197,12 @@ int main( int argc, const char* argv[] ) {
 
     if (!onlyProcess) {
         GfxAPI::ContextOpenGL::Settings_t settings;
-        //settings.windowTitle = "DVR Project";
+        
+    #if defined( DVR_APP )
+        settings.windowTitle = "DVR Project";
+    #else
         settings.windowTitle = "CSG Project";
+    #endif
         settings.windowW = resx;
         settings.windowH = resy;
 

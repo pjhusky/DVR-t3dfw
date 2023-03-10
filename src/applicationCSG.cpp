@@ -650,10 +650,10 @@ void ApplicationCSG::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
                                         const DVR_GUI::eDebugVisMode debugVisMode, 
                                         const bool useEmptySpaceSkipping, 
                                         GfxAPI::Shader& meshShader, 
-                                        GfxAPI::Shader& volShader )
+                                        GfxAPI::Shader& csgShader )
 {
     meshShader.~Shader();
-    volShader.~Shader();
+    csgShader.~Shader();
 
     std::string defineStr;
     
@@ -707,20 +707,21 @@ void ApplicationCSG::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     meshShader.use( false );
 
     printf( "creating volume shader\n" ); fflush( stdout );
-    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > volShaderDesc{
+    std::vector< std::pair< gfxUtils::path_t, GfxAPI::Shader::eShaderStage > > csgShaderDesc{
         std::make_pair( "./src/shaders/tex3d-raycast.vert.glsl.preprocessed", GfxAPI::Shader::eShaderStage::VS ),
         std::make_pair( "./src/shaders/tex3d-raycast.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), 
+        //std::make_pair( "./src/shaders/csg.frag.glsl.preprocessed", GfxAPI::Shader::eShaderStage::FS ), 
     };
-    gfxUtils::createShader( volShader, volShaderDesc );
-    volShader.use( true );
-    volShader.setInt( "u_densityTex", 0 );
-    volShader.setInt( "u_gradientTex", 1 );
-    volShader.setInt( "u_densityLoResTex", 2 );
-    volShader.setInt( "u_emptySpaceTex", 3 );
-    volShader.setInt( "u_colorAndAlphaTex", 7 );
-    volShader.setFloat( "u_recipTexDim", 1.0f );
-    volShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
-    volShader.use( false );
+    gfxUtils::createShader( csgShader, csgShaderDesc );
+    csgShader.use( true );
+    csgShader.setInt( "u_densityTex", 0 );
+    csgShader.setInt( "u_gradientTex", 1 );
+    csgShader.setInt( "u_densityLoResTex", 2 );
+    csgShader.setInt( "u_emptySpaceTex", 3 );
+    csgShader.setInt( "u_colorAndAlphaTex", 7 );
+    csgShader.setFloat( "u_recipTexDim", 1.0f );
+    csgShader.setVec2( "u_surfaceIsoAndThickness", surfaceIsoAndThickness );
+    csgShader.use( false );
 
     const uint32_t uboLightParamsShaderBindingIdx = 0; // ogl >= 420 ==> layout(std140, binding = 2), and here uboLightParamsShaderBindingIdx would be 2
 
@@ -728,7 +729,7 @@ void ApplicationCSG::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     uint32_t meshShaderLightParamsUboIdx = glGetUniformBlockIndex( meshShaderIdx, "LightParameters" );
     glUniformBlockBinding( meshShaderIdx, meshShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
 
-    const auto volShaderIdx = static_cast<uint32_t>(volShader.programHandle());
+    const auto volShaderIdx = static_cast<uint32_t>(csgShader.programHandle());
     uint32_t volShaderLightParamsUboIdx = glGetUniformBlockIndex( volShaderIdx, "LightParameters" );
     glUniformBlockBinding( meshShaderIdx, volShaderLightParamsUboIdx, uboLightParamsShaderBindingIdx );
 
@@ -737,7 +738,7 @@ void ApplicationCSG::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo,
     glBindBufferRange( GL_UNIFORM_BUFFER, uboLightParamsShaderBindingIdx, static_cast<uint32_t>(mpLight_Ubo->handle()), 0, mpLight_Ubo->desc().numBytes );
 
     if (mpData != nullptr) {
-        fixupShaders( meshShader, volShader );
+        fixupShaders( meshShader, csgShader );
     }
 }
 
@@ -860,6 +861,7 @@ Status_t ApplicationCSG::run() {
     //arcBallControl.setDampingFactor( 0.845f );
     
     FreeFlyCam freeFlyCamInstance;
+    freeFlyCamInstance.setPosition( { 0.0f, 0.0f, 4.5f } );
 
 
     // handle window resize
@@ -1053,7 +1055,6 @@ Status_t ApplicationCSG::run() {
         }
 
         zoomSpeed = zoomSpeedBase;
-
         translationDelta = { 0.0f, 0.0f, 0.0f };
 
         glfwPollEvents();
@@ -1665,7 +1666,7 @@ Status_t ApplicationCSG::run() {
                 volShader.use( true );
                 glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
-                //volShader.setInt( "u_frameNum", frameNum );
+                //csgShader.setInt( "u_frameNum", frameNum );
                 if (!didMove) {
                     volShader.setInt( "u_frameNum", rand() % 10000 );
                 }
@@ -1887,7 +1888,7 @@ Status_t ApplicationCSG::run() {
                 ////#define DVR_MODE                XRAY
                 ////#define DVR_MODE                MRI
 
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, csgShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
                 didMove = true;
@@ -1898,7 +1899,7 @@ Status_t ApplicationCSG::run() {
                 printf( "debugVisModeIdx = %d, debugVisMode = %d\n", *pDebugVisModeIdx, (int)debugVisMode );
 
                 // spawn shader compiler and re-load DVR shaders
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, csgShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
 
@@ -1906,7 +1907,7 @@ Status_t ApplicationCSG::run() {
             }
 
             if (prevUseEmptySpaceSkipping != useEmptySpaceSkipping) {
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
+                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, csgShader );
                 didMove = true;
             }
 

@@ -551,7 +551,7 @@ void dataLabelMgr::drawScreen( const linAlg::mat4_t& mvpMatrix, const int32_t fb
 
         glDisable( GL_BLEND );
         glDisable( GL_CULL_FACE );
-        constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.3f, 0.9f, 0.5f };
+        constexpr linAlg::vec4_t fontColor2d{ 0.1f, 0.1f, 0.1f, 0.9f };
         //mTtfMeshFont.renderText2d( +5.0f, 2.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
         //mTtfMeshFont.renderText2d( 0.0f, 0.0f, fontColor2d, _TEXT( "TTF Font 2D, 123" ) );
         //mTtfMeshFont.renderText2d( -0.8f, 0.0f, _TEXT( "A" ) );

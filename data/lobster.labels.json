@@ -1,29 +1,38 @@
-{ 
+{
 	"labels": [
-		{	
-			"name" : "Eyes",
-			"positions" : [
-				[ 0.4, -0.1, -0.2 ],
-				[ 0.5, -0.2,  0.2 ]
-			]
-		},
-		{	
-			"name" : "Rust",
-			"positions" : [
-				[ -1.0, -1.0, -1.0 ]
+		{
+			"name": "Walking legs",
+			"positions": [
+				[ -0.62,  -0.5, -1.0 ],
+				
+				[ -0.4,  -0.6, -0.95 ],
+				[ -0.3, -0.7, -0.8 ]
 			]
 		},
 		{
-			"name": "n Dust",
+			"name": "Tail Fin",
 			"positions": [
-				[ 1.0, 1.0, 1.0 ]
+				[ -0.6, 0.9, -0.8 ]
 			]
 		},
 		{
-			"name": "CENTER",
+			"name": "Antennule",
 			"positions": [
-				[ -0.0001, 0.0001, 0.0 ]
+				[ 0.4, -0.5, -0.6 ]
+			]
+		},
+		{
+			"name": "Pincher Claw",
+			"positions": [
+				[ 0.9, -0.5, -0.6 ]
+			]
+		},
+		{
+			"name": "Crusher Claw",
+			"positions": [
+				[ 0.4, -0.8, -0.5 ]
 			]
 		}
+
 	]
 }

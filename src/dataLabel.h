@@ -42,7 +42,7 @@ struct dataLabel {
     roundRectAttribs& roundRect() { return mRoundRect; }
     const roundRectAttribs& roundRect() const { return mRoundRect; }
 
-    uint32_t numArrows() const { return mArrows.screenAttribs.size(); }
+    uint32_t numArrows() const { return static_cast<uint32_t>( mArrows.screenAttribs.size() ); }
     std::vector<sdfArrow_t>& arrowScreenAttribs() { return mArrows.screenAttribs; }
     const std::vector<sdfArrow_t>& arrowScreenAttribs() const { return mArrows.screenAttribs; }
     std::vector<linAlg::vec3_t>& arrowDataPos3D() { return mArrows.dataPos3D; }

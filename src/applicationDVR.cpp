@@ -96,22 +96,25 @@ namespace {
     
     static std::vector< std::vector< brickSortData_t > > threadBsd; 
 
+
+    static DVR_GUI::eCamMode      camMode      = DVR_GUI::eCamMode::arcCam;
+    static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
     //static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::backfaceCubeRaster;
 
-    static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
 
     static constexpr int32_t brickLen = static_cast<int32_t>( BRICK_BLOCK_DIM );
     static constexpr linAlg::i32vec3_t volBrickDim{ brickLen, brickLen, brickLen };
 
     constexpr static float fovY_deg = 60.0f;
 
-    constexpr float angleDamping = 0.85f;
+    constexpr float angleDamping = 0.845f;
     constexpr float panDamping = 0.25f;
     constexpr float mouseSensitivity = 0.23f;
     constexpr float zoomSpeedBase = 1.5f;
     float zoomSpeed = zoomSpeedBase;
 
+    linAlg::vec3_t freeFlyCamInitialPosition{ 0.0f, 0.0f, 4.5f };
     linAlg::vec3_t translationDelta{ 0.0f, 0.0f, 0.0f };
 
     static linAlg::vec2_t surfaceIsoAndThickness{ 0.5f, 8.0f / 4096.0f };
@@ -248,6 +251,21 @@ namespace {
         constexpr float f = +1000.0f;
 
         linAlg::loadPerspectiveFovYMatrix( projMatrix, fovY_deg, ratio, n, f );
+    }
+
+    static void resetTransformations( ArcBallControls& arcBallControl, FreeFlyCam& freeFlyCamera, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
+        arcBallControl.resetTrafos();
+        freeFlyCamera.resetTrafos();
+        freeFlyCamera.setPosition( freeFlyCamInitialPosition );
+        camTiltRadAngle = 0.0f;
+        targetCamTiltRadAngle = 0.0f;
+        panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+        targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+        rotPivotPosOS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+        rotPivotPosWS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+        rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
+        camZoomDist = 0.0f;
+        targetCamZoomDist = initialCamZoomDist;
     }
 
 } // namespace
@@ -581,9 +599,9 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 
 
 void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
-                                                linAlg::vec3_t& rotPivotPosWS, 
-                                                const int32_t& fbWidth, const int32_t& fbHeight, 
-                                                const float currMouseX, const float currMouseY ) {
+                                            linAlg::vec3_t& rotPivotPosWS, 
+                                            const int32_t& fbWidth, const int32_t& fbHeight, 
+                                            const float currMouseX, const float currMouseY ) {
     glFlush();
     glFinish();
 
@@ -612,7 +630,11 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
 #endif
 
     float depthAtMousePos = 0.0f;
+    
     glReadPixels( glReadX, glReadY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depthAtMousePos );
+    // DEBUG
+    //depthAtMousePos = 0.2f;
+
 
     printf( "mouse read depth = %f at (%f, %f) for window size (%d, %d)\n", depthAtMousePos, currMouseX, currMouseY, fbWidth, fbHeight );
 
@@ -634,11 +656,6 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     //printVec( "mousePosOS", mousePosOS );
 
     linAlg::vec4_t modelCenterAndRadius{0.0f,0.0f,0.0f,5.0f};
-    // if (!mStlModels.empty()) {
-    //     mStlModels[0].getBoundingSphere( modelCenterAndRadius );
-    // }
-    //printf( "OS bounding sphere center (%f, %f, %f), radius %f\n", modelCenterAndRadius[0], modelCenterAndRadius[1], modelCenterAndRadius[2], modelCenterAndRadius[3] );
-
 
     printVec( "prev rotPivotPosOS", rotPivotPosOS );
     linAlg::vec3_t distToPrevPivotPosOS;
@@ -648,7 +665,6 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     rotPivotPosOS[0] = mousePosOS[0];
     rotPivotPosOS[1] = mousePosOS[1];
     rotPivotPosOS[2] = mousePosOS[2];
-    //printVec( "rotationPivotPos OS", rotationPivotPos );
     printVec( "new rotPivotPosOS", rotPivotPosOS );
 
 #if 1 // transform to WS
@@ -656,31 +672,6 @@ void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS,
     linAlg::applyTransformationToVector( mModelMatrix3x4, &rotPivotPosWS, 1 );
     printVec( "rot pivot pos WS", rotPivotPosWS );
 #endif
-
-    //linAlg::mat3x4_t blah = linAlg::mat3x4( mMvpMatrix );
-
-    //linAlg::vec3_t pivotDiff;
-    //linAlg::sub( pivotDiff, prevPivotWS, rotPivotPosWS );
-
-    //panVector[0] += pivotDiff[0];
-    //panVector[1] += pivotDiff[1];
-    //panVector[2] += pivotDiff[2];
-
-    ////linAlg::vec3_t prevES = prevPivotWS;
-    ////linAlg::applyTransformationToPoint( mViewMatrix3x4, &prevES, 1 );
-    //linAlg::vec4_t sphereCenterRadius;
-    //mStlModels[0].getBoundingSphere( sphereCenterRadius );
-    //linAlg::vec3_t prevES{ sphereCenterRadius[0], sphereCenterRadius[1], sphereCenterRadius[2] }; // still in OS (or WS?)
-    //linAlg::applyTransformationToPoint( prevViewMatrix3x4, &prevES, 1 );
-
-    ////linAlg::vec3_t currES = rotPivotPosWS;
-    ////linAlg::applyTransformationToPoint( mViewMatrix3x4, &currES, 1 );
-
-    //linAlg::vec3_t currES{ sphereCenterRadius[0], sphereCenterRadius[1], sphereCenterRadius[2] }; // still in OS (or WS?)
-    //linAlg::applyTransformationToPoint( mViewMatrix3x4, &currES, 1 );
-
-    ////pivotCompensationES
-    //panVector = panVector + ( currES - prevES );
 
     glCheckError();
     printf( "\n" );
@@ -897,10 +888,11 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 Status_t ApplicationDVR::run() {
     ArcBallControls arcBallControl;
     const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
-    arcBallControl.setDampingFactor( 0.845f );
+    arcBallControl.setRotDampingFactor( angleDamping );
+    arcBallControl.setPanDampingFactor( panDamping );
     
     FreeFlyCam freeFlyCamControl;
-    freeFlyCamControl.setPosition( { 0.0f, 0.0f, 4.5f } );
+    freeFlyCamControl.setPosition( freeFlyCamInitialPosition );
 
     // handle window resize
     int32_t fbWidth, fbHeight;
@@ -992,8 +984,8 @@ Status_t ApplicationDVR::run() {
 
     bool leftMouseButton_down = false;
 
-    linAlg::mat3x4_t tiltRotMat;
-    linAlg::loadIdentityMatrix( tiltRotMat );
+    //linAlg::mat3x4_t tiltRotMat;
+    //linAlg::loadIdentityMatrix( tiltRotMat );
 
 
 
@@ -1037,7 +1029,6 @@ Status_t ApplicationDVR::run() {
     bool showLabels = false;
     auto debugVisMode = DVR_GUI::eDebugVisMode::none;
 
-    bool useFreeFlyCam = false;
     bool prevDidMove = false;
     uint64_t frameNum = 0;
     while( !glfwWindowShouldClose( pWindow ) ) {
@@ -1149,46 +1140,6 @@ Status_t ApplicationDVR::run() {
 
         glCheckError();
 
-        linAlg::mat3_t rolledRefFrameMatT;
-        {
-            linAlg::mat3x4_t camRollMat;
-            linAlg::loadRotationZMatrix( camRollMat, camTiltRadAngle );
-
-            linAlg::mat3_t rolledRefFrameMat;
-            linAlg::vec3_t refX;
-            linAlg::castVector( refX, camRollMat[0] );
-            linAlg::vec3_t refY;
-            linAlg::castVector( refY, camRollMat[1] );
-            linAlg::vec3_t refZ;
-            linAlg::castVector( refZ, camRollMat[2] );
-            rolledRefFrameMat[0] = refX;
-            rolledRefFrameMat[1] = refY;
-            rolledRefFrameMat[2] = refZ;
-
-            linAlg::transpose( rolledRefFrameMatT, rolledRefFrameMat );
-
-            //linAlg::loadIdentityMatrix( rolledRefFrameMatT ); //!!!! REMOVE AGAIN
-            arcBallControl.setRefFrameMat( rolledRefFrameMatT );
-            //!!! arcBallControl.setCamTiltRadAngle( testTiltRadAngle );
-        }
-
-        //arcBallControl.setRotationPivotOffset( rotPivotPosWS );
-        arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
-        arcBallControl.setRotationPivotOffset( rotPivotPosWS );
-
-        freeFlyCamControl.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
-
-
-        const float arc_dead = arcBallControl.getDeadZone();
-        const float arc_dx = arcBallControl.getTargetMovement_dx();
-        const float arc_dy = arcBallControl.getTargetMovement_dy();
-        const bool arc_isUpdating = ( arc_dx >= 10.0f * arc_dead || arc_dy >= 10.0f * arc_dead );
-        didMove = didMove || arc_isUpdating;
-
-        const linAlg::mat3x4_t& arcRotMat = arcBallControl.getRotationMatrix();
-
-        linAlg::mat3x4_t modelMatrixNoArcBall;
-        linAlg::loadIdentityMatrix( modelMatrixNoArcBall );
 
         linAlg::vec4_t boundingSphere;
         linAlg::vec3_t volDimRatio{ 1.0f, 1.0f, 1.0f };
@@ -1196,6 +1147,9 @@ Status_t ApplicationDVR::run() {
         linAlg::mat4_t labelDisplayFixupScaleMatrix;
         linAlg::loadIdentityMatrix( labelDisplayFixupScaleMatrix );
 
+        //////////////////////////
+        // ### MODEL MATRIX ### //
+        //////////////////////////
         {
 
             constexpr float modelScaleFactor = 1.0f;
@@ -1235,56 +1189,75 @@ Status_t ApplicationDVR::run() {
             linAlg::mat3x4_t rotX180deg_ModelMatrix;
             linAlg::loadRotationXMatrix( rotX180deg_ModelMatrix, static_cast<float>( M_PI ) );
 
-            modelMatrixNoArcBall = rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
-
-            mModelMatrix3x4 = arcRotMat * modelMatrixNoArcBall;
-
-            
-
-            // ### VIEW MATRIX ###
-
-            linAlg::vec3_t zAxis{ 0.0f, 0.0f, 1.0f };
-            linAlg::loadRotationZMatrix( tiltRotMat, camTiltRadAngle );
-
-        #if 1 // works (up to small jumps when resetting pivot anker pos); uses transform from last frame (seems to be okay as well)
-            linAlg::mat3x4_t pivotTranslationMatrix;
-            auto pivotTranslationPos = linAlg::vec3_t{ -rotPivotPosWS[0], -rotPivotPosWS[1], -rotPivotPosWS[2] };
-            linAlg::loadTranslationMatrix( pivotTranslationMatrix, pivotTranslationPos );
-            linAlg::mat3x4_t invPivotTranslationMatrix;
-            auto invPivotTranslationPos = linAlg::vec3_t{ -pivotTranslationPos[0], -pivotTranslationPos[1], -pivotTranslationPos[2] };
-            linAlg::loadTranslationMatrix( invPivotTranslationMatrix, invPivotTranslationPos );
-            tiltRotMat = invPivotTranslationMatrix * tiltRotMat * pivotTranslationMatrix;
-        #endif
-
-            mViewMatrix3x4 = tiltRotMat;
-
-            if (arcBallControlInteractionSettings.smooth) {
-                panVector[0] += targetPanDeltaVector[0];
-                panVector[1] += targetPanDeltaVector[1];
-            } else {
-                panVector[0] += targetPanDeltaVector[0] / ( panDamping );
-                panVector[1] += targetPanDeltaVector[1] / ( panDamping );
-                targetPanDeltaVector[0] = 0.0f;
-                targetPanDeltaVector[1] = 0.0f;
-            }
-            const float viewDist = camZoomDist;
-            linAlg::vec3_t panVec3{ panVector[0], panVector[1], -boundingSphere[3] * viewDist + panVector[2] };
-            //linAlg::vec3_t panVec3{ panVector[0] - tiltRotMat[0][3], panVector[1] - tiltRotMat[1][3], -boundingSphere[3] * viewDist - tiltRotMat[2][3] };
-            
-            linAlg::mat3x4_t panMat;
-            linAlg::loadTranslationMatrix( panMat, panVec3 );
-           
-            mViewMatrix3x4 = panMat * mViewMatrix3x4;
-
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
-
-            linAlg::castMatrix(mModelViewMatrix, mvMat3x4);
-
-        //??? 
+            mModelMatrix3x4 = rotX180deg_ModelMatrix * boundingSphereCenter_Translation_ModelMatrix * scaleMatrix;
         }
+
+        /////////////////////////
+        // ### VIEW MATRIX ### //
+        /////////////////////////
+
+        arcBallControl.update(  frameDelta, 
+                                currMouseX, 
+                                currMouseY, 
+                                -boundingSphere[3] * camZoomDist, 
+                                targetPanDeltaVector, 
+                                camTiltRadAngle, 
+                                leftMouseButtonPressed, 
+                                rightMouseButtonPressed, 
+                                fbWidth, 
+                                fbHeight );
+        arcBallControl.setRotationPivotOffset( rotPivotPosWS );
+
+        if (!arcBallControl.getInteractionMode().smooth) {
+            targetPanDeltaVector[0] = 0.0f;
+            targetPanDeltaVector[1] = 0.0f;
+        }
+
+        freeFlyCamControl.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
+
+
+        const float arc_dead = arcBallControl.getDeadZone();
+        const float arc_dx = arcBallControl.getTargetMovement_dx();
+        const float arc_dy = arcBallControl.getTargetMovement_dy();
+        const bool arc_isUpdating = ( arc_dx >= 10.0f * arc_dead || arc_dy >= 10.0f * arc_dead );
+        didMove = didMove || arc_isUpdating;
+
+        mViewMatrix3x4 = arcBallControl.getViewMatrix();
+        linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
+
+        linAlg::castMatrix(mModelViewMatrix, mvMat3x4);
+
 
         // update mvp matrix
         linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+
+        if (setNewRotationPivot == 1) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
+            linAlg::vec3_t currRefPtES{ 0.0f, 0.0f, 0.0f };
+            linAlg::applyTransformationToPoint( mViewMatrix3x4, &currRefPtES, 1 );
+            auto compensationVec = currRefPtES - prevRefPtES;
+            panVector = panVector - compensationVec; // persist changes to future frames
+
+            // apply only compensation difference vector in this frame on top of the previously calculated transform
+            linAlg::mat3x4_t compensationMat3x4;
+            linAlg::loadTranslationMatrix( compensationMat3x4, -1.0f * compensationVec );
+            mViewMatrix3x4 = compensationMat3x4 * mViewMatrix3x4; // fixed up view matrix
+
+            // update matrices that depend on view matrix to have a consistently fixed-up transform
+            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
+            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
+            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+        }
+
+        if ( camMode == DVR_GUI::eCamMode::freeFlyCam ) {
+            mViewMatrix3x4 = freeFlyCamControl.getViewMatrix();
+            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4;// *mModelMatrix3x4;
+            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
+            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
+        }
+
+        ///////////////////
+        // SCREEN RESIZE //
+        ///////////////////
 
         handleScreenResize(
             reinterpret_cast< GLFWwindow* >( mContextOpenGL.window() ),
@@ -1302,11 +1275,17 @@ Status_t ApplicationDVR::run() {
 
             prevFbWidth = fbWidth;
             prevFbHeight = fbHeight;
+
+            didMove = true;
         }
 
         glCheckError();
 
         didMove = didMove || wasCollapsedToggled;
+
+        ///////////////
+        // RENDERING //
+        ///////////////
 
         if (didMove || prevDidMove) {
             glDisable( GL_BLEND );
@@ -1345,29 +1324,6 @@ Status_t ApplicationDVR::run() {
             //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
         }
 
-        if (setNewRotationPivot == 1) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
-            linAlg::vec3_t currRefPtES{ 0.0f, 0.0f, 0.0f };
-            linAlg::applyTransformationToPoint( mViewMatrix3x4, &currRefPtES, 1 );
-            auto compensationVec = currRefPtES - prevRefPtES;
-            panVector = panVector - compensationVec; // persist changes to future frames
-
-            // apply only compensation difference vector in this frame on top of the previously calculated transform
-            linAlg::mat3x4_t compensationMat3x4;
-            linAlg::loadTranslationMatrix( compensationMat3x4, -1.0f * compensationVec );
-            mViewMatrix3x4 = compensationMat3x4 * mViewMatrix3x4; // fixed up view matrix
-
-            // update matrices that depend on view matrix to have a consistently fixed-up transform
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
-            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
-            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
-        }
-
-        if ( useFreeFlyCam ) {
-            mViewMatrix3x4 = freeFlyCamControl.getViewMatrix();
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4;// *mModelMatrix3x4;
-            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
-            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
-        }
 
         // TODO: draw screen-aligned quad to lauch one ray per pixel
         //       dual view on transformation: inverse model-view transform should place cam frame such that it sees the model as usual, but now model is in origin and axis aligned
@@ -1461,21 +1417,9 @@ Status_t ApplicationDVR::run() {
 
                         glBlendEquation(GL_FUNC_ADD);
                         
-                        //glBlendFunc( GL_SRC_ALPHA, GL_DST_COLOR );
-                        //glBlendFunc( GL_SRC_COLOR, GL_DST_ALPHA );
-                        //glBlendFunc( GL_DST_COLOR, GL_SRC_ALPHA );
-                        //glBlendFunc( GL_DST_ALPHA, GL_SRC_COLOR );
-                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE );
-                        //glBlendFunc( GL_SRC_ALPHA, GL_ZERO );
-                        //glBlendFunc( GL_ONE_MINUS_SRC_ALPHA, GL_DST_COLOR );
-                        
                         //glBlendFunc(GL_CONSTANT_ALPHA_EXT, GL_ONE); // http://www.tinysg.de/techGuides/tg2_xray.html
 
                         glBlendFunc( GL_SRC_ALPHA, GL_ONE );
-                        //glBlendFunc( GL_ONE, GL_ONE );
-                        //glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE);
-                        //glBlendColor(1.0, 1.0, 1.0, 1.0);
-                        
                     }
 
                 #if 1
@@ -1486,32 +1430,6 @@ Status_t ApplicationDVR::run() {
 
                         glBlendEquation(GL_MAX);
                         glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR ); // Hadwiger Vol Book, p57
-
-                        //glBlendEquation( GL_FUNC_REVERSE_SUBTRACT );
-                        //glBlendFunc( GL_SRC_COLOR, GL_DST_COLOR );
-
-                        //glBlendEquation(GL_MAX);
-                        //glBlendEquationSeparate( GL_FUNC_ADD, GL_MAX );
-                        ////glBlendFuncSeparate( GL_SRC_COLOR, GL_ONE, GL_SRC_ALPHA, GL_ONE ); // Hadwiger Vol Book, p57
-                        //glBlendFunc( GL_ONE, GL_ONE );
-
-
-                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_ONE_MINUS_SRC_ALPHA); // F2B
-                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
-                        //glBlendFuncSeparate(GL_DST_COLOR, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
-                        //glBlendFuncSeparate(GL_ONE, GL_ONE, GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA); // F2B
-                        //glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE,GL_ZERO,GL_SRC_ALPHA); // F2B
-
-                        //glBlendEquation(GL_FUNC_ADD);
-                        
-                        //glBlendEquation(GL_MAX);
-                        //glBlendFunc( GL_SRC_ALPHA, GL_DST_ALPHA );
-
-                        //glBlendFunc( GL_ONE, GL_ONE );
-                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-                        //glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA );
-
-                        //glBlendFunc( GL_DST_ALPHA, GL_SRC_ALPHA );
                     }
                 #endif
 
@@ -1525,24 +1443,16 @@ Status_t ApplicationDVR::run() {
                         hiResDim[1] = ((hiResDim[1] + (brickLen - 1)) / brickLen) * brickLen;
                         hiResDim[2] = ((hiResDim[2] + (brickLen - 1)) / brickLen) * brickLen;
 
-                        //meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
-                        //    (float)(brickLen) / hiResDimOrig[0],
-                        //    (float)(brickLen) / hiResDimOrig[1],
-                        //    (float)(brickLen) / hiResDimOrig[2] } );
-
                         meshShader.setVec3( "u_volDimRatio", linAlg::vec3_t{
-                            (float)(brickLen) / ( hiResDimOrig[0] - 0 ),
-                            (float)(brickLen) / ( hiResDimOrig[1] - 0 ),
-                            (float)(brickLen) / ( hiResDimOrig[2] - 0 ) } );
+                            (float)(brickLen) / hiResDimOrig[0],
+                            (float)(brickLen) / hiResDimOrig[1],
+                            (float)(brickLen) / hiResDimOrig[2] } );
 
 
                         visibleBricksWithDists.clear();
-                        //visibleBricksWithDists.reserve( mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2] );
 
                         const linAlg::vec3_t camPos3_OS{ camPos_OS[0], camPos_OS[1], camPos_OS[2] };
-                        
-                        //visibleBricksWithDists.resize(mVolLoResEmptySpaceSkipDim[0] * mVolLoResEmptySpaceSkipDim[1] * mVolLoResEmptySpaceSkipDim[2]);
-                        //int k = 0;
+
                         for (auto& entry : threadBsd) {
                             entry.clear();
                         }
@@ -1671,25 +1581,19 @@ Status_t ApplicationDVR::run() {
                                 return linAlg::dot( diffA, diffA ) < linAlg::dot( diffB, diffB );
                             } );
 
-                        //glDisable( GL_DEPTH_TEST );
                         glEnable( GL_DEPTH_TEST );
                     
                         for (auto& entry : visibleBricksWithDists) { // these should now render with correct brick-vis even without depth buffer
-                            //meshShader.setVec3( "u_volOffset", { // !!! <<<
-                            //    (float)entry.x / (hiResDimOrig[0]),
-                            //    (float)entry.y / (hiResDimOrig[1]),
-                            //    (float)entry.z / (hiResDimOrig[2]) } );
 
                             meshShader.setVec3( "u_volOffset", { // !!! <<<
-                                (float)entry.x / (hiResDimOrig[0] - 0),
-                                (float)entry.y / (hiResDimOrig[1] - 0),
-                                (float)entry.z / (hiResDimOrig[2] - 0) } );
+                                (float)entry.x / hiResDimOrig[0],
+                                (float)entry.y / hiResDimOrig[1],
+                                (float)entry.z / hiResDimOrig[2] } );
 
                             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>(stlModel.indices().size()), GL_UNSIGNED_INT, 0 );
                         }
                         glEnable( GL_DEPTH_TEST );
 
-                        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
                     }
 
                     if (didMove || prevDidMove) {
@@ -1717,7 +1621,6 @@ Status_t ApplicationDVR::run() {
                 volShader.use( true );
                 glBindVertexArray( mScreenQuadHandle.vaoHandle );
 
-                //volShader.setInt( "u_frameNum", frameNum );
                 if (!didMove) {
                     volShader.setInt( "u_frameNum", rand() % 10000 );
                 }
@@ -1786,16 +1689,10 @@ Status_t ApplicationDVR::run() {
         glDepthMask( GL_TRUE );
 
 
-
-        glCheckError();
-
-
-        glCheckError();
-
-
         //if (glGetError() != GL_NO_ERROR) {
         //    printf( "GL error!\n" );
         //}
+
         if ( showLabels ) {
             linAlg::mat4_t scalePatchMvpMatrix;
             linAlg::multMatrix( scalePatchMvpMatrix, mMvpMatrix, labelDisplayFixupScaleMatrix );
@@ -1824,15 +1721,11 @@ Status_t ApplicationDVR::run() {
         {
             static bool loadFileTrigger = false;
             static bool resetTrafos = false;
-            
+
+            int camModeIdx = static_cast<int>(camMode);
             int visAlgoIdx = static_cast<int>(visAlgo);
-            int* pVisAlgoIdx = &visAlgoIdx;
-
             int debugVisModeIdx = static_cast<int>(debugVisMode);
-            int* pDebugVisModeIdx = &debugVisModeIdx;
-
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
-            int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
 
             bool editTransferFunction = false;
             
@@ -1855,11 +1748,12 @@ Status_t ApplicationDVR::run() {
                 .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
                 .frameRate = 1.0f / frameDurations[frameDurations.size()/2u],
-                .pVisAlgoIdx = pVisAlgoIdx,
-                .pDebugVisModeIdx = pDebugVisModeIdx,
+                .pCamModeIdx = &camModeIdx,
+                .pVisAlgoIdx = &visAlgoIdx,
+                .pDebugVisModeIdx = &debugVisModeIdx,
                 .useEmptySpaceSkipping = useEmptySpaceSkipping,
                 .showLabels = showLabels,
-                .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
+                .pRayMarchAlgoIdx = &rayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
                 .wantsToCaptureMouse = guiWantsMouseCapture,
@@ -1869,9 +1763,7 @@ Status_t ApplicationDVR::run() {
                 .surfaceIsoColor = isoColor,
                 .lightParams = lightParams,
                 .lightParamsChanged = lightParamsChanged,
-                .useFreeFlyCam = useFreeFlyCam,
             };
-            
 
             std::vector<bool> collapsedState;
             
@@ -1905,7 +1797,6 @@ Status_t ApplicationDVR::run() {
 
             if (guiUserData.lightParamsChanged) {
                 void *pLightUbo = mpLight_Ubo->map( GfxAPI::eMapMode::writeOnly );
-                //memcpy( pLightUbo, &lightParams, sizeof( lightParams ) );
                 memcpy( pLightUbo, &lightParams, mpLight_Ubo->desc().numBytes );
                 mpLight_Ubo->unmap();
                 lightParamsChanged = false;
@@ -1929,29 +1820,26 @@ Status_t ApplicationDVR::run() {
             }
             prevCollapsedState = collapsedState;
 
-            if (*pVisAlgoIdx != static_cast<int>(visAlgo)) {
-                visAlgo = (DVR_GUI::eVisAlgo)(*pVisAlgoIdx);
-                printf( "visAlgoIdx = %d, visAlgo = %d\n", *pVisAlgoIdx, (int)visAlgo );
+            if (camModeIdx != static_cast<int>(camMode)) {
+                camMode = (DVR_GUI::eCamMode)(camModeIdx);
+                didMove = true;
+            }
+
+            if (visAlgoIdx != static_cast<int>(visAlgo)) {
+                visAlgo = (DVR_GUI::eVisAlgo)(visAlgoIdx);
+                printf( "visAlgoIdx = %d, visAlgo = %d\n", visAlgoIdx, (int)visAlgo );
 
                 // spawn shader compiler and re-load DVR shaders
-
-                //#define DVR_MODE                LEVOY_ISO_SURFACE
-                ////#define DVR_MODE                F2B_COMPOSITE
-                ////#define DVR_MODE                XRAY
-                ////#define DVR_MODE                MRI
-
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
                 didMove = true;
             }
 
-            if (*pDebugVisModeIdx != static_cast<int>(debugVisMode)) {
-                debugVisMode = (DVR_GUI::eDebugVisMode)(*pDebugVisModeIdx);
-                printf( "debugVisModeIdx = %d, debugVisMode = %d\n", *pDebugVisModeIdx, (int)debugVisMode );
+            if (debugVisModeIdx != static_cast<int>(debugVisMode)) {
+                debugVisMode = (DVR_GUI::eDebugVisMode)(debugVisModeIdx);
+                printf( "debugVisModeIdx = %d, debugVisMode = %d\n", debugVisModeIdx, (int)debugVisMode );
 
                 // spawn shader compiler and re-load DVR shaders
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
 
@@ -1959,13 +1847,12 @@ Status_t ApplicationDVR::run() {
             }
 
             if (prevUseEmptySpaceSkipping != useEmptySpaceSkipping) {
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, volShader );
                 didMove = true;
             }
 
-            if (*pRayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
-                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(*pRayMarchAlgoIdx);
-                printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", *pRayMarchAlgoIdx, (int)rayMarchAlgo );
+            if (rayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
+                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(rayMarchAlgoIdx);
+                printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", rayMarchAlgoIdx, (int)rayMarchAlgo );
                 didMove = true;
             }
 
@@ -1975,7 +1862,7 @@ Status_t ApplicationDVR::run() {
                 fixupShaders( mesh_ESS_Shader, vol_ESS_Shader );
                 fixupShaders( mesh_noESS_Shader, vol_noESS_Shader );
 
-                resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
+                resetTransformations( arcBallControl, freeFlyCamControl, camTiltRadAngle, targetCamTiltRadAngle );
 
                 loadFileTrigger = false;
                 didMove = true;
@@ -1990,7 +1877,7 @@ Status_t ApplicationDVR::run() {
 
             if (resetTrafos) {
                 printf( "reset Trafos!\n" );
-                resetTransformations( arcBallControl, camTiltRadAngle, targetCamTiltRadAngle );
+                resetTransformations( arcBallControl, freeFlyCamControl, camTiltRadAngle, targetCamTiltRadAngle );
                 resetTrafos = false;
                 didMove = true;
             }
@@ -2017,7 +1904,7 @@ Status_t ApplicationDVR::run() {
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
         targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
-        //targetCamZoomDist = linAlg::clamp( targetCamZoomDist, 0.1f, 1000.0f );
+
         camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
         mouseWheelOffset = 0.0f;
 
@@ -2029,12 +1916,6 @@ Status_t ApplicationDVR::run() {
         prevMouseY = currMouseY;
 
         prevDidMove = didMove;
-
-        //if ( frameNum % 200 == 0 ) {
-        //    const auto queriedSmVal = mSharedMem.get( "from TF" );
-
-        //    printf( "DVR app - what we got for \"from TF\": %s\n", queriedSmVal.c_str() );
-        //}
 
         frameNum++;
     }
@@ -2081,19 +1962,6 @@ void ApplicationDVR::tryStartShaderCompilerApp() {
     mpSCProcess->get_exit_status();
 }
 
-void ApplicationDVR::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
-    arcBallControl.resetTrafos();
-    camTiltRadAngle = 0.0f;
-    targetCamTiltRadAngle = 0.0f;
-    panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotPosOS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotPosWS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-    camZoomDist = 0.0f;
-    targetCamZoomDist = initialCamZoomDist;
-}
-
 void ApplicationDVR::resetTF() {
     mSharedMem.put( "resetTF", "true" );
 }
@@ -2106,86 +1974,86 @@ void ApplicationDVR::handleScreenResize(
     int32_t& fbWidth,
     int32_t& fbHeight ) {
 
-        {
-            int32_t windowW, windowH;
-            glfwGetWindowSize( reinterpret_cast<GLFWwindow*>(pWindow), &windowW, &windowH );
-            //printf( "glfwGetWindowSize(): window created: %d x %d\n", windowW, windowH ); fflush( stdout );
+    {
+        int32_t windowW, windowH;
+        glfwGetWindowSize( reinterpret_cast<GLFWwindow*>(pWindow), &windowW, &windowH );
+        //printf( "glfwGetWindowSize(): window created: %d x %d\n", windowW, windowH ); fflush( stdout );
 
-            float sx, sy;
-            glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(pWindow), &sx, &sy );
-            //printf( "glfwGetWindowContentScale(): window scale: %f x %f\n", sx, sy ); fflush( stdout );
+        float sx, sy;
+        glfwGetWindowContentScale( reinterpret_cast<GLFWwindow*>(pWindow), &sx, &sy );
+        //printf( "glfwGetWindowContentScale(): window scale: %f x %f\n", sx, sy ); fflush( stdout );
 
-            //printf( "scaled window dimensions %f x %f\n", windowW * sx, windowH * sy );
+        //printf( "scaled window dimensions %f x %f\n", windowW * sx, windowH * sy );
 
-            int32_t fbWidth, fbHeight;
-            glfwGetFramebufferSize( reinterpret_cast<GLFWwindow*>(pWindow), &fbWidth, &fbHeight );
-            //printf( "glfwGetFramebufferSize(): %d x %d\n", fbWidth, fbHeight );
+        int32_t fbWidth, fbHeight;
+        glfwGetFramebufferSize( reinterpret_cast<GLFWwindow*>(pWindow), &fbWidth, &fbHeight );
+        //printf( "glfwGetFramebufferSize(): %d x %d\n", fbWidth, fbHeight );
 
-            glViewport( 0, 0, windowW, windowH );
-        }
+        glViewport( 0, 0, windowW, windowH );
+    }
 
-        glfwGetFramebufferSize( pWindow, &fbWidth, &fbHeight);
+    glfwGetFramebufferSize( pWindow, &fbWidth, &fbHeight);
 
-        if ( prevFbWidth != fbWidth || prevFbHeight != fbHeight ) {
+    if ( prevFbWidth != fbWidth || prevFbHeight != fbHeight ) {
 
-            printf( "polled new window size %d x %d\n", fbWidth, fbHeight );
+        printf( "polled new window size %d x %d\n", fbWidth, fbHeight );
 
-            //calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
-            calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, projMatrix );
+        //calculateProjectionMatrix( fbWidth, fbHeight, projMatrix );
+        calculateFovYProjectionMatrix( fbWidth, fbHeight, fovY_deg, projMatrix );
 
-            GfxAPI::Texture::Desc_t guiTexDesc{
-                .texDim = {fbWidth, fbHeight, 0},
-                .numChannels = 4,
-                .channelType = GfxAPI::eChannelType::u8,
-                .semantics = GfxAPI::eSemantics::color,
-                .isMipMapped = false,
-            };
-        #if 0
-            delete mpGuiTex;
-            mpGuiTex = nullptr;
-            mpGuiTex = new GfxAPI::Texture( guiTexDesc );
+        GfxAPI::Texture::Desc_t guiTexDesc{
+            .texDim = {fbWidth, fbHeight, 0},
+            .numChannels = 4,
+            .channelType = GfxAPI::eChannelType::u8,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+    #if 0
+        delete mpGuiTex;
+        mpGuiTex = nullptr;
+        mpGuiTex = new GfxAPI::Texture( guiTexDesc );
 
-            GfxAPI::Fbo::Desc guiFboDesc;
-            guiFboDesc.colorAttachments.push_back( mpGuiTex );
+        GfxAPI::Fbo::Desc guiFboDesc;
+        guiFboDesc.colorAttachments.push_back( mpGuiTex );
 
-            delete mpGuiFbo;
-            mpGuiFbo = nullptr;
-            mpGuiFbo = new GfxAPI::Fbo( guiFboDesc );
-        #endif
+        delete mpGuiFbo;
+        mpGuiFbo = nullptr;
+        mpGuiFbo = new GfxAPI::Fbo( guiFboDesc );
+    #endif
 
 
-            GfxAPI::Texture::Desc_t volRT_TexDesc{
-                .texDim = {fbWidth, fbHeight, 0},
-                .numChannels = 4,
-                .channelType = GfxAPI::eChannelType::u8,
-                .semantics = GfxAPI::eSemantics::color,
-                .isMipMapped = false,
-            };
-            delete mpVol_RT_Tex;
-            mpVol_RT_Tex = nullptr;
-            mpVol_RT_Tex = new GfxAPI::Texture( volRT_TexDesc );
+        GfxAPI::Texture::Desc_t volRT_TexDesc{
+            .texDim = {fbWidth, fbHeight, 0},
+            .numChannels = 4,
+            .channelType = GfxAPI::eChannelType::u8,
+            .semantics = GfxAPI::eSemantics::color,
+            .isMipMapped = false,
+        };
+        delete mpVol_RT_Tex;
+        mpVol_RT_Tex = nullptr;
+        mpVol_RT_Tex = new GfxAPI::Texture( volRT_TexDesc );
 
-            GfxAPI::Rbo::Desc volRT_RboDesc;
-            volRT_RboDesc.w = fbWidth;
-            volRT_RboDesc.h = fbHeight;
-            volRT_RboDesc.numChannels = 1;
-            volRT_RboDesc.channelType = GfxAPI::eChannelType::f32depth;
-            volRT_RboDesc.semantics = GfxAPI::eSemantics::depth;
+        GfxAPI::Rbo::Desc volRT_RboDesc;
+        volRT_RboDesc.w = fbWidth;
+        volRT_RboDesc.h = fbHeight;
+        volRT_RboDesc.numChannels = 1;
+        volRT_RboDesc.channelType = GfxAPI::eChannelType::f32depth;
+        volRT_RboDesc.semantics = GfxAPI::eSemantics::depth;
 
-            delete mpVol_RT_Rbo;
-            mpVol_RT_Rbo = nullptr;
-            mpVol_RT_Rbo = new GfxAPI::Rbo( volRT_RboDesc );
+        delete mpVol_RT_Rbo;
+        mpVol_RT_Rbo = nullptr;
+        mpVol_RT_Rbo = new GfxAPI::Rbo( volRT_RboDesc );
 
-            GfxAPI::Fbo::Desc volRT_FboDesc;
-            volRT_FboDesc.colorAttachments.push_back( mpVol_RT_Tex );
-            volRT_FboDesc.depthStencilAttachment = nullptr;
+        GfxAPI::Fbo::Desc volRT_FboDesc;
+        volRT_FboDesc.colorAttachments.push_back( mpVol_RT_Tex );
+        volRT_FboDesc.depthStencilAttachment = nullptr;
 
-            delete mpVol_RT_Fbo;
-            mpVol_RT_Fbo = nullptr;
-            mpVol_RT_Fbo = new GfxAPI::Fbo( volRT_FboDesc );
-            mpVol_RT_Rbo->attachToFbo( *mpVol_RT_Fbo, 0 );
+        delete mpVol_RT_Fbo;
+        mpVol_RT_Fbo = nullptr;
+        mpVol_RT_Fbo = new GfxAPI::Fbo( volRT_FboDesc );
+        mpVol_RT_Rbo->attachToFbo( *mpVol_RT_Fbo, 0 );
 
-            prevFbWidth = fbWidth;
-            prevFbHeight = fbHeight;
-        }
+        prevFbWidth = fbWidth;
+        prevFbHeight = fbHeight;
+    }
 }

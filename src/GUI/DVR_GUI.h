@@ -30,6 +30,7 @@ struct DVR_GUI {
         int* pGradientModeIdx;
         SharedMemIPC* pSharedMem;
         float frameRate;
+        int* pCamModeIdx;
         int* pVisAlgoIdx;
         int* pDebugVisModeIdx;
         bool& useEmptySpaceSkipping;
@@ -44,7 +45,6 @@ struct DVR_GUI {
         std::array<float, 3>   surfaceIsoColor;
         LightParameters& lightParams;
         bool& lightParamsChanged;
-        bool& useFreeFlyCam;
     };
 
     enum class eVisAlgo: int {
@@ -65,6 +65,12 @@ struct DVR_GUI {
     enum class eRayMarchAlgo: int {
         backfaceCubeRaster = 0,
         fullscreenBoxIsect = 1,
+    };
+
+    enum class eCamMode : int {
+        arcCam      = 0,
+        freeFlyCam  = 1,
+        orbitCam    = 2,
     };
 
     static void InitGui( const GfxAPI::ContextOpenGL& contextOpenGL );

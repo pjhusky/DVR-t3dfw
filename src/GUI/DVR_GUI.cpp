@@ -57,6 +57,13 @@ namespace {
         "Sobel 3D",
     };
 
+    static std::vector< const char* > camModeNames{
+        "Arc Camera", 
+        "6DOF Free-Flight Camera",
+        "Orbit Camera",
+    };
+
+
     // https://github.com/libigl/libigl/issues/1300
     static std::string labelPrefix(const char* const label)
     {
@@ -244,13 +251,16 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
 
         separatorWithVpadding();
 
-        //ImGui::Text( "Gradient Calculation Method" );
-        //static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
-        //for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
-        //    ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
-        //}
+        ImGui::Text( "Camera Mode" );
+        {
+            //static const char* current_item = camModeNames[*(pGuiUserData->pCamModeIdx)];
+            for (int32_t i = 0; i < camModeNames.size(); i++) {
+                ImGui::RadioButton( camModeNames[i], pGuiUserData->pCamModeIdx, i );
+            }
+        }
 
-        ImGui::Checkbox( "Use Free Fly Cam", &pGuiUserData->useFreeFlyCam );
+        //ImGui::Checkbox( "Use Free Fly Cam", &pGuiUserData->useFreeFlyCam );
+
 
 
         if (ImGui::Button( "Reset Transformations", guiButtonSize() ) && !pGuiUserData->resetTrafos) {
@@ -270,7 +280,7 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
             separatorWithVpadding();
 
             ImGui::Text( "Gradient Calculation Method" );
-            static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
+            //static const char* current_item = gradientAlgoNames[*(pGuiUserData->pGradientModeIdx)];
 
             for (int32_t i = 0; i < gradientAlgoNames.size(); i++) {
                 ImGui::RadioButton( gradientAlgoNames[i], pGuiUserData->pGradientModeIdx, i );
@@ -283,7 +293,7 @@ void DVR_GUI::MainMenuGui( DVR_GUI::GuiUserData_t* const pGuiUserData, const int
 
             ImGui::Text( "Volume Intersection Method" );
 
-            static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
+            //static const char* current_item = rayMarchAlgoNames[*(pGuiUserData->pRayMarchAlgoIdx)];
 
         #if 0
             if (ImGui::BeginCombo( "##combo", current_item )) { // The second parameter is the label previewed before opening the combo.

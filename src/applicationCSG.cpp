@@ -66,10 +66,9 @@ namespace {
     
     static std::vector< std::vector< brickSortData_t > > threadBsd; 
 
-    static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
-    //static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::backfaceCubeRaster;
-
+    static DVR_GUI::eCamMode      camMode      = DVR_GUI::eCamMode::arcCam;
     static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
+    static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
 
     static constexpr int32_t brickLen = static_cast<int32_t>( BRICK_BLOCK_DIM );
     static constexpr linAlg::i32vec3_t volBrickDim{ brickLen, brickLen, brickLen };
@@ -858,7 +857,7 @@ void ApplicationCSG::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 Status_t ApplicationCSG::run() {
     //ArcBallControls arcBallControl;
     //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
-    //arcBallControl.setDampingFactor( 0.845f );
+    //arcBallControl.setRotDampingFactor( 0.845f );
     
     FreeFlyCam freeFlyCamInstance;
     freeFlyCamInstance.setPosition( { 0.0f, 0.0f, 4.5f } );
@@ -1318,6 +1317,8 @@ Status_t ApplicationCSG::run() {
 
         mpDensityColorsTex2d->bindToTexUnit( 7 );
 
+        //if ( camMode == DVR_GUI::eCamMode::freeFlyCam ) {
+
         linAlg::mat4_t freeFlyCamViewMatrix;
         linAlg::castMatrix( freeFlyCamViewMatrix, freeFlyCamInstance.getViewMatrix() );
         mModelViewMatrix = freeFlyCamViewMatrix;
@@ -1774,14 +1775,10 @@ Status_t ApplicationCSG::run() {
             static bool loadFileTrigger = false;
             static bool resetTrafos = false;
             
+            int camModeIdx = static_cast<int>(camMode);
             int visAlgoIdx = static_cast<int>(visAlgo);
-            int* pVisAlgoIdx = &visAlgoIdx;
-
             int debugVisModeIdx = static_cast<int>(debugVisMode);
-            int* pDebugVisModeIdx = &debugVisModeIdx;
-
             int rayMarchAlgoIdx = static_cast<int>(rayMarchAlgo);
-            int* pRayMarchAlgoIdx = &rayMarchAlgoIdx;
 
             bool editTransferFunction = false;
             
@@ -1804,11 +1801,12 @@ Status_t ApplicationCSG::run() {
                 .pGradientModeIdx = &gradientCalculationAlgoIdx,
                 .pSharedMem = &mSharedMem,
                 .frameRate = 1.0f / frameDurations[frameDurations.size()/2u],
-                .pVisAlgoIdx = pVisAlgoIdx,
-                .pDebugVisModeIdx = pDebugVisModeIdx,
+                .pCamModeIdx = &camModeIdx,
+                .pVisAlgoIdx = &visAlgoIdx,
+                .pDebugVisModeIdx = &debugVisModeIdx,
                 .useEmptySpaceSkipping = useEmptySpaceSkipping,
                 .showLabels = showLabels,
-                .pRayMarchAlgoIdx = pRayMarchAlgoIdx,
+                .pRayMarchAlgoIdx = &rayMarchAlgoIdx,
                 .loadFileTrigger = loadFileTrigger,
                 .resetTrafos = resetTrafos,
                 .wantsToCaptureMouse = guiWantsMouseCapture,
@@ -1877,29 +1875,26 @@ Status_t ApplicationCSG::run() {
             }
             prevCollapsedState = collapsedState;
 
-            if (*pVisAlgoIdx != static_cast<int>(visAlgo)) {
-                visAlgo = (DVR_GUI::eVisAlgo)(*pVisAlgoIdx);
-                printf( "visAlgoIdx = %d, visAlgo = %d\n", *pVisAlgoIdx, (int)visAlgo );
+            if (camModeIdx != static_cast<int>(camMode)) {
+                camMode = (DVR_GUI::eCamMode)(camModeIdx);
+                didMove = true;
+            }
+
+            if (visAlgoIdx != static_cast<int>(visAlgo)) {
+                visAlgo = (DVR_GUI::eVisAlgo)(visAlgoIdx);
+                printf( "visAlgoIdx = %d, visAlgo = %d\n", visAlgoIdx, (int)visAlgo );
 
                 // spawn shader compiler and re-load DVR shaders
-
-                //#define DVR_MODE                LEVOY_ISO_SURFACE
-                ////#define DVR_MODE                F2B_COMPOSITE
-                ////#define DVR_MODE                XRAY
-                ////#define DVR_MODE                MRI
-
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, csgShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
                 didMove = true;
             }
 
-            if (*pDebugVisModeIdx != static_cast<int>(debugVisMode)) {
-                debugVisMode = (DVR_GUI::eDebugVisMode)(*pDebugVisModeIdx);
-                printf( "debugVisModeIdx = %d, debugVisMode = %d\n", *pDebugVisModeIdx, (int)debugVisMode );
+            if (debugVisModeIdx != static_cast<int>(debugVisMode)) {
+                debugVisMode = (DVR_GUI::eDebugVisMode)(debugVisModeIdx);
+                printf( "debugVisModeIdx = %d, debugVisMode = %d\n", debugVisModeIdx, (int)debugVisMode );
 
                 // spawn shader compiler and re-load DVR shaders
-                //LoadDVR_Shaders( visAlgo, debugVisMode, useEmptySpaceSkipping, meshShader, csgShader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, true, mesh_ESS_Shader, vol_ESS_Shader );
                 LoadDVR_Shaders( visAlgo, debugVisMode, false, mesh_noESS_Shader, vol_noESS_Shader );
 
@@ -1911,9 +1906,9 @@ Status_t ApplicationCSG::run() {
                 didMove = true;
             }
 
-            if (*pRayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
-                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(*pRayMarchAlgoIdx);
-                printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", *pRayMarchAlgoIdx, (int)rayMarchAlgo );
+            if (rayMarchAlgoIdx != static_cast<int>(rayMarchAlgo)) {
+                rayMarchAlgo = (DVR_GUI::eRayMarchAlgo)(rayMarchAlgoIdx);
+                printf( "rayMarchAlgoIdx = %d, rayMarchAlgo = %d\n", rayMarchAlgoIdx, (int)rayMarchAlgo );
                 didMove = true;
             }
 
@@ -2028,19 +2023,6 @@ void ApplicationCSG::tryStartShaderCompilerApp() {
     }
     mpSCProcess->get_exit_status();
 }
-
-//void ApplicationCSG::resetTransformations( ArcBallControls& arcBallControl, float& camTiltRadAngle, float& targetCamTiltRadAngle ) {
-//    arcBallControl.resetTrafos();
-//    camTiltRadAngle = 0.0f;
-//    targetCamTiltRadAngle = 0.0f;
-//    panVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-//    targetPanDeltaVector = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-//    rotPivotPosOS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-//    rotPivotPosWS = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-//    rotPivotOffset = linAlg::vec3_t{ 0.0f, 0.0f, 0.0f };
-//    camZoomDist = 0.0f;
-//    targetCamZoomDist = initialCamZoomDist;
-//}
 
 void ApplicationCSG::resetTF() {
     mSharedMem.put( "resetTF", "true" );

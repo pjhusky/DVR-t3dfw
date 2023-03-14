@@ -46,11 +46,6 @@ struct ApplicationDVR : public iApplication {
 
     Status_t load( const std::string& fileUrl, const int32_t gradientMode );
 
-    void setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
-                                linAlg::vec3_t& rotPivotPosWS, 
-                                const int32_t& fbWidth, const int32_t& fbHeight, 
-                                const float currMouseX, const float currMouseY );
-
     void LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
                             const DVR_GUI::eDebugVisMode debugVisMode, 
                             const bool useEmptySpaceSkipping, 

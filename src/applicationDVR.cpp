@@ -598,85 +598,6 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
 }
 
 
-void ApplicationDVR::setRotationPivotPos(   linAlg::vec3_t& rotPivotPosOS, 
-                                            linAlg::vec3_t& rotPivotPosWS, 
-                                            const int32_t& fbWidth, const int32_t& fbHeight, 
-                                            const float currMouseX, const float currMouseY ) {
-    glFlush();
-    glFinish();
-
-    glCheckError();
-    printf( "\n" );
-
-    glBindFramebuffer( GL_READ_FRAMEBUFFER, 0 );
-    if (glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE) {
-        printf( "framebuffer not complete!\n" );
-    }
-    glReadBuffer( GL_BACK );
-
-    const GLint glReadX = static_cast<GLint>(currMouseX); 
-    const GLint glReadY = (fbHeight - 1) - static_cast<GLint>(currMouseY); // flip y for reading from framebuffer
-    
-    const float fReadWindowRelativeX = ( currMouseX / static_cast<float>( fbWidth - 1 ) );
-    const float fReadWindowRelativeY = ( currMouseY / static_cast<float>( fbHeight - 1 ) );
-
-
-#if 0 // read color
-    std::array< uint8_t, 4 > colorAtMouseCursor;
-    glReadPixels( glReadX, glReadY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, colorAtMouseCursor.data() );
-    printf( "mouse read color = %u %u %u %u at (%f, %f) for window size (%d, %d)\n", 
-        colorAtMouseCursor[0], colorAtMouseCursor[1], colorAtMouseCursor[2], colorAtMouseCursor[3], 
-        currMouseX, currMouseY, fbWidth, fbHeight );
-#endif
-
-    float depthAtMousePos = 0.0f;
-    
-    glReadPixels( glReadX, glReadY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depthAtMousePos );
-    // DEBUG
-    //depthAtMousePos = 0.2f;
-
-
-    printf( "mouse read depth = %f at (%f, %f) for window size (%d, %d)\n", depthAtMousePos, currMouseX, currMouseY, fbWidth, fbHeight );
-
-    linAlg::vec4_t mousePosNDC{ fReadWindowRelativeX * 2.0f - 1.0f, ( 1.0f - fReadWindowRelativeY ) * 2.0f - 1.0f, depthAtMousePos * 2.0f - 1.0f, 1.0f };
-    //printVec( "mousePosNDC", mousePosNDC );
-
-    linAlg::vec3_t prevPivotWS = rotPivotPosWS;
-
-    linAlg::mat4_t invMvpMatrix;
-    linAlg::inverse( invMvpMatrix, mMvpMatrix );
-
-    mousePosNDC = invMvpMatrix * mousePosNDC;
-
-    auto mousePosOS = mousePosNDC;
-    mousePosOS[3] = linAlg::maximum( mousePosOS[3], std::numeric_limits<float>::epsilon() );
-    mousePosOS[0] /= mousePosOS[3];
-    mousePosOS[1] /= mousePosOS[3];
-    mousePosOS[2] /= mousePosOS[3];
-    //printVec( "mousePosOS", mousePosOS );
-
-    linAlg::vec4_t modelCenterAndRadius{0.0f,0.0f,0.0f,5.0f};
-
-    printVec( "prev rotPivotPosOS", rotPivotPosOS );
-    linAlg::vec3_t distToPrevPivotPosOS;
-    linAlg::sub( distToPrevPivotPosOS, linAlg::vec3_t{ mousePosOS[0], mousePosOS[1], mousePosOS[2] }, rotPivotPosOS );
-    printVec( "distToPrevPivotPosOS", distToPrevPivotPosOS );
-
-    rotPivotPosOS[0] = mousePosOS[0];
-    rotPivotPosOS[1] = mousePosOS[1];
-    rotPivotPosOS[2] = mousePosOS[2];
-    printVec( "new rotPivotPosOS", rotPivotPosOS );
-
-#if 1 // transform to WS
-    rotPivotPosWS = rotPivotPosOS;
-    linAlg::applyTransformationToVector( mModelMatrix3x4, &rotPivotPosWS, 1 );
-    printVec( "rot pivot pos WS", rotPivotPosWS );
-#endif
-
-    glCheckError();
-    printf( "\n" );
-}
-
 void ApplicationDVR::LoadDVR_Shaders(   const DVR_GUI::eVisAlgo visAlgo, 
                                         const DVR_GUI::eDebugVisMode debugVisMode, 
                                         const bool useEmptySpaceSkipping, 
@@ -1111,12 +1032,12 @@ Status_t ApplicationDVR::run() {
         if ( ( leftMouseButtonPressed || middleMouseButtonPressed || rightMouseButtonPressed ) ) { didMove = true; }
 
 
-        static uint8_t setNewRotationPivot = 0;
+        static bool setNewRotationPivot = false;
 
         if ( ( leftMouseButtonPressed && !guiWantsMouseCapture ) || rightMouseButtonPressed || middleMouseButtonPressed ) {
             if (mGrabCursor) { glfwSetInputMode( pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED ); }
             if (leftMouseButton_down == false && pressedOrRepeat( pWindow, GLFW_KEY_LEFT_CONTROL )) { // LMB was just freshly pressed
-                setNewRotationPivot = 2;
+                setNewRotationPivot = true;
             }
             leftMouseButton_down = true;
         } else {
@@ -1196,17 +1117,36 @@ Status_t ApplicationDVR::run() {
         // ### VIEW MATRIX ### //
         /////////////////////////
 
-        arcBallControl.update(  frameDelta, 
-                                currMouseX, 
-                                currMouseY, 
-                                -boundingSphere[3] * camZoomDist, 
-                                targetPanDeltaVector, 
-                                camTiltRadAngle, 
-                                leftMouseButtonPressed, 
-                                rightMouseButtonPressed, 
-                                fbWidth, 
-                                fbHeight );
-        arcBallControl.setRotationPivotOffset( rotPivotPosWS );
+        //!!! arcBallControl.setRotationPivotWS( rotPivotPosWS ); // STABLE/UNSTABLE just don't call this all the time!!!
+
+
+        if (setNewRotationPivot) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
+
+        #if 0 // STABLE!!!
+            auto viewWithoutArcMat = arcBallControl.getViewTranslationMat() * arcBallControl.getTiltRotMat();
+            gfxUtils::screenToWorld( rotPivotPosWS, currMouseX, currMouseY, viewWithoutArcMat, mProjMatrix, fbWidth, fbHeight );
+        #else // UNSTABLE!!!!
+            gfxUtils::screenToWorld( rotPivotPosWS, currMouseX, currMouseY, arcBallControl.getViewMatrix(), mProjMatrix, fbWidth, fbHeight );
+        #endif
+
+            arcBallControl.seamlessSetRotationPivotWS( rotPivotPosWS, camTiltRadAngle, -boundingSphere[3] * camZoomDist );
+
+            setNewRotationPivot = false;
+        }
+
+
+        arcBallControl.update(
+            frameDelta,
+            currMouseX,
+            currMouseY,
+            -boundingSphere[3] * camZoomDist,
+            targetPanDeltaVector,
+            camTiltRadAngle,
+            leftMouseButtonPressed,
+            rightMouseButtonPressed,
+            fbWidth,
+            fbHeight );
+
 
         if (!arcBallControl.getInteractionMode().smooth) {
             targetPanDeltaVector[0] = 0.0f;
@@ -1230,23 +1170,6 @@ Status_t ApplicationDVR::run() {
 
         // update mvp matrix
         linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
-
-        if (setNewRotationPivot == 1) { // fixup cam-jump compensation movement when new pivot is selected and cam tilt angle is not zero
-            linAlg::vec3_t currRefPtES{ 0.0f, 0.0f, 0.0f };
-            linAlg::applyTransformationToPoint( mViewMatrix3x4, &currRefPtES, 1 );
-            auto compensationVec = currRefPtES - prevRefPtES;
-            panVector = panVector - compensationVec; // persist changes to future frames
-
-            // apply only compensation difference vector in this frame on top of the previously calculated transform
-            linAlg::mat3x4_t compensationMat3x4;
-            linAlg::loadTranslationMatrix( compensationMat3x4, -1.0f * compensationVec );
-            mViewMatrix3x4 = compensationMat3x4 * mViewMatrix3x4; // fixed up view matrix
-
-            // update matrices that depend on view matrix to have a consistently fixed-up transform
-            linAlg::mat3x4_t mvMat3x4 = mViewMatrix3x4 * mModelMatrix3x4;
-            linAlg::castMatrix( mModelViewMatrix, mvMat3x4 );
-            linAlg::multMatrix( mMvpMatrix, mProjMatrix, mModelViewMatrix );
-        }
 
         if ( camMode == DVR_GUI::eCamMode::freeFlyCam ) {
             mViewMatrix3x4 = freeFlyCamControl.getViewMatrix();
@@ -1707,15 +1630,6 @@ Status_t ApplicationDVR::run() {
         //}
 
         glCheckError();
-
-        if (setNewRotationPivot > 0) {
-            if (setNewRotationPivot > 1) {
-                prevRefPtES = { 0.0f, 0.0f, 0.0f };
-                linAlg::applyTransformationToPoint( mViewMatrix3x4, &prevRefPtES, 1 );
-                setRotationPivotPos( rotPivotPosOS, rotPivotPosWS, fbWidth, fbHeight, currMouseX, currMouseY );
-            } 
-            setNewRotationPivot--;
-        }
 
 
         {

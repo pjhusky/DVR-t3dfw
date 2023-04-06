@@ -127,9 +127,6 @@ namespace {
 
     static linAlg::vec3_t prevRefPtES{ 0.0f, 0.0f, 0.0f };
 
-    linAlg::mat3x4_t prevModelMatrix3x4;
-    linAlg::mat3x4_t prevViewMatrix3x4;
-
     constexpr static float initialCamZoomDist = 2.75f;
     constexpr static float initialCamZoomDistTestSuite = 2.0f;
     static float camZoomDist = 0.0f;
@@ -817,9 +814,11 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 Status_t ApplicationDVR::run() {
     ArcBallControls arcBallControl;
     const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
+    arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
     arcBallControl.setRotDampingFactor( angleDamping );
     arcBallControl.setPanDampingFactor( panDamping );
-    
+    arcBallControl.setRotationPivotWS( {0.0f, 0.0f, 0.0f} );
+
     FreeFlyCam freeFlyCamControl;
     freeFlyCamControl.setPosition( freeFlyCamInitialPosition );
 
@@ -1653,7 +1652,7 @@ Status_t ApplicationDVR::run() {
 
         {
             static bool loadFileTrigger = false;
-            static bool resetTrafos = false;
+            bool resetTrafos = false;
 
             int camModeIdx = static_cast<int>(camMode);
             int visAlgoIdx = static_cast<int>(visAlgo);
@@ -1753,9 +1752,14 @@ Status_t ApplicationDVR::run() {
             }
             prevCollapsedState = collapsedState;
 
+            if (resetTrafos) {
+                printf( "reset Trafos!\n" );
+                resetTransformations( arcBallControl, freeFlyCamControl, orbitCamControl, camTiltRadAngle, targetCamTiltRadAngle );
+                didMove = true;
+            }
+
             if (camModeIdx != static_cast<int>(camMode)) {
                 auto prevCamMode = camMode;
-                didMove = true;
                 camMode = (DVR_GUI::eCamMode)(camModeIdx);
 
                 linAlg::mat3x4_t prevCamModeViewMat3x4;
@@ -1809,6 +1813,7 @@ Status_t ApplicationDVR::run() {
                     orbitCamControl.addPanDelta( panDelta );
                     orbitCamControl.update( 0.0f, currMouseX / fbWidth, currMouseY / fbHeight, false, false, {0.0f, 0.0f, 0.0f} );
                 }
+                didMove = true;
             }
 
             if (visAlgoIdx != static_cast<int>(visAlgo)) {
@@ -1861,12 +1866,6 @@ Status_t ApplicationDVR::run() {
                 didMove = true;
             }
 
-            if (resetTrafos) {
-                printf( "reset Trafos!\n" );
-                resetTransformations( arcBallControl, freeFlyCamControl, orbitCamControl, camTiltRadAngle, targetCamTiltRadAngle );
-                resetTrafos = false;
-                didMove = true;
-            }
             
             mSharedMem.put( "surfaceIsoAndThickness", 
                             reinterpret_cast<const uint8_t *const>( surfaceIsoAndThickness.data() ), 
@@ -1888,12 +1887,17 @@ Status_t ApplicationDVR::run() {
 
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
-        targetCamZoomDist += mouseWheelOffset * zoomSpeed * boundingSphere[3]*0.05f;
+        if (arcBallControlInteractionSettings.smooth) {
+            camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
+            camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
+        } else {
+            camZoomDist += targetCamZoomDist;
+            targetCamZoomDist = 0.0f;
 
-        camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
+            camTiltRadAngle += targetCamTiltRadAngle;
+            targetCamTiltRadAngle = 0.0f;
+        }
         mouseWheelOffset = 0.0f;
-
-        camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
 
         linAlg::scale( targetPanDeltaVector, (1.0f - panDamping) );
 

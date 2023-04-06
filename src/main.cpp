@@ -88,7 +88,11 @@ namespace {
 
         if (cmdLinePath.empty()) {
 
+        #ifndef UNICODE 
+            auto argv0Wide = argv;
+        #else
             auto argv0Wide = utf8Utils::utf8_decode( argv );
+        #endif
 
             cmdLinePath = std::vector<TinyProcessLib::Process::string_type>{
                 argv0Wide,

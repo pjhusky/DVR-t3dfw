@@ -483,13 +483,18 @@ Status_t ApplicationCSG::load( const std::string& fileUrl, const int32_t gradien
             }
 
             const dataLabel label{ 
+            #ifndef UNICODE 
+                jsonLabel.name,
+            #else
                 utf8Utils::utf8_decode(jsonLabel.name),
+            #endif
                 {   .startPos = { 0.7f, 0.8f },
-                    .endPos = { 1.1f, 0.8f },
-                    .thickness = 0.005f,
-                    .cornerRoundness = 0.01f, 
-                },
-                arrowAttribsVector
+                .endPos = { 1.1f, 0.8f },
+                .thickness = 0.005f,
+                .cornerRoundness = 0.01f, 
+                .reserved = { 0.0f, 0.0f },
+            },
+            arrowAttribsVector
             };
             mDataLabelMgr.addLabel( label );
         }
@@ -1130,7 +1135,7 @@ Status_t ApplicationCSG::run() {
         //arcBallControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, fbWidth, fbHeight );
         //arcBallControl.setRotationPivotOffset( rotPivotPosWS );
 
-        freeFlyCamInstance.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
+        freeFlyCamInstance.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
 
         //const float arc_dead = arcBallControl.getDeadZone();
         //const float arc_dx = arcBallControl.getTargetMovement_dx();

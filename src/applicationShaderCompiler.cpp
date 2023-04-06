@@ -30,21 +30,23 @@ Status_t ApplicationShaderCompiler::run()
     fileUtils::lukeFileWalker( 0, baseShaderDir, shaderFilenames, glslRegex );
 
     const auto argv0Wide =
-    #if defined (_WIN32 )
-        //utf8Utils::utf8_decode( R"(./external/glslang-master-windows-x64-Release/bin/glslangValidator.exe)" );
-        //utf8Utils::utf8_decode( R"(./external/glslang-master-windows-x64-Release/bin/glslangValidator)" );
-        //utf8Utils::utf8_decode( R"(.\external\glslang-master-windows-x64-Release\bin\glslangValidator)" );
-
-        //TinyProcessLib::Process::string_type{ _TEXT( "\"" ) } +
+    #ifndef UNICODE 
+        std::filesystem::absolute( std::filesystem::path( R"(.\external\glslang-master-windows-x64-Release\bin\glslangValidator.exe)" ) ).generic_string();
+    #else
         std::filesystem::absolute( std::filesystem::path( R"(.\external\glslang-master-windows-x64-Release\bin\glslangValidator.exe)" ) ).native(); //+
-        //TinyProcessLib::Process::string_type{ _TEXT( "\"" ) };
-#endif
+    #endif
 
     //'%{GLSL_LANG_VALIDATOR_BIN_DIR}glslangValidator -I"' ..SHADER_DIR .. '" -E %{file.relpath} > %{file.relpath}.preprocessed',
 
     //std::filesystem::path( shaderFileUrl ).parent_path().native()
     //const auto shaderBaseDir = std::filesystem::absolute( std::filesystem::path( "./src/shaders/" ) ).native();
+
+#ifndef UNICODE 
+    const auto shaderBaseDir = std::filesystem::absolute( std::filesystem::path( R"(.\src\shaders)" ) ).generic_string();
+#else
     const auto shaderBaseDir = std::filesystem::absolute( std::filesystem::path( R"(.\src\shaders)" ) ).native();
+#endif
+
     _tprintf( _T( "shaderBaseDir = %s\n" ), shaderBaseDir.c_str() );
 
     //const auto shaderBaseDirIncludeDirective = TinyProcessLib::Process::string_type{ _TEXT( "-I" ) } + shaderBaseDir;
@@ -56,7 +58,11 @@ Status_t ApplicationShaderCompiler::run()
         //TinyProcessLib::Process::string_type{ _TEXT( "-I\"" ) } + shaderBaseDir + _TEXT( "\"" ),
         //TinyProcessLib::Process::string_type{ _TEXT( "-I" ) } + shaderBaseDir,
         shaderBaseDirIncludeDirective,
+    #ifndef UNICODE 
+        mShaderDefines,
+    #else
         utf8Utils::utf8_decode( mShaderDefines ),
+    #endif
         TinyProcessLib::Process::string_type{ _TEXT( "-E " ) },
     };
 
@@ -71,10 +77,13 @@ Status_t ApplicationShaderCompiler::run()
         //printf( "%s\n", shaderFileUrl.c_str() );
 
         auto thisCmdLinePath = cmdLinePath;
+    #ifndef UNICODE 
+        thisCmdLinePath.push_back( std::string( "\"" ) + std::filesystem::absolute( shaderFileUrl ).string() + "\"" );
+        thisCmdLinePath.push_back( std::string( " > \"" ) + shaderFileUrl + ".preprocessed\"" );
+    #else
         thisCmdLinePath.push_back( utf8Utils::utf8_decode( std::string( "\"" ) + std::filesystem::absolute( shaderFileUrl ).string() + "\"" ) );
-        //thisCmdLinePath.push_back( _T( " > " ) );
         thisCmdLinePath.push_back( utf8Utils::utf8_decode( std::string( " > \"" ) + shaderFileUrl + ".preprocessed\"" ) );
-
+    #endif
         //for (const auto& procCmdLineEntry : thisCmdLinePath) {
         //    _tprintf( _T( "%s " ), procCmdLineEntry.c_str() );
         //} printf( "\n" );

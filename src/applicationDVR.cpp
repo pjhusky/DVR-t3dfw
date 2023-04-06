@@ -542,11 +542,18 @@ Status_t ApplicationDVR::load( const std::string& fileUrl, const int32_t gradien
             }
 
             const dataLabel label{ 
+            //#if (sizeof(dataLabel::labelText_t::value_type)==1)
+            #ifndef UNICODE 
+                jsonLabel.name,
+                //(sizeof(jsonLabel.name.c_str()[0]) == 1) ? jsonLabel.name : utf8Utils::utf8_decode(jsonLabel.name), // MSVC vs. mingw
+            #else
                 utf8Utils::utf8_decode(jsonLabel.name),
+            #endif
                 {   .startPos = { 0.7f, 0.8f },
                     .endPos = { 1.1f, 0.8f },
                     .thickness = 0.005f,
                     .cornerRoundness = 0.01f, 
+                    .reserved = { 0.0f, 0.0f },
                 },
                 arrowAttribsVector
             };
@@ -1143,9 +1150,7 @@ Status_t ApplicationDVR::run() {
             targetPanDeltaVector,
             camTiltRadAngle,
             leftMouseButtonPressed,
-            rightMouseButtonPressed,
-            fbWidth,
-            fbHeight );
+            rightMouseButtonPressed );
 
 
         if (!arcBallControl.getInteractionMode().smooth) {
@@ -1153,7 +1158,7 @@ Status_t ApplicationDVR::run() {
             targetPanDeltaVector[1] = 0.0f;
         }
 
-        freeFlyCamControl.update( frameDelta, currMouseX, currMouseY, fbWidth, fbHeight, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
+        freeFlyCamControl.update( frameDelta, currMouseX, currMouseY, leftMouseButtonPressed, rightMouseButtonPressed, translationDelta );
 
 
         const float arc_dead = arcBallControl.getDeadZone();

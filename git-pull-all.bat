@@ -1,6 +1,9 @@
 @echo.
 @echo ######### START REPO UPDATE ###########
 
+git checkout main
+git pull
+
 @echo.
 @echo ######### STEP 1 / 5 ############
 git submodule foreach --recursive git submodule update --init --remote --merge
@@ -30,6 +33,10 @@ git submodule foreach --recursive git merge temp-merge
 git submodule foreach --recursive git branch --delete temp-merge
 
 git submodule foreach --recursive "git pull origin master 2>/dev/null || git pull origin main ; echo done"
+
+@echo.
+@echo ########## SYNC SUBMODULE URLs ############
+git submodule sync --recursive
 
 @echo.
 @echo #########  REPO UP-TO-DATE  ###########

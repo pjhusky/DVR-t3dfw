@@ -68,7 +68,7 @@ struct DVR_GUI {
     };
 
     enum class eCamMode : int {
-        arcCam      = 0,
+        arcBallCam  = 0,
         freeFlyCam  = 1,
         orbitCam    = 2,
     };

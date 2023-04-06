@@ -66,7 +66,7 @@ namespace {
     
     static std::vector< std::vector< brickSortData_t > > threadBsd; 
 
-    static DVR_GUI::eCamMode      camMode      = DVR_GUI::eCamMode::arcCam;
+    static DVR_GUI::eCamMode      camMode      = DVR_GUI::eCamMode::arcBallCam;
     static DVR_GUI::eVisAlgo      visAlgo      = DVR_GUI::eVisAlgo::levoyIsosurface;
     static DVR_GUI::eRayMarchAlgo rayMarchAlgo = DVR_GUI::eRayMarchAlgo::fullscreenBoxIsect;
 

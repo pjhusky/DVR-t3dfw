@@ -1,4 +1,4 @@
-set ARGS=-x 1600 -y 1200
+set ARGS=-x 2000 -y 1200
 
 @IF "%~1" == "release" GOTO :runRelease
 @IF "%~1" == "debug" GOTO :runDebug

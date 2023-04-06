@@ -813,11 +813,31 @@ void ApplicationDVR::fixupShaders( GfxAPI::Shader& meshShader, GfxAPI::Shader& v
 
 Status_t ApplicationDVR::run() {
     ArcBallControls arcBallControl;
-    const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
-    arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
-    arcBallControl.setRotDampingFactor( angleDamping );
-    arcBallControl.setPanDampingFactor( panDamping );
-    arcBallControl.setRotationPivotWS( {0.0f, 0.0f, 0.0f} );
+    {
+        // works with these settings
+        const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
+        arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
+
+        // PROBLEM: rotations always jump back ....
+        //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = false };
+        //arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
+
+        // PROBLEM: cam dist will keep accumulating, but rotations seem to be okay
+        //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = false, .smooth = true };
+        //arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
+
+        // WORST CASE: rotations jump back AND cam dist keeps accumulating
+        //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = true, .smooth = true };
+        //arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
+
+        // PROBLEM: rotations jump back ...
+        //const ArcBall::ArcBallControls::InteractionModeDesc arcBallControlInteractionSettings{ .fullCircle = true, .smooth = false };
+        //arcBallControl.setInteractionMode( arcBallControlInteractionSettings );
+
+        arcBallControl.setRotDampingFactor( angleDamping );
+        arcBallControl.setPanDampingFactor( panDamping );
+        arcBallControl.setRotationPivotWS( { 0.0f, 0.0f, 0.0f } );
+    }
 
     FreeFlyCam freeFlyCamControl;
     freeFlyCamControl.setPosition( freeFlyCamInitialPosition );
@@ -1887,7 +1907,7 @@ Status_t ApplicationDVR::run() {
 
         frameDelta = linAlg::minimum( frameDelta, 0.032f );
 
-        if (arcBallControlInteractionSettings.smooth) {
+        if (arcBallControl.getInteractionMode().smooth) {
             camZoomDist = targetCamZoomDist * (1.0f - angleDamping) + camZoomDist * angleDamping;
             camTiltRadAngle = targetCamTiltRadAngle * (1.0f - angleDamping) + camTiltRadAngle * angleDamping;
         } else {

@@ -1754,8 +1754,61 @@ Status_t ApplicationDVR::run() {
             prevCollapsedState = collapsedState;
 
             if (camModeIdx != static_cast<int>(camMode)) {
-                camMode = (DVR_GUI::eCamMode)(camModeIdx);
+                auto prevCamMode = camMode;
                 didMove = true;
+                camMode = (DVR_GUI::eCamMode)(camModeIdx);
+
+                linAlg::mat3x4_t prevCamModeViewMat3x4;
+                if (prevCamMode == DVR_GUI::eCamMode::arcBallCam) {
+                    prevCamModeViewMat3x4 = arcBallControl.getViewMatrix();
+                } else if (prevCamMode == DVR_GUI::eCamMode::freeFlyCam) {
+                    prevCamModeViewMat3x4 = freeFlyCamControl.getViewMatrix();
+                } else if (prevCamMode == DVR_GUI::eCamMode::orbitCam) {
+                    prevCamModeViewMat3x4 = orbitCamControl.getViewMatrix();
+                }
+
+                if (camMode == DVR_GUI::eCamMode::arcBallCam) {
+                    arcBallControl.setViewMatrix( prevCamModeViewMat3x4 );
+                    camTiltRadAngle = 0.0f;
+                    camZoomDist = 0.0f;
+                    targetPanDeltaVector = { 0.0f, 0.0f, 0.0f };
+
+                    // prevent jumps on first interaction
+                    arcBallControl.update(
+                        0.0f,
+                        currMouseX / fbWidth, currMouseY / fbHeight,
+                        camZoomDist,
+                        targetPanDeltaVector,
+                        camTiltRadAngle,
+                        true,
+                        false );
+
+                } else if (camMode == DVR_GUI::eCamMode::freeFlyCam) {
+                    freeFlyCamControl.setViewMatrix( prevCamModeViewMat3x4 );
+                } else if (camMode == DVR_GUI::eCamMode::orbitCam) {
+                    linAlg::vec3_t bsCenterWS = { boundingSphere[0], boundingSphere[1], boundingSphere[2] };
+                    linAlg::applyTransformationToPoint( mModelMatrix3x4, &bsCenterWS, 1 );
+
+                    orbitCamControl.setOrbitPivotWS( bsCenterWS );
+                    orbitCamControl.setViewMatrix( prevCamModeViewMat3x4 );
+
+
+                    auto oldPivotViewMat = prevCamModeViewMat3x4;
+                    // transform ref pt 
+                    linAlg::vec3_t oldRefPtToES{ 0.0f, 0.0f, 0.0f };
+                    linAlg::applyTransformationToPoint( oldPivotViewMat, &oldRefPtToES, 1 );
+
+                    orbitCamControl.setActive(true);
+                    orbitCamControl.update( 0.0f, currMouseX / fbWidth, currMouseY / fbHeight, false, false, {0.0f, 0.0f, 0.0f} );
+                    auto newPivotViewMat = orbitCamControl.getViewMatrix();
+
+                    linAlg::vec3_t newRefPtToES{ 0.0f, 0.0f, 0.0f };
+                    linAlg::applyTransformationToPoint( newPivotViewMat, &newRefPtToES, 1 );
+
+                    linAlg::vec3_t panDelta = oldRefPtToES - newRefPtToES;
+                    orbitCamControl.addPanDelta( panDelta );
+                    orbitCamControl.update( 0.0f, currMouseX / fbWidth, currMouseY / fbHeight, false, false, {0.0f, 0.0f, 0.0f} );
+                }
             }
 
             if (visAlgoIdx != static_cast<int>(visAlgo)) {
@@ -1822,65 +1875,6 @@ Status_t ApplicationDVR::run() {
             if (guiUserData.editTransferFunction) {
                 tryStartTransferFunctionApp();
             }
-
-            if (camModeIdx != static_cast<int>(camMode)) {
-                auto prevCamMode = camMode;            
-                camMode = (DVR_GUI::eCamMode)(camModeIdx);
-
-                linAlg::mat3x4_t prevCamModeViewMat3x4;
-                if (prevCamMode == DVR_GUI::eCamMode::arcBallCam) {
-                    prevCamModeViewMat3x4 = arcBallControl.getViewMatrix();
-                } else if (prevCamMode == DVR_GUI::eCamMode::freeFlyCam) {
-                    prevCamModeViewMat3x4 = freeFlyCamControl.getViewMatrix();
-                } else if (prevCamMode == DVR_GUI::eCamMode::orbitCam) {
-                    prevCamModeViewMat3x4 = orbitCamControl.getViewMatrix();
-                }
-
-                if (camMode == DVR_GUI::eCamMode::arcBallCam) {
-                    arcBallControl.setViewMatrix( prevCamModeViewMat3x4 );
-                    camTiltRadAngle = 0.0f;
-                    camZoomDist = 0.0f;
-                    targetPanDeltaVector = { 0.0f, 0.0f, 0.0f };
-
-                    // prevent jumps on first interaction
-                    arcBallControl.update(
-                        0.0f,
-                        currMouseX / fbWidth, currMouseY / fbHeight,
-                        camZoomDist,
-                        targetPanDeltaVector,
-                        camTiltRadAngle,
-                        true,
-                        false );
-
-                } else if (camMode == DVR_GUI::eCamMode::freeFlyCam) {
-                    freeFlyCamControl.setViewMatrix( prevCamModeViewMat3x4 );
-                } else if (camMode == DVR_GUI::eCamMode::orbitCam) {
-                    linAlg::vec3_t bsCenterWS = { boundingSphere[0], boundingSphere[1], boundingSphere[2] };
-                    linAlg::applyTransformationToPoint( mModelMatrix3x4, &bsCenterWS, 1 );
-
-                    orbitCamControl.setOrbitPivotWS( bsCenterWS );
-                    orbitCamControl.setViewMatrix( prevCamModeViewMat3x4 );
-
-
-                    auto oldPivotViewMat = prevCamModeViewMat3x4;
-                    // transform ref pt 
-                    linAlg::vec3_t oldRefPtToES{ 0.0f, 0.0f, 0.0f };
-                    linAlg::applyTransformationToPoint( oldPivotViewMat, &oldRefPtToES, 1 );
-
-                    orbitCamControl.setActive(true);
-                    orbitCamControl.update( 0.0f, currMouseX / fbWidth, currMouseY / fbHeight, false, false, {0.0f, 0.0f, 0.0f} );
-                    auto newPivotViewMat = orbitCamControl.getViewMatrix();
-
-                    linAlg::vec3_t newRefPtToES{ 0.0f, 0.0f, 0.0f };
-                    linAlg::applyTransformationToPoint( newPivotViewMat, &newRefPtToES, 1 );
-
-                    linAlg::vec3_t panDelta = oldRefPtToES - newRefPtToES;
-                    orbitCamControl.addPanDelta( panDelta );
-                    orbitCamControl.update( 0.0f, currMouseX / fbWidth, currMouseY / fbHeight, false, false, {0.0f, 0.0f, 0.0f} );
-                }
-            }
-
-
         }
 
         //glfwWaitEventsTimeout( 0.032f ); // wait time is in seconds
